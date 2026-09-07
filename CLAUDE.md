@@ -175,3 +175,50 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
 
 </laravel-boost-guidelines>
+
+## Security Standards
+
+These are standing constraints for this application. They apply to every change, not just security work.
+
+### CSRF
+
+- Keep the `VerifyCsrfToken` middleware active on all stateful web routes. Do not add routes to `$except` unless truly necessary — for a verified external webhook, verify its signature instead of exempting it.
+- For SPA or API clients, configure Sanctum properly (stateful domains) rather than disabling CSRF wholesale.
+
+### XSS
+
+- Default to `{{ }}` always. Use `{!! !!}` only for content you have explicitly sanitized (e.g. with HTMLPurifier).
+- Never render `request()->input()` raw in Blade or in a JS template.
+
+### SQL injection
+
+- Stick to Eloquent and the query builder, which bind parameters.
+- If you must use `whereRaw()` or `DB::raw()`, always pass bindings: `whereRaw('name = ?', [$name])`. Never concatenate input into SQL.
+
+### Mass assignment
+
+- Always define an explicit `$fillable`. Avoid `$guarded = []`.
+- Validate with Form Requests, then pass only validated fields to `create()` and `update()`. Never pass `$request->all()` directly.
+
+### Authentication and authorization
+
+- Use policies and gates consistently. Call `$this->authorize()` or `Gate::authorize()` in every controller action that touches user-owned data.
+- Scope Sanctum or Passport tokens correctly: set token abilities and expiration.
+- Apply the `throttle` middleware to login and API routes.
+
+### Environment and config
+
+- `APP_DEBUG=false` in production, always.
+- Keep `.env` out of version control. Rotate `APP_KEY` if it is ever leaked.
+- Run `php artisan config:cache` in production so `.env` is not read at runtime.
+
+### File uploads
+
+- Validate with `mimes:` or `mimetypes:` rules, not just the extension.
+- Store uploads outside the public web root, or on a disk that does not allow direct execution. Rename files on upload.
+
+### General hardening
+
+- Run `composer audit` and keep dependencies updated.
+- Force HTTPS (`URL::forceScheme('https')` or middleware) and set secure, HttpOnly cookies.
+- Set security headers (CSP, X-Frame-Options) via middleware or a package such as `spatie/laravel-csp`.
