@@ -106,7 +106,8 @@ tumatapat ang hugis.
 | title | |
 | date_start, date_end | |
 | hours | |
-| ld_type | |
+| ld_type | `managerial`, `supervisory`, `technical`, `foundation`, `other` |
+| ld_type_other | kailangan kapag `other` ang `ld_type`, dapat blangko kung hindi |
 | conducted_by | ang `facilitator` sa luma |
 | location | |
 | expenses, registration_fee, tev | decimal(10,2), nullable |
@@ -148,7 +149,12 @@ training_approvals  index(training_record_id)
 | `EmploymentStatus` | Permanent, JobOrder, ContractOfService |
 | `TrainingStatus` | Pending, Approved, Rejected |
 | `ApprovalLevel` | SectionHead, DivisionHead |
-| `LdType` | Managerial, Supervisory, Technical, Foundation |
+| `LdType` | Managerial, Supervisory, Technical, Foundation, Other |
+
+Ang apat na una ay eksaktong nasa CS Form 212. Ang `Other` ang naglululan ng aktwal ninyong gamit —
+Soft Skill, Workshop, Convention, Leadership — sa pamamagitan ng `ld_type_other`. Nananatiling
+malinis ang PDS output dahil ang apat ang nakatakda; ang `Other` ay ililimbag gamit ang sariling
+teksto nito.
 
 Wala ang `chief_of_hospital` — nasa enum ito ng lumang sistema pero walang user na may ganoong role,
 at kinumpirma mong section head at division head lang.
@@ -166,8 +172,10 @@ at diretso sa division head. Kung wala ring head ang division, mananatiling naka
 lalabas sa isang "walang approver" na listahan para sa HR. Kung hindi natin ito hahawakan, 25 sa 28
 na section ang hindi makakapag-submit.
 
-**Ang papel ng HR at Admin:** hindi sila bahagi ng chain. Kaya nilang mag-submit para sa iba at
-makita ang lahat. Tingnan ang bukas na tanong 8.2 tungkol sa override.
+**Ang papel ng HR at Admin:** hindi sila bahagi ng chain, at **walang override**. Dumadaan sa
+dalawang hakbang ang bawat training record, walang eksepsiyon — ito ang nagpapanatiling buo ang
+audit trail. Ang kaya nila: makita ang lahat, at mag-submit para sa empleyadong wala pang account o
+hindi makapag-login. Dumadaan pa rin sa parehong dalawang hakbang ang isinumite nila.
 
 ## 5. Roles at saklaw
 
@@ -214,16 +222,13 @@ Wala pang report sa Phase 1 — Phase 2 iyon.
 
 ## 8. Bukas na tanong
 
-1. **`ld_type` — mahigpit ba o malaya?** Ang lumang datos ay may Technical 859, Supervisory 38,
-   Managerial 25, Foundation 11 — pero may Soft Skill, Workshop, Convention, Leadership din, at 37 na
-   walang laman. Ipinapalagay ko na mahigpit na apat, dahil PDS output ang buong punto ng field na
-   ito. Kung ililipat mo balang araw ang 1,002 na record, may ~62 na kailangang i-map nang kamay.
-2. **Pwede bang mag-override ang HR?** Hindi bahagi ng chain ang HR. Kung may urgent, may paraan ba
-   silang aprubahan agad, o dapat ba talagang dumaan sa dalawang hakbang?
-3. **Sino ang nagtatakda ng head?** Ang `section_head_employee_id` ay nasa 3 lang sa 28. Ang HR ba
+1. **Sino ang nagtatakda ng head?** Ang `section_head_employee_id` ay nasa 3 lang sa 28. Ang HR ba
    ang maglalagay nito sa bagong sistema, o palaging galing sa `hris_db`?
-4. **Maaari bang mag-edit pagkatapos ma-approve?** Nakalock na ba, o pwede pang baguhin ng HR?
-5. **Kailan bumibilang ang training sa isang taon?** Ipinapalagay ko na sa taon ng `date_end`,
+2. **Maaari bang mag-edit pagkatapos ma-approve?** Nakalock na ba, o pwede pang baguhin ng HR?
+3. **Kailan bumibilang ang training sa isang taon?** Ipinapalagay ko na sa taon ng `date_end`,
    at mga `approved` lang ang binibilang sa report.
-6. **Kailangan ba ng account ang lahat ng 134?** O ang HR muna ang magsu-submit para sa lahat
+4. **Kailangan ba ng account ang lahat ng 134?** O ang HR muna ang magsu-submit para sa lahat
    habang unti-unting binubuksan?
+
+**Nasagot na:** mahigpit na apat na PDS type kasama ang `Other` na may sariling teksto (§3.3, §3.5);
+walang override ang HR, laging dalawang hakbang (§4).

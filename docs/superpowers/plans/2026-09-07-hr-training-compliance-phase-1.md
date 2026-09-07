@@ -1,26 +1,26 @@
-# HR Training Compliance Tracker — Implementation Plan (Phase 1)
+# LDI Training System — Implementation Plan (Phase 1)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Sistemang panubaybay sa training compliance — employee registry, training records na may PDS L&D fields, manual assignment ng HR, monitoring ng walang training sa taon, at buod ng aktibidad kada buwan.
+**Goal:** Ang pangunahing loop ng LDI system — org at empleyado mula sa `hris_db`, training records na may gastos at PDS L&D fields, at ang dalawang hakbang na approval (section head → division head).
 
-**Architecture:** Hybrid. Ang CRUD ay manipis na Livewire single-file component na diretsong gumagamit ng Eloquent. Ang dalawang operasyong may tunay na tuntunin (bulk assign, pagrecord ng natapos) ay nasa Action class. Ang reports ay hiwalay na klase na nagsasauli ng plain data — hindi Blade, hindi component method — para magamit ulit ng print view ngayon at ng LDNA at budget sa susunod na phase.
+**Architecture:** Manipis na Livewire single-file component para sa CRUD at listahan. Ang workflow — pagsu-submit, pag-route sa tamang approver, pag-apruba, pagtanggi — ay nasa Action class, dahil doon nakatira ang tunay na tuntunin at kailangan itong ma-test nang walang UI. Ang pag-route ng approver ay isang hiwalay na klase, dahil may tatlong sangay ito at siya ang pinakamadaling masira.
 
-**Tech Stack:** Laravel 13, PHP 8.4, Livewire 4 (single-file components), Flux 2 (free tier), Fortify, Pest 5, SQLite sa dev.
+**Tech Stack:** Laravel 13, PHP 8.4, Livewire 4 (single-file components), Flux 2 (free tier), Fortify, Pest 5, MySQL 8.4 (`ldi_db`).
 
 **Spec:** `docs/superpowers/specs/2026-09-07-hr-training-compliance-design.md`
 
 ## Global Constraints
 
-- **Walang bagong composer o npm dependency** nang walang pahintulot ng user.
-- **Livewire pages:** nasa `resources/views/pages/` bilang `⚡name.blade.php`, tinutukoy bilang `pages::folder.name`, naka-route via `Route::livewire('path', 'pages::folder.name')`. **HUWAG gamitin ang `php artisan make:livewire --sfc` para dito** — sumusulat ito sa `resources/views/components/pages/...` na maling namespace. Gawin nang manual ang file. Sundan ang `resources/views/pages/settings/⚡profile.blade.php` bilang huwaran.
-- **Flux 2 free tier lang ang naka-install** (`livewire/flux`, walang `flux-pro`). Available: `input`, `select`, `textarea`, `checkbox`, `radio`, `switch`, `button`, `table`, `modal`, `badge`, `card`, `callout`, `pagination`, `navlist`, `sidebar`, `heading`, `text`, `field`, `separator`, `dropdown`, `menu`, `toast`, `tooltip`, `breadcrumbs`. **Walang `flux:date-picker`** — gamitin ang `<flux:input type="date">`.
-- **PHP style:** laging may curly braces; explicit return type sa lahat ng method; type hint sa lahat ng parameter; constructor property promotion; TitleCase ang enum keys; PHPDoc array shapes kaysa inline comments.
-- **Wika ng UI:** English labels na nakabalot sa `__()` para matranslate mamaya. (Bukas na tanong 11.1 sa spec; ito ang default.)
-- **Petsa:** ang training ay bumibilang sa taon ng `to_date` nito.
-- **Pint:** patakbuhin ang `vendor/bin/pint --dirty --format agent` bago ang bawat commit.
-- **Tests:** Pest. Patakbuhin ang pinakamakitid na set: `php artisan test --compact <path>`.
-- **Assumption na naka-flag sa spec (11.4):** ang `hours` ay per training, hindi per kalahok. Kung magbago ito, lilipat ang column sa `training_assignments`.
+- **Basahin lamang ang `hr_training_system` at `hris_db`.** Walang INSERT, UPDATE, DELETE, o DDL sa alinman sa dalawa, kailanman. Ang bagong sistema ay nasa `ldi_db` lamang.
+- **Huwag magpatakbo ng `git commit`, `git push`, o `git tag`.** Ang user ang nagko-commit. Sa bawat "Commit" na hakbang, isulat ang commit message at iabot — huwag itong isagawa.
+- **Walang bagong composer o npm dependency** nang walang pahintulot.
+- **Livewire pages:** nasa `resources/views/pages/` bilang `⚡name.blade.php`, tinutukoy bilang `pages::folder.name`, naka-route via `Route::livewire()`. **Huwag gamitin ang `php artisan make:livewire --sfc`** — sumusulat ito sa `resources/views/components/pages/...` na maling namespace. Gawin nang manual; sundan ang `resources/views/pages/settings/⚡profile.blade.php`. Huwag ibalot ang page sa `<x-layouts::app>` — awtomatiko itong nilalapat ng `Route::livewire()`.
+- **Flux 2 free tier lang.** Walang `flux:date-picker` — gamitin ang `<flux:input type="date">`. Tingnan ang `.ai/rules/views.md`.
+- **Tests ay tumatakbo sa in-memory SQLite** (`phpunit.xml`), habang MySQL ang dev. Portable dapat ang bawat migration — iwasan ang syntax na MySQL lang. Hindi nagagalaw ng test ang `ldi_db`.
+- **PHP style:** laging curly braces; explicit return type; type hint sa lahat ng parameter; constructor property promotion; TitleCase ang enum keys; PHPDoc array shapes.
+- **Wika ng UI:** English na nakabalot sa `__()`.
+- Patakbuhin ang `vendor/bin/pint --dirty --format agent` bago iabot ang bawat commit message.
 
 ---
 
@@ -29,100 +29,72 @@
 **Bago:**
 
 ```
-app/Enums/Sex.php                        4 values ng PDS at UI labels
-app/Enums/EmploymentStatus.php
-app/Enums/LdType.php                     4 types ng CS Form 212
-app/Enums/UserRole.php
+app/Enums/UserRole.php               Admin, Hr, DivisionHead, SectionHead, Employee
+app/Enums/EmploymentStatus.php       Permanent, JobOrder, ContractOfService
+app/Enums/LdType.php                 4 PDS types + Other
+app/Enums/TrainingStatus.php         Pending, Approved, Rejected
+app/Enums/ApprovalLevel.php          SectionHead, DivisionHead
+app/Enums/ApprovalDecision.php       Approved, Rejected
 
-app/Models/Division.php
-app/Models/Section.php
+app/Models/Division.php              may division_head_employee_id
+app/Models/Section.php               may section_head_employee_id
 app/Models/Position.php
-app/Models/Employee.php                  scopes: active, visibleTo, withoutCompletedTrainingIn
-app/Models/Training.php                  scopes: heldIn, heldDuring
-app/Models/TrainingAssignment.php        scopes: pending, completed, overdue
+app/Models/Employee.php              scopes: active, visibleTo
+app/Models/TrainingRecord.php        isang row bawat empleyado bawat training
+app/Models/TrainingApproval.php      audit trail
 
-app/Actions/Training/AssignTrainingToEmployees.php
-app/Actions/Training/RecordTrainingCompletion.php
+app/Workflow/ApprovalRouter.php      sino ang susunod na aprubahan — tatlong sangay
+app/Actions/Training/SubmitTrainingRecord.php
+app/Actions/Training/DecideOnTrainingRecord.php
 
-app/Reports/EmployeesWithoutTrainingReport.php
-app/Reports/MonthlyTrainingActivityReport.php
-
+app/Policies/TrainingRecordPolicy.php
 app/Policies/EmployeePolicy.php
-app/Policies/TrainingPolicy.php
 
-database/migrations/  (5 bago + 1 pagbabago sa users)
-database/factories/   (6 bago)
-database/seeders/OrgStructureSeeder.php
-app/Console/Commands/CreateHrAdmin.php
+app/Console/Commands/ImportEmployeesFromHris.php
 
 resources/views/pages/⚡dashboard.blade.php
-resources/views/pages/employees/⚡index.blade.php
-resources/views/pages/employees/⚡form.blade.php
-resources/views/pages/employees/⚡show.blade.php
-resources/views/pages/trainings/⚡index.blade.php
+resources/views/pages/trainings/⚡mine.blade.php
 resources/views/pages/trainings/⚡form.blade.php
 resources/views/pages/trainings/⚡show.blade.php
-resources/views/pages/reports/⚡monthly-activity.blade.php
-resources/views/pages/reports/⚡no-training.blade.php
+resources/views/pages/⚡approvals.blade.php
+resources/views/pages/employees/⚡index.blade.php
+resources/views/pages/employees/⚡show.blade.php
 resources/views/pages/setup/⚡divisions.blade.php
 resources/views/pages/setup/⚡sections.blade.php
 resources/views/pages/setup/⚡positions.blade.php
-resources/views/layouts/print.blade.php
 ```
 
-**Babaguhin:**
+**Babaguhin:** `.env`, `config/fortify.php`, `config/database.php` (koneksyon sa `hris`), `app/Models/User.php`, `database/factories/UserFactory.php`, `routes/web.php`, `resources/views/layouts/app/sidebar.blade.php`.
 
-```
-.env                                     APP_NAME
-config/fortify.php:164                   tanggalin ang Features::registration()
-app/Models/User.php                      role cast, employee relation, isHrAdmin()
-database/factories/UserFactory.php       role default at states
-routes/web.php                           lahat ng bagong route
-resources/views/layouts/app/sidebar.blade.php   navigation
-```
-
-**Bakit ganito ang hati:** ang reports ay hiwalay sa components dahil tatlong bagay ang gagamit sa kanila (screen, print view, at ang LDNA sa Phase 2). Ang actions ay hiwalay dahil may tuntuning kailangang subukan nang walang UI. Ang lahat ng iba ay manipis na CRUD kung saan ang dagdag na layer ay boilerplate lang.
+**Bakit hiwalay ang `ApprovalRouter` sa mga action:** tatlong sangay ito — may section head, walang section head kaya diretso sa division, o sarili mismo ang head kaya nilalaktawan. Dalawang lugar ang gumagamit nito (pagsu-submit at pag-advance pagkatapos ng unang apruba). Kung nasa loob ito ng action, madodoble ang lohika at maghihiwalay ang dalawa.
 
 ---
 
-## Task 1: Housekeeping — version control, pagkakakilanlan, saradong registration
+## Task 1: Housekeeping at koneksyon sa `hris_db`
 
 **Files:**
-- Modify: `.env`
-- Modify: `config/fortify.php:164`
-- Create: `tests/Feature/Auth/RegistrationDisabledTest.php`
+- Modify: `.env`, `config/fortify.php`, `config/database.php`
+- Test: `tests/Feature/HrisConnectionTest.php`, `tests/Feature/Auth/RegistrationDisabledTest.php`
 
 **Interfaces:**
-- Consumes: wala
-- Produces: git repository na may baseline commit; saradong public registration
+- Produces: read-only na koneksyon na `hris`; saradong public registration
 
-- [ ] **Step 1: Simulan ang version control**
-
-Wala pang git ang project na ito. Nasa lugar na ang `.gitignore` ng Laravel.
-
-```bash
-git init
-git add -A
-git commit -m "chore: baseline Laravel Livewire starter kit"
-```
-
-- [ ] **Step 2: Itakda ang pangalan ng app**
+- [ ] **Step 1: Itakda ang pangalan ng app**
 
 Sa `.env`, palitan ang `APP_NAME=Laravel`:
 
 ```
-APP_NAME="HR Training"
+APP_NAME="LDI System"
 ```
 
-**Napagdesisyunan na ang database:** MySQL 8.4, schema na `ldi_db`, na-migrate na noong 2026-09-07 (users, cache, jobs, passkeys, two-factor). Huwag ibalik sa SQLite. Ang test suite ay tumatakbo sa in-memory SQLite (`phpunit.xml`), kaya hindi nagagalaw ng `php artisan test` ang `ldi_db`. Ibig sabihin din nito: dapat portable sa SQLite at MySQL ang bawat migration — iwasan ang syntax na MySQL lang.
-
-- [ ] **Step 3: Isulat ang failing test para sa saradong registration**
+- [ ] **Step 2: Isulat ang failing test**
 
 Gumawa ng `tests/Feature/Auth/RegistrationDisabledTest.php`:
 
 ```php
 <?php
 
+use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 test('public registration is disabled', function () {
@@ -134,53 +106,93 @@ test('the registration route does not exist', function () {
 });
 ```
 
-Idagdag ang import sa itaas ng file:
+Gumawa ng `tests/Feature/HrisConnectionTest.php`:
 
 ```php
-use Illuminate\Support\Facades\Route;
+<?php
+
+test('the hris connection is configured and read only by convention', function () {
+    $config = config('database.connections.hris');
+
+    expect($config)->not->toBeNull()
+        ->and($config['driver'])->toBe('mysql')
+        ->and($config['database'])->toBe(env('HRIS_DB_DATABASE', 'hris_db'));
+});
 ```
 
-- [ ] **Step 4: Patakbuhin para makitang bumagsak**
+- [ ] **Step 3: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/Auth/RegistrationDisabledTest.php
+php artisan test --compact tests/Feature/HrisConnectionTest.php tests/Feature/Auth/RegistrationDisabledTest.php
 ```
 
-Inaasahan: FAIL — buhay pa ang registration.
+Inaasahan: FAIL — walang `hris` connection at buhay pa ang registration.
 
-- [ ] **Step 5: Isara ang registration**
+- [ ] **Step 4: Isara ang registration**
 
-Sa `config/fortify.php`, tanggalin ang linyang `Features::registration(),` sa `features` array. Ang HR admin ang gumagawa ng account, hindi ang publiko.
+Sa `config/fortify.php`, tanggalin ang linyang `Features::registration(),` sa `features` array.
 
-- [ ] **Step 6: Patakbuhin ang buong auth suite**
+- [ ] **Step 5: Idagdag ang read-only na koneksyon**
 
-```bash
-php artisan test --compact tests/Feature/Auth
+Sa `.env`, idagdag:
+
+```
+HRIS_DB_HOST=127.0.0.1
+HRIS_DB_PORT=3306
+HRIS_DB_DATABASE=hris_db
+HRIS_DB_USERNAME=root
+HRIS_DB_PASSWORD=
 ```
 
-Inaasahan: PASS. Ang `RegistrationTest.php` ay awtomatikong lalaktawan — may `skipUnlessFortifyHas()` na ito sa `beforeEach`.
+Idagdag din ang parehong linya sa `.env.example`, nang walang halaga sa password.
 
-- [ ] **Step 7: Commit**
+Sa `config/database.php`, sa loob ng `connections` array, kopyahin ang `mysql` na entry at palitan:
+
+```php
+'hris' => [
+    'driver' => 'mysql',
+    'host' => env('HRIS_DB_HOST', '127.0.0.1'),
+    'port' => env('HRIS_DB_PORT', '3306'),
+    'database' => env('HRIS_DB_DATABASE', 'hris_db'),
+    'username' => env('HRIS_DB_USERNAME', 'root'),
+    'password' => env('HRIS_DB_PASSWORD', ''),
+    'charset' => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+    'prefix' => '',
+    'strict' => true,
+    'engine' => null,
+],
+```
+
+Isang paalala na dapat nasa itaas ng entry bilang komento: **basahin lamang ang koneksyong ito.** Ang mga MySQL grant ay hindi natin kontrolado, kaya kasunduan lang ito — pero walang code sa proyektong ito ang dapat sumulat dito.
+
+- [ ] **Step 6: Patakbuhin ang test**
 
 ```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "chore: close public registration and set app name"
+php artisan test --compact tests/Feature
+```
+
+Inaasahan: PASS lahat. Awtomatikong lalaktawan ang `RegistrationTest.php` — may `skipUnlessFortifyHas()` ito.
+
+- [ ] **Step 7: Commit message**
+
+Patakbuhin ang `vendor/bin/pint --dirty --format agent`, tapos **iabot sa user** ang message na ito — huwag itong isagawa:
+
+```
+chore: close public registration and add read-only hris connection
 ```
 
 ---
 
-## Task 2: Enums at org reference tables
+## Task 2: Enums at org tables
 
 **Files:**
-- Create: `app/Enums/Sex.php`, `app/Enums/EmploymentStatus.php`, `app/Enums/LdType.php`, `app/Enums/UserRole.php`
-- Create: `app/Models/Division.php`, `app/Models/Section.php`, `app/Models/Position.php`
-- Create: 3 migration, 3 factory
+- Create: 6 enum sa `app/Enums`
+- Create: migration at model para sa `divisions`, `sections`, `positions`; 3 factory
 - Test: `tests/Feature/OrgStructureTest.php`
 
 **Interfaces:**
-- Consumes: wala
-- Produces: `Division` (name, code; `sections()`), `Section` (division_id, name, code; `division()`, `employees()`), `Position` (title, salary_grade); enums na `Sex`, `EmploymentStatus`, `LdType`, `UserRole`, bawat isa may `label(): string`
+- Produces: `Division` (name, code, division_head_employee_id, is_active; `sections()`, `head()`), `Section` (division_id, name, code, section_head_employee_id, is_active; `division()`, `employees()`, `head()`), `Position` (title, item_number, salary_grade, is_active); anim na enum na may `label(): string`
 
 - [ ] **Step 1: Isulat ang failing test**
 
@@ -194,8 +206,8 @@ use App\Models\Section;
 use Illuminate\Database\QueryException;
 
 test('a section belongs to a division', function () {
-    $division = Division::factory()->create(['name' => 'Finance and Administrative Division', 'code' => 'FAD']);
-    $section = Section::factory()->for($division)->create(['name' => 'Human Resource Section', 'code' => 'HRS']);
+    $division = Division::factory()->create(['name' => 'Finance Division', 'code' => 'FAD']);
+    $section = Section::factory()->for($division)->create(['name' => 'Human Resource', 'code' => 'HRS']);
 
     expect($section->division->code)->toBe('FAD')
         ->and($division->sections)->toHaveCount(1);
@@ -208,15 +220,9 @@ test('section codes are unique', function () {
         ->toThrow(QueryException::class);
 });
 
-test('deleting a division deletes its sections', function () {
-    $division = Division::factory()->create();
-    Section::factory()->for($division)->create();
-
-    $division->delete();
-
-    expect(Section::count())->toBe(0);
-});
 ```
+
+Walang test dito para sa `head()` relation: tumutukoy ito sa `Employee`, na gagawin pa lang sa Task 3. Ang pagtawag dito ngayon ay babagsak sa "class not found". Lubusang sinusukat ito ng `ApprovalRouterTest` sa Task 7.
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
@@ -229,32 +235,45 @@ Inaasahan: FAIL — `Class "App\Models\Division" not found`.
 - [ ] **Step 3: Gawin ang mga enum**
 
 ```bash
-php artisan make:enum Sex --string --no-interaction
+php artisan make:enum UserRole --string --no-interaction
 php artisan make:enum EmploymentStatus --string --no-interaction
 php artisan make:enum LdType --string --no-interaction
-php artisan make:enum UserRole --string --no-interaction
+php artisan make:enum TrainingStatus --string --no-interaction
+php artisan make:enum ApprovalLevel --string --no-interaction
+php artisan make:enum ApprovalDecision --string --no-interaction
 ```
 
-`app/Enums/Sex.php`:
+`app/Enums/UserRole.php`:
 
 ```php
 <?php
 
 namespace App\Enums;
 
-enum Sex: string
+enum UserRole: string
 {
-    case Male = 'male';
-    case Female = 'female';
+    case Admin = 'admin';
+    case Hr = 'hr';
+    case DivisionHead = 'division_head';
+    case SectionHead = 'section_head';
+    case Employee = 'employee';
 
     public function label(): string
     {
         return str($this->name)->headline()->toString();
     }
+
+    /**
+     * Roles that may see every employee and every training record.
+     */
+    public function seesEverything(): bool
+    {
+        return in_array($this, [self::Admin, self::Hr], true);
+    }
 }
 ```
 
-`app/Enums/EmploymentStatus.php`:
+`app/Enums/EmploymentStatus.php` — ang tatlong aktwal na ginagamit sa `hris_db`:
 
 ```php
 <?php
@@ -264,11 +283,8 @@ namespace App\Enums;
 enum EmploymentStatus: string
 {
     case Permanent = 'permanent';
-    case Temporary = 'temporary';
-    case Casual = 'casual';
-    case Contractual = 'contractual';
-    case CoTerminous = 'co_terminous';
     case JobOrder = 'job_order';
+    case ContractOfService = 'contract_of_service';
 
     public function label(): string
     {
@@ -277,7 +293,7 @@ enum EmploymentStatus: string
 }
 ```
 
-`app/Enums/LdType.php` — ito ang apat na uri sa CS Form 212, huwag dagdagan:
+`app/Enums/LdType.php`:
 
 ```php
 <?php
@@ -290,26 +306,74 @@ enum LdType: string
     case Supervisory = 'supervisory';
     case Technical = 'technical';
     case Foundation = 'foundation';
+    case Other = 'other';
 
     public function label(): string
     {
         return $this->name;
     }
+
+    /**
+     * The first four are the CS Form 212 types. Other carries its own
+     * free text in TrainingRecord::$ld_type_other.
+     */
+    public function requiresOwnText(): bool
+    {
+        return $this === self::Other;
+    }
 }
 ```
 
-`app/Enums/UserRole.php`:
+`app/Enums/TrainingStatus.php`:
 
 ```php
 <?php
 
 namespace App\Enums;
 
-enum UserRole: string
+enum TrainingStatus: string
 {
-    case HrAdmin = 'hr_admin';
-    case DivisionHead = 'division_head';
+    case Pending = 'pending';
+    case Approved = 'approved';
+    case Rejected = 'rejected';
+
+    public function label(): string
+    {
+        return str($this->name)->headline()->toString();
+    }
+}
+```
+
+`app/Enums/ApprovalLevel.php`:
+
+```php
+<?php
+
+namespace App\Enums;
+
+enum ApprovalLevel: string
+{
     case SectionHead = 'section_head';
+    case DivisionHead = 'division_head';
+
+    public function label(): string
+    {
+        return str($this->name)->headline()->toString();
+    }
+}
+```
+
+`app/Enums/ApprovalDecision.php`:
+
+```php
+<?php
+
+namespace App\Enums;
+
+enum ApprovalDecision: string
+{
+    case Approved = 'approved';
+    case Rejected = 'rejected';
 
     public function label(): string
     {
@@ -326,13 +390,13 @@ php artisan make:migration create_sections_table --no-interaction
 php artisan make:migration create_positions_table --no-interaction
 ```
 
-Laman ng `up()` ng bawat isa:
-
 ```php
 Schema::create('divisions', function (Blueprint $table) {
     $table->id();
     $table->string('name');
     $table->string('code')->unique();
+    $table->unsignedBigInteger('division_head_employee_id')->nullable();
+    $table->boolean('is_active')->default(true);
     $table->timestamps();
 });
 ```
@@ -343,6 +407,8 @@ Schema::create('sections', function (Blueprint $table) {
     $table->foreignId('division_id')->constrained()->cascadeOnDelete();
     $table->string('name');
     $table->string('code')->unique();
+    $table->unsignedBigInteger('section_head_employee_id')->nullable();
+    $table->boolean('is_active')->default(true);
     $table->timestamps();
 });
 ```
@@ -351,12 +417,14 @@ Schema::create('sections', function (Blueprint $table) {
 Schema::create('positions', function (Blueprint $table) {
     $table->id();
     $table->string('title');
+    $table->string('item_number')->nullable();
     $table->unsignedTinyInteger('salary_grade')->nullable();
+    $table->boolean('is_active')->default(true);
     $table->timestamps();
 });
 ```
 
-Ang `foreignId()->constrained()` ay gumagawa na ng index — hindi na kailangan ng hiwalay na `index()`.
+Ang `division_head_employee_id` at `section_head_employee_id` ay **plain column, walang foreign key constraint.** Sadya ito: ang `employees` ay tumutukoy sa `sections`, at kung magdaragdag tayo ng constraint pabalik, magkakaroon ng circular dependency sa pagitan ng dalawang migration. Ang model at ang import command ang sisiguro sa integridad.
 
 - [ ] **Step 5: Gawin ang mga model at factory**
 
@@ -375,6 +443,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Division extends Model
@@ -382,7 +451,15 @@ class Division extends Model
     /** @use HasFactory<\Database\Factories\DivisionFactory> */
     use HasFactory;
 
-    protected $fillable = ['name', 'code'];
+    protected $fillable = ['name', 'code', 'division_head_employee_id', 'is_active'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean'];
+    }
 
     /**
      * @return HasMany<Section, $this>
@@ -390,6 +467,16 @@ class Division extends Model
     public function sections(): HasMany
     {
         return $this->hasMany(Section::class);
+    }
+
+    /**
+     * The employee designated to approve at division level. May be absent.
+     *
+     * @return BelongsTo<Employee, $this>
+     */
+    public function head(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'division_head_employee_id');
     }
 }
 ```
@@ -411,7 +498,15 @@ class Section extends Model
     /** @use HasFactory<\Database\Factories\SectionFactory> */
     use HasFactory;
 
-    protected $fillable = ['division_id', 'name', 'code'];
+    protected $fillable = ['division_id', 'name', 'code', 'section_head_employee_id', 'is_active'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean'];
+    }
 
     /**
      * @return BelongsTo<Division, $this>
@@ -427,6 +522,17 @@ class Section extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);
+    }
+
+    /**
+     * The employee designated to approve at section level. Only 3 of 28
+     * sections have one in hris_db, so absence is the normal case.
+     *
+     * @return BelongsTo<Employee, $this>
+     */
+    public function head(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'section_head_employee_id');
     }
 }
 ```
@@ -447,7 +553,15 @@ class Position extends Model
     /** @use HasFactory<\Database\Factories\PositionFactory> */
     use HasFactory;
 
-    protected $fillable = ['title', 'salary_grade'];
+    protected $fillable = ['title', 'item_number', 'salary_grade', 'is_active'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean'];
+    }
 
     /**
      * @return HasMany<Employee, $this>
@@ -458,8 +572,6 @@ class Position extends Model
     }
 }
 ```
-
-Ang `employees()` sa `Section` at `Position` ay tumutukoy sa `Employee` na gagawin sa Task 3. Ayos lang — hindi ito ini-resolve hangga't hindi tinatawag, at hindi hinahawakan ng test ng task na ito.
 
 Mga factory:
 
@@ -483,6 +595,8 @@ class DivisionFactory extends Factory
         return [
             'name' => fake()->unique()->company().' Division',
             'code' => strtoupper(fake()->unique()->lexify('???')),
+            'division_head_employee_id' => null,
+            'is_active' => true,
         ];
     }
 }
@@ -510,6 +624,8 @@ class SectionFactory extends Factory
             'division_id' => Division::factory(),
             'name' => fake()->unique()->words(2, true).' Section',
             'code' => strtoupper(fake()->unique()->lexify('????')),
+            'section_head_employee_id' => null,
+            'is_active' => true,
         ];
     }
 }
@@ -534,7 +650,9 @@ class PositionFactory extends Factory
     {
         return [
             'title' => fake()->jobTitle(),
+            'item_number' => fake()->bothify('ITEM-####'),
             'salary_grade' => fake()->numberBetween(1, 33),
+            'is_active' => true,
         ];
     }
 }
@@ -546,14 +664,14 @@ class PositionFactory extends Factory
 php artisan test --compact tests/Feature/OrgStructureTest.php
 ```
 
-Inaasahan: PASS, tatlong test.
+Inaasahan: PASS, dalawang test.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add org structure enums, tables and models"
+Patakbuhin ang pint, tapos iabot:
+
+```
+feat: add enums and organisational structure
 ```
 
 ---
@@ -565,8 +683,8 @@ git commit -m "feat: add org structure enums, tables and models"
 - Test: `tests/Feature/EmployeeTest.php`
 
 **Interfaces:**
-- Consumes: `Division`, `Section`, `Position` mula sa Task 2
-- Produces: `Employee` na may `section()`, `position()`, `user()`, `trainingAssignments()`, accessor na `full_name`, at `scopeActive()`. Ang division ay naaabot sa pamamagitan ng `$employee->section->division` — walang hiwalay na relation, para iisa lang ang daan. Ang `EmployeeFactory` ay may state na `separated()`.
+- Consumes: `Division`, `Section`, `Position`, `EmploymentStatus`
+- Produces: `Employee` na may `section()`, `division()`, `position()`, `user()`, `trainingRecords()`, accessor na `full_name`, `scopeActive()`; `EmployeeFactory` na may state na `inactive()`
 
 - [ ] **Step 1: Isulat ang failing test**
 
@@ -578,11 +696,19 @@ Gumawa ng `tests/Feature/EmployeeTest.php`:
 use App\Models\Employee;
 use App\Models\Section;
 
-test('an employee reaches its division through its section', function () {
+test('an employee belongs to a section and a division', function () {
     $section = Section::factory()->create();
     $employee = Employee::factory()->for($section)->create();
 
-    expect($employee->section->division->id)->toBe($section->division_id);
+    expect($employee->section->id)->toBe($section->id)
+        ->and($employee->division->id)->toBe($section->division_id);
+});
+
+test('saving an employee keeps division in step with section', function () {
+    $section = Section::factory()->create();
+    $employee = Employee::factory()->create(['section_id' => $section->id, 'division_id' => null]);
+
+    expect($employee->fresh()->division_id)->toBe($section->division_id);
 });
 
 test('full name joins the parts and omits blanks', function () {
@@ -590,29 +716,36 @@ test('full name joins the parts and omits blanks', function () {
         'first_name' => 'Maria',
         'middle_name' => 'Santos',
         'last_name' => 'Cruz',
-        'name_extension' => null,
+        'suffix' => null,
     ]);
 
     expect($employee->full_name)->toBe('Maria Santos Cruz');
 });
 
-test('full name includes the name extension when present', function () {
+test('full name includes the suffix when present', function () {
     $employee = Employee::factory()->create([
         'first_name' => 'Jose',
         'middle_name' => null,
         'last_name' => 'Rizal',
-        'name_extension' => 'Jr.',
+        'suffix' => 'Jr.',
     ]);
 
     expect($employee->full_name)->toBe('Jose Rizal Jr.');
 });
 
-test('the active scope excludes separated employees', function () {
+test('the active scope excludes inactive employees', function () {
     Employee::factory()->count(2)->create();
-    Employee::factory()->separated()->create();
+    Employee::factory()->inactive()->create();
 
     expect(Employee::count())->toBe(3)
         ->and(Employee::active()->count())->toBe(2);
+});
+
+test('employee numbers are unique', function () {
+    Employee::factory()->create(['employee_number' => 'EMP-001']);
+
+    expect(fn () => Employee::factory()->create(['employee_number' => 'EMP-001']))
+        ->toThrow(Illuminate\Database\QueryException::class);
 });
 ```
 
@@ -634,23 +767,25 @@ php artisan make:migration create_employees_table --no-interaction
 Schema::create('employees', function (Blueprint $table) {
     $table->id();
     $table->foreignId('user_id')->nullable()->unique()->constrained()->nullOnDelete();
-    $table->string('employee_no')->unique();
+    $table->string('employee_number')->unique();
     $table->string('first_name');
     $table->string('middle_name')->nullable();
     $table->string('last_name');
-    $table->string('name_extension')->nullable();
-    $table->string('sex');
-    $table->date('date_of_birth');
-    $table->foreignId('section_id')->constrained();
-    $table->foreignId('position_id')->constrained();
+    $table->string('suffix', 20)->nullable();
+    $table->foreignId('position_id')->nullable()->constrained()->nullOnDelete();
+    $table->foreignId('section_id')->nullable()->constrained()->nullOnDelete();
+    $table->foreignId('division_id')->nullable()->constrained()->nullOnDelete();
+    $table->date('date_hired')->nullable();
     $table->string('employment_status');
-    $table->date('date_hired');
-    $table->date('separated_at')->nullable()->index();
+    $table->boolean('is_active')->default(true);
     $table->timestamps();
+    $table->softDeletes();
+
+    $table->index('is_active');
 });
 ```
 
-Hiwalay ang pangalan sa apat na bahagi dahil ganoon hinihingi ng PDS. Walang `division_id` — galing ito sa section, kaya walang pwedeng mag-inconsistent.
+Nullable ang `section_id`, `division_id`, `position_id` at `date_hired` kahit kumpleto ang lahat ng 134 sa `hris_db` — hindi tayo nangangako para sa datos na hindi natin pag-aari, at kailangang makapasok ang import kahit may butas.
 
 - [ ] **Step 4: Gawin ang model at factory**
 
@@ -666,33 +801,33 @@ php artisan make:model Employee --factory --no-interaction
 namespace App\Models;
 
 use App\Enums\EmploymentStatus;
-use App\Enums\Sex;
+use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
 {
     /** @use HasFactory<\Database\Factories\EmployeeFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'user_id',
-        'employee_no',
+        'employee_number',
         'first_name',
         'middle_name',
         'last_name',
-        'name_extension',
-        'sex',
-        'date_of_birth',
-        'section_id',
+        'suffix',
         'position_id',
-        'employment_status',
+        'section_id',
+        'division_id',
         'date_hired',
-        'separated_at',
+        'employment_status',
+        'is_active',
     ];
 
     /**
@@ -701,12 +836,21 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
-            'sex' => Sex::class,
             'employment_status' => EmploymentStatus::class,
-            'date_of_birth' => 'date',
             'date_hired' => 'date',
-            'separated_at' => 'date',
+            'is_active' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Employee $employee): void {
+            if ($employee->section_id !== null) {
+                $employee->division_id = Section::query()
+                    ->whereKey($employee->section_id)
+                    ->value('division_id');
+            }
+        });
     }
 
     /**
@@ -715,6 +859,14 @@ class Employee extends Model
     public function section(): BelongsTo
     {
         return $this->belongsTo(Section::class);
+    }
+
+    /**
+     * @return BelongsTo<Division, $this>
+     */
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(Division::class);
     }
 
     /**
@@ -734,11 +886,11 @@ class Employee extends Model
     }
 
     /**
-     * @return HasMany<TrainingAssignment, $this>
+     * @return HasMany<TrainingRecord, $this>
      */
-    public function trainingAssignments(): HasMany
+    public function trainingRecords(): HasMany
     {
-        return $this->hasMany(TrainingAssignment::class);
+        return $this->hasMany(TrainingRecord::class);
     }
 
     /**
@@ -750,19 +902,45 @@ class Employee extends Model
             $this->first_name,
             $this->middle_name,
             $this->last_name,
-            $this->name_extension,
+            $this->suffix,
         ])->filter()->join(' '));
     }
 
-    /**
-     * Employees who have not been separated.
-     */
     public function scopeActive(Builder $query): void
     {
-        $query->whereNull('separated_at');
+        $query->where('is_active', true);
+    }
+
+    /**
+     * Employees the given user is allowed to see.
+     *
+     * Admin and HR see everyone. A division or section head sees their own
+     * division or section. Everyone else sees only themselves.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): void
+    {
+        if ($user->role->seesEverything()) {
+            return;
+        }
+
+        $employee = $user->employee;
+
+        if ($employee === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        match ($user->role) {
+            UserRole::DivisionHead => $query->where('division_id', $employee->division_id),
+            UserRole::SectionHead => $query->where('section_id', $employee->section_id),
+            default => $query->whereKey($employee->getKey()),
+        };
     }
 }
 ```
+
+Ang `booted()` na hook ang nagpapanatiling tugma ang `division_id` sa section. Dalawang column ang hawak natin dahil ganoon ang `hris_db` at kailangan ng division nang tuwiran sa routing — ito ang presyo, at isang lugar lang ito.
 
 `database/factories/EmployeeFactory.php`:
 
@@ -772,7 +950,6 @@ class Employee extends Model
 namespace Database\Factories;
 
 use App\Enums\EmploymentStatus;
-use App\Enums\Sex;
 use App\Models\Position;
 use App\Models\Section;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -789,61 +966,56 @@ class EmployeeFactory extends Factory
     {
         return [
             'user_id' => null,
-            'employee_no' => fake()->unique()->numerify('EMP-#####'),
+            'employee_number' => fake()->unique()->numerify('EMP-#####'),
             'first_name' => fake()->firstName(),
             'middle_name' => fake()->lastName(),
             'last_name' => fake()->lastName(),
-            'name_extension' => null,
-            'sex' => fake()->randomElement(Sex::cases()),
-            'date_of_birth' => fake()->dateTimeBetween('-60 years', '-22 years'),
-            'section_id' => Section::factory(),
+            'suffix' => null,
             'position_id' => Position::factory(),
-            'employment_status' => EmploymentStatus::Permanent,
+            'section_id' => Section::factory(),
+            'division_id' => null,
             'date_hired' => fake()->dateTimeBetween('-20 years', '-1 year'),
-            'separated_at' => null,
+            'employment_status' => EmploymentStatus::Permanent,
+            'is_active' => true,
         ];
     }
 
-    /**
-     * An employee who has resigned or retired.
-     */
-    public function separated(): static
+    public function inactive(): static
     {
-        return $this->state(fn (array $attributes): array => [
-            'separated_at' => fake()->dateTimeBetween('-2 years', 'now'),
-        ]);
+        return $this->state(fn (array $attributes): array => ['is_active' => false]);
     }
 }
 ```
 
+Sinadyang `null` ang `division_id` sa factory — ang `saving` hook ang pupuno nito mula sa section, na siyang sinusubok ng ikalawang test.
+
 - [ ] **Step 5: Patakbuhin ang test**
+
+Ang `scopeVisibleTo` ay tumutukoy sa `User::$role` at `User::employee()`, na gagawin sa Task 4. Hindi ito hinahawakan ng test ng task na ito.
 
 ```bash
 php artisan test --compact tests/Feature/EmployeeTest.php
 ```
 
-Inaasahan: PASS, apat na test.
+Inaasahan: PASS, anim na test.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add employee records"
+```
+feat: add employee records
 ```
 
 ---
-
-## Task 4: Roles, saklaw, at policies
+## Task 4: Roles, saklaw at policies
 
 **Files:**
-- Create: migration `add_role_to_users_table`, `app/Policies/EmployeePolicy.php`, `app/Policies/TrainingPolicy.php`
-- Modify: `app/Models/User.php`, `database/factories/UserFactory.php`, `app/Models/Employee.php` (dagdag na scope)
+- Create: migration `add_role_to_users_table`, `app/Policies/EmployeePolicy.php`
+- Modify: `app/Models/User.php`, `database/factories/UserFactory.php`
 - Test: `tests/Feature/AccessScopeTest.php`
 
 **Interfaces:**
-- Consumes: `Employee`, `Section`, `Division`, `UserRole`
-- Produces: `User::$role` (`UserRole`), `User::employee()`, `User::isHrAdmin(): bool`; `Employee::scopeVisibleTo(Builder $query, User $user): void`; `UserFactory` states `hrAdmin()`, `divisionHead()`, `sectionHead()`; policies na nagbabawal sa write maliban sa HR admin
+- Consumes: `Employee`, `UserRole`
+- Produces: `User::$role`, `User::employee()`, `User::isAdminOrHr(): bool`; `UserFactory` states `admin()`, `hr()`, `divisionHead()`, `sectionHead()`, `employee()`
 
 - [ ] **Step 1: Isulat ang failing test**
 
@@ -857,20 +1029,17 @@ use App\Models\Employee;
 use App\Models\Section;
 use App\Models\User;
 
-test('an hr admin sees every employee', function () {
+test('hr sees every employee', function () {
     Employee::factory()->count(3)->create();
-    $hr = User::factory()->hrAdmin()->create();
 
-    expect(Employee::visibleTo($hr)->count())->toBe(3);
+    expect(Employee::visibleTo(User::factory()->hr()->create())->count())->toBe(3);
 });
 
-test('a division head sees only employees in their own division', function () {
+test('a division head sees only their own division', function () {
     $division = Division::factory()->create();
     $ownSection = Section::factory()->for($division)->create();
-    $otherSection = Section::factory()->create();
-
     Employee::factory()->count(2)->for($ownSection)->create();
-    Employee::factory()->for($otherSection)->create();
+    Employee::factory()->for(Section::factory()->create())->create();
 
     $head = User::factory()->divisionHead()->create();
     Employee::factory()->for($ownSection)->create(['user_id' => $head->id]);
@@ -878,7 +1047,7 @@ test('a division head sees only employees in their own division', function () {
     expect(Employee::visibleTo($head)->count())->toBe(3);
 });
 
-test('a section head sees only employees in their own section', function () {
+test('a section head sees only their own section', function () {
     $division = Division::factory()->create();
     $ownSection = Section::factory()->for($division)->create();
     $siblingSection = Section::factory()->for($division)->create();
@@ -892,22 +1061,27 @@ test('a section head sees only employees in their own section', function () {
     expect(Employee::visibleTo($head)->count())->toBe(2);
 });
 
-test('a head without an employee record sees nothing', function () {
-    Employee::factory()->count(2)->create();
-    $orphan = User::factory()->sectionHead()->create();
+test('a plain employee sees only themselves', function () {
+    Employee::factory()->count(3)->create();
 
-    expect(Employee::visibleTo($orphan)->count())->toBe(0);
+    $user = User::factory()->employee()->create();
+    Employee::factory()->create(['user_id' => $user->id]);
+
+    expect(Employee::visibleTo($user)->count())->toBe(1);
 });
 
-test('only an hr admin may create or update employees', function () {
-    $hr = User::factory()->hrAdmin()->create();
-    $head = User::factory()->divisionHead()->create();
+test('a user with no employee record sees nothing', function () {
+    Employee::factory()->count(2)->create();
+
+    expect(Employee::visibleTo(User::factory()->sectionHead()->create())->count())->toBe(0);
+});
+
+test('only admin and hr may edit employees', function () {
     $employee = Employee::factory()->create();
 
-    expect($hr->can('create', Employee::class))->toBeTrue()
-        ->and($hr->can('update', $employee))->toBeTrue()
-        ->and($head->can('create', Employee::class))->toBeFalse()
-        ->and($head->can('update', $employee))->toBeFalse();
+    expect(User::factory()->hr()->create()->can('update', $employee))->toBeTrue()
+        ->and(User::factory()->admin()->create()->can('update', $employee))->toBeTrue()
+        ->and(User::factory()->divisionHead()->create()->can('update', $employee))->toBeFalse();
 });
 ```
 
@@ -917,7 +1091,7 @@ test('only an hr admin may create or update employees', function () {
 php artisan test --compact tests/Feature/AccessScopeTest.php
 ```
 
-Inaasahan: FAIL — walang `hrAdmin()` state ang `UserFactory`.
+Inaasahan: FAIL — walang `hr()` state ang `UserFactory`.
 
 - [ ] **Step 3: Idagdag ang role column**
 
@@ -941,19 +1115,11 @@ public function down(): void
 }
 ```
 
-Walang default — sadya. Ang bawat account ay may tahasang role, at ang HR admin lang ang gumagawa ng account.
+Walang default — sadya. Bawat account ay may tahasang role, at ang HR o Admin lang ang gumagawa ng account.
 
 - [ ] **Step 4: Baguhin ang User model**
 
-Sa `app/Models/User.php`, idagdag ang `'role'` sa `$fillable`, ang cast, at ang dalawang method. Idagdag ang mga import na `App\Enums\UserRole` at `Illuminate\Database\Eloquent\Relations\HasOne`.
-
-Sa loob ng `casts()` method, idagdag:
-
-```php
-'role' => UserRole::class,
-```
-
-Idagdag ang mga method na ito sa klase:
+Sa `app/Models/User.php`: idagdag ang `'role'` sa `$fillable`, ang `'role' => UserRole::class` sa `casts()`, at ang mga import na `App\Enums\UserRole` at `Illuminate\Database\Eloquent\Relations\HasOne`. Idagdag ang:
 
 ```php
 /**
@@ -964,20 +1130,25 @@ public function employee(): HasOne
     return $this->hasOne(Employee::class);
 }
 
-public function isHrAdmin(): bool
+public function isAdminOrHr(): bool
 {
-    return $this->role === UserRole::HrAdmin;
+    return $this->role->seesEverything();
 }
 ```
 
 - [ ] **Step 5: Baguhin ang UserFactory**
 
-Sa `database/factories/UserFactory.php`, idagdag ang `'role' => UserRole::HrAdmin,` sa `definition()` at ang tatlong state. Import ang `App\Enums\UserRole`.
+Idagdag ang `'role' => UserRole::Employee,` sa `definition()`, ang import ng `App\Enums\UserRole`, at ang limang state:
 
 ```php
-public function hrAdmin(): static
+public function admin(): static
 {
-    return $this->state(fn (array $attributes): array => ['role' => UserRole::HrAdmin]);
+    return $this->state(fn (array $attributes): array => ['role' => UserRole::Admin]);
+}
+
+public function hr(): static
+{
+    return $this->state(fn (array $attributes): array => ['role' => UserRole::Hr]);
 }
 
 public function divisionHead(): static
@@ -989,56 +1160,22 @@ public function sectionHead(): static
 {
     return $this->state(fn (array $attributes): array => ['role' => UserRole::SectionHead]);
 }
-```
 
-Ang HR admin ang default dahil doon nakatuon ang halos lahat ng test.
-
-- [ ] **Step 6: Idagdag ang visibleTo scope**
-
-Sa `app/Models/Employee.php`, idagdag ang scope na ito at ang import ng `App\Enums\UserRole`:
-
-```php
-/**
- * Employees the given user is allowed to see.
- *
- * HR admins see everyone. A division or section head sees their own
- * division or section, resolved through their own employee record.
- */
-public function scopeVisibleTo(Builder $query, User $user): void
+public function employee(): static
 {
-    if ($user->role === UserRole::HrAdmin) {
-        return;
-    }
-
-    $employee = $user->employee()->with('section')->first();
-
-    if ($employee === null) {
-        $query->whereRaw('1 = 0');
-
-        return;
-    }
-
-    if ($user->role === UserRole::DivisionHead) {
-        $query->whereHas('section', fn (Builder $section) => $section->where('division_id', $employee->section->division_id));
-
-        return;
-    }
-
-    $query->where('section_id', $employee->section_id);
+    return $this->state(fn (array $attributes): array => ['role' => UserRole::Employee]);
 }
 ```
 
-- [ ] **Step 7: Gawin ang mga policy**
+Ang `Employee` ang default dahil iyon ang pinakakaraniwang role sa aktwal — 134 na tao, iilan lang ang head.
+
+- [ ] **Step 6: Gawin ang EmployeePolicy**
 
 ```bash
 php artisan make:policy EmployeePolicy --model=Employee --no-interaction
 ```
 
-Awtomatikong natutuklasan ng Laravel ang policy sa `app/Policies` — walang kailangang irehistro. Ang `TrainingPolicy` ay gagawin sa Task 5 kasama ng model nito.
-
-**Paglihis sa spec:** nagbanggit ang spec ng `TrainingAssignmentPolicy`. Hindi ito ginawa — ang pag-assign at pagrecord ng natapos ay parehong pagbabago sa isang training, kaya `TrainingPolicy::assign()` ang humahawak sa dalawa. Isang klase na mas kaunti, at nasa iisang lugar ang tuntunin.
-
-`app/Policies/EmployeePolicy.php` — palitan ang buong laman:
+Palitan ang buong laman:
 
 ```php
 <?php
@@ -1062,262 +1199,574 @@ class EmployeePolicy
 
     public function create(User $user): bool
     {
-        return $user->isHrAdmin();
+        return $user->isAdminOrHr();
     }
 
     public function update(User $user, Employee $employee): bool
     {
-        return $user->isHrAdmin();
+        return $user->isAdminOrHr();
     }
 
     public function delete(User $user, Employee $employee): bool
     {
-        return $user->isHrAdmin();
+        return $user->isAdminOrHr();
     }
 }
 ```
 
-- [ ] **Step 8: Patakbuhin ang test**
+- [ ] **Step 7: Patakbuhin ang test**
 
 ```bash
-php artisan test --compact tests/Feature/AccessScopeTest.php
+php artisan test --compact tests/Feature
 ```
 
-Inaasahan: PASS, limang test.
+Inaasahan: PASS lahat. Kung may bumagsak dahil sa kulang na `role`, ang factory default ang kulang.
 
-- [ ] **Step 9: Patakbuhin ang naunang mga test para sa regression**
+- [ ] **Step 8: Commit message**
 
-```bash
-php artisan test --compact
 ```
-
-Inaasahan: PASS lahat. Kung may bumagsak dahil sa kulang na `role`, ang factory ang kulang ng default.
-
-- [ ] **Step 10: Commit**
-
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add user roles, employee visibility scoping and policies"
+feat: add user roles, visibility scoping and employee policy
 ```
 
 ---
-## Task 5: Trainings at training assignments
+
+## Task 5: Import ng empleyado mula sa `hris_db`
 
 **Files:**
-- Create: migration `create_trainings_table`, migration `create_training_assignments_table`
-- Create: `app/Models/Training.php`, `app/Models/TrainingAssignment.php`, `app/Policies/TrainingPolicy.php`
-- Create: `database/factories/TrainingFactory.php`, `database/factories/TrainingAssignmentFactory.php`
-- Test: `tests/Feature/TrainingTest.php`
+- Create: `app/Console/Commands/ImportEmployeesFromHris.php`
+- Test: `tests/Feature/ImportEmployeesFromHrisTest.php`
 
 **Interfaces:**
-- Consumes: `Employee`, `User`, `LdType`
-- Produces: `Training` (title, from_date, to_date, hours, ld_type, conducted_by; `assignments()`; `scopeHeldIn(Builder, int $year)`, `scopeHeldDuring(Builder, int $year, int $month)`); `TrainingAssignment` (`training()`, `employee()`, `assignedBy()`; `scopePending()`, `scopeCompleted()`, `scopeOverdue()`); `TrainingAssignmentFactory` states `completed()`, `overdue()`
+- Consumes: koneksyong `hris`, `Division`, `Section`, `Position`, `Employee`
+- Produces: ang command na `php artisan ldi:import-employees`
+
+**Mahigpit:** SELECT lamang sa koneksyong `hris`. Walang isusulat doon.
+
+Ang pagkakasunod ay mahalaga: divisions → sections → positions → employees → saka ang head designations. Huli ang mga head dahil tumutukoy sila sa employee na kailangan munang umiral.
 
 - [ ] **Step 1: Isulat ang failing test**
 
-Gumawa ng `tests/Feature/TrainingTest.php`:
+Ang test ay hindi umaasa sa totoong `hris_db`. Gumagawa ito ng pekeng source table sa test connection para masukat ang lohika nang malinaw at hindi marupok.
+
+Gumawa ng `tests/Feature/ImportEmployeesFromHrisTest.php`:
 
 ```php
 <?php
 
-use App\Enums\LdType;
+use App\Models\Division;
 use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use Illuminate\Database\QueryException;
+use App\Models\Position;
+use App\Models\Section;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-test('a training records the five PDS learning and development fields', function () {
-    $training = Training::factory()->create([
-        'title' => 'Records Management Seminar',
-        'from_date' => '2026-03-02',
-        'to_date' => '2026-03-04',
-        'hours' => 24,
-        'ld_type' => LdType::Technical,
-        'conducted_by' => 'Civil Service Commission',
+beforeEach(function () {
+    // Point the importer at the test connection itself. Copying the config
+    // would not do: each sqlite :memory: connection is its own database, so
+    // the fixture tables would be invisible to it.
+    config()->set('ldi.hris_connection', config('database.default'));
+    config()->set('ldi.hris_tables', [
+        'divisions' => 'hris_divisions',
+        'sections' => 'hris_sections',
+        'positions' => 'hris_positions',
+        'employees' => 'hris_employees',
     ]);
 
-    expect($training->ld_type)->toBe(LdType::Technical)
-        ->and($training->hours)->toBe(24)
-        ->and($training->to_date->toDateString())->toBe('2026-03-04');
+    Schema::create('hris_divisions', function ($table) {
+        $table->id();
+        $table->string('name');
+        $table->string('code');
+        $table->unsignedBigInteger('division_head_employee_id')->nullable();
+    });
+
+    Schema::create('hris_sections', function ($table) {
+        $table->id();
+        $table->unsignedBigInteger('division_id');
+        $table->string('name');
+        $table->string('code');
+        $table->unsignedBigInteger('section_head_employee_id')->nullable();
+    });
+
+    Schema::create('hris_positions', function ($table) {
+        $table->id();
+        $table->string('title');
+        $table->string('item_number')->nullable();
+        $table->unsignedTinyInteger('salary_grade')->nullable();
+    });
+
+    Schema::create('hris_employees', function ($table) {
+        $table->id();
+        $table->string('employee_number');
+        $table->string('first_name');
+        $table->string('middle_name')->nullable();
+        $table->string('last_name');
+        $table->string('suffix')->nullable();
+        $table->unsignedBigInteger('position_id')->nullable();
+        $table->unsignedBigInteger('section_id')->nullable();
+        $table->unsignedBigInteger('division_id')->nullable();
+        $table->date('date_hired')->nullable();
+        $table->string('employment_status');
+        $table->boolean('is_active')->default(true);
+        $table->timestamp('deleted_at')->nullable();
+    });
+
+    DB::table('hris_divisions')->insert([
+        ['id' => 1, 'name' => 'Finance Division', 'code' => 'FAD', 'division_head_employee_id' => 2],
+    ]);
+    DB::table('hris_sections')->insert([
+        ['id' => 1, 'division_id' => 1, 'name' => 'Human Resource', 'code' => 'HRS', 'section_head_employee_id' => null],
+    ]);
+    DB::table('hris_positions')->insert([
+        ['id' => 1, 'title' => 'Administrative Officer V', 'item_number' => 'ITEM-1', 'salary_grade' => 18],
+    ]);
+    DB::table('hris_employees')->insert([
+        ['id' => 1, 'employee_number' => 'EMP-001', 'first_name' => 'Maria', 'middle_name' => null, 'last_name' => 'Cruz', 'suffix' => null, 'position_id' => 1, 'section_id' => 1, 'division_id' => 1, 'date_hired' => '2015-01-05', 'employment_status' => 'permanent', 'is_active' => true, 'deleted_at' => null],
+        ['id' => 2, 'employee_number' => 'EMP-002', 'first_name' => 'Jose', 'middle_name' => null, 'last_name' => 'Rizal', 'suffix' => null, 'position_id' => 1, 'section_id' => 1, 'division_id' => 1, 'date_hired' => '2010-03-01', 'employment_status' => 'permanent', 'is_active' => true, 'deleted_at' => null],
+    ]);
 });
 
-test('a training belongs to the year its to_date falls in', function () {
-    Training::factory()->create(['from_date' => '2025-12-30', 'to_date' => '2025-12-31']);
-    Training::factory()->create(['from_date' => '2025-12-31', 'to_date' => '2026-01-01']);
+test('it imports the organisation and the employees', function () {
+    $this->artisan('ldi:import-employees')->assertSuccessful();
 
-    expect(Training::heldIn(2025)->count())->toBe(1)
-        ->and(Training::heldIn(2026)->count())->toBe(1);
+    expect(Division::count())->toBe(1)
+        ->and(Section::count())->toBe(1)
+        ->and(Position::count())->toBe(1)
+        ->and(Employee::count())->toBe(2)
+        ->and(Employee::where('employee_number', 'EMP-001')->first()->full_name)->toBe('Maria Cruz');
 });
 
-test('heldDuring narrows to a single month', function () {
-    Training::factory()->create(['from_date' => '2026-03-01', 'to_date' => '2026-03-03']);
-    Training::factory()->create(['from_date' => '2026-04-01', 'to_date' => '2026-04-03']);
+test('it wires the employee to its section, division and position', function () {
+    $this->artisan('ldi:import-employees')->assertSuccessful();
 
-    expect(Training::heldDuring(2026, 3)->count())->toBe(1);
+    $employee = Employee::where('employee_number', 'EMP-001')->first();
+
+    expect($employee->section->code)->toBe('HRS')
+        ->and($employee->division->code)->toBe('FAD')
+        ->and($employee->position->title)->toBe('Administrative Officer V');
 });
 
-test('an employee cannot be assigned the same training twice', function () {
-    $training = Training::factory()->create();
-    $employee = Employee::factory()->create();
+test('it sets the head designations after the employees exist', function () {
+    $this->artisan('ldi:import-employees')->assertSuccessful();
 
-    TrainingAssignment::factory()->for($training)->for($employee)->create();
+    $head = Employee::where('employee_number', 'EMP-002')->first();
 
-    expect(fn () => TrainingAssignment::factory()->for($training)->for($employee)->create())
-        ->toThrow(QueryException::class);
+    expect(Division::first()->division_head_employee_id)->toBe($head->id);
 });
 
-test('assignment scopes separate pending, completed and overdue', function () {
-    TrainingAssignment::factory()->create(['due_date' => now()->addWeek()]);
-    TrainingAssignment::factory()->completed()->create();
-    TrainingAssignment::factory()->overdue()->create();
+test('running it twice changes nothing', function () {
+    $this->artisan('ldi:import-employees')->assertSuccessful();
+    $this->artisan('ldi:import-employees')->assertSuccessful();
 
-    expect(TrainingAssignment::pending()->count())->toBe(2)
-        ->and(TrainingAssignment::completed()->count())->toBe(1)
-        ->and(TrainingAssignment::overdue()->count())->toBe(1);
+    expect(Employee::count())->toBe(2)
+        ->and(Division::count())->toBe(1);
+});
+
+test('it updates an employee whose details changed at source', function () {
+    $this->artisan('ldi:import-employees')->assertSuccessful();
+
+    DB::table('hris_employees')->where('employee_number', 'EMP-001')->update(['last_name' => 'Santos']);
+    $this->artisan('ldi:import-employees')->assertSuccessful();
+
+    expect(Employee::where('employee_number', 'EMP-001')->first()->last_name)->toBe('Santos')
+        ->and(Employee::count())->toBe(2);
 });
 ```
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/TrainingTest.php
+php artisan test --compact tests/Feature/ImportEmployeesFromHrisTest.php
 ```
 
-Inaasahan: FAIL — `Class "App\Models\Training" not found`.
+Inaasahan: FAIL — walang command na `ldi:import-employees`.
 
-- [ ] **Step 3: Gawin ang mga migration**
+- [ ] **Step 3: Isulat ang command**
 
 ```bash
-php artisan make:migration create_trainings_table --no-interaction
-php artisan make:migration create_training_assignments_table --no-interaction
+php artisan make:command ImportEmployeesFromHris --no-interaction
 ```
-
-```php
-Schema::create('trainings', function (Blueprint $table) {
-    $table->id();
-    $table->string('title');
-    $table->date('from_date');
-    $table->date('to_date')->index();
-    $table->unsignedSmallInteger('hours');
-    $table->string('ld_type');
-    $table->string('conducted_by');
-    $table->timestamps();
-});
-```
-
-```php
-Schema::create('training_assignments', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('training_id')->constrained()->cascadeOnDelete();
-    $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
-    $table->foreignId('assigned_by')->constrained('users');
-    $table->date('due_date')->nullable();
-    $table->date('completed_at')->nullable()->index();
-    $table->timestamps();
-
-    $table->unique(['training_id', 'employee_id']);
-});
-```
-
-Ang unique sa `(training_id, employee_id)` ang pumipigil sa doble-doble kapag inulit ang bulk assign.
-
-- [ ] **Step 4: Gawin ang mga model**
-
-```bash
-php artisan make:model Training --factory --no-interaction
-php artisan make:model TrainingAssignment --factory --no-interaction
-```
-
-`app/Models/Training.php`:
 
 ```php
 <?php
 
-namespace App\Models;
+namespace App\Console\Commands;
 
-use App\Enums\LdType;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Division;
+use App\Models\Employee;
+use App\Models\Position;
+use App\Models\Section;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
-class Training extends Model
+class ImportEmployeesFromHris extends Command
 {
-    /** @use HasFactory<\Database\Factories\TrainingFactory> */
-    use HasFactory;
+    protected $signature = 'ldi:import-employees';
 
-    protected $fillable = [
-        'title',
-        'from_date',
-        'to_date',
-        'hours',
-        'ld_type',
-        'conducted_by',
+    protected $description = 'Copy divisions, sections, positions and employees from hris_db';
+
+    /**
+     * Maps a source id to the local id, per entity.
+     *
+     * @var array<string, array<int, int>>
+     */
+    private array $idMap = [
+        'divisions' => [],
+        'sections' => [],
+        'positions' => [],
+        'employees' => [],
     ];
 
+    public function handle(): int
+    {
+        DB::transaction(function (): void {
+            $this->importDivisions();
+            $this->importPositions();
+            $this->importSections();
+            $this->importEmployees();
+            $this->importHeadDesignations();
+        });
+
+        $this->info(sprintf(
+            'Imported %d divisions, %d sections, %d positions, %d employees.',
+            count($this->idMap['divisions']),
+            count($this->idMap['sections']),
+            count($this->idMap['positions']),
+            count($this->idMap['employees']),
+        ));
+
+        return self::SUCCESS;
+    }
+
     /**
+     * Source table names, overridable so tests can point at fixtures.
+     *
      * @return array<string, string>
      */
-    protected function casts(): array
+    private function sourceTables(): array
     {
-        return [
-            'from_date' => 'date',
-            'to_date' => 'date',
-            'hours' => 'integer',
-            'ld_type' => LdType::class,
-        ];
+        return config('ldi.hris_tables', [
+            'divisions' => 'divisions',
+            'sections' => 'sections',
+            'positions' => 'positions',
+            'employees' => 'employees',
+        ]);
+    }
+
+    private function source(string $entity): \Illuminate\Database\Query\Builder
+    {
+        return DB::connection(config('ldi.hris_connection', 'hris'))
+            ->table($this->sourceTables()[$entity]);
+    }
+
+    private function importDivisions(): void
+    {
+        foreach ($this->source('divisions')->get() as $row) {
+            $division = Division::updateOrCreate(
+                ['code' => $row->code],
+                ['name' => $row->name, 'is_active' => true],
+            );
+
+            $this->idMap['divisions'][$row->id] = $division->id;
+        }
+    }
+
+    private function importPositions(): void
+    {
+        foreach ($this->source('positions')->get() as $row) {
+            $position = Position::updateOrCreate(
+                ['title' => $row->title],
+                ['item_number' => $row->item_number, 'salary_grade' => $row->salary_grade, 'is_active' => true],
+            );
+
+            $this->idMap['positions'][$row->id] = $position->id;
+        }
+    }
+
+    private function importSections(): void
+    {
+        foreach ($this->source('sections')->get() as $row) {
+            $section = Section::updateOrCreate(
+                ['code' => $row->code],
+                [
+                    'division_id' => $this->idMap['divisions'][$row->division_id] ?? null,
+                    'name' => $row->name,
+                    'is_active' => true,
+                ],
+            );
+
+            $this->idMap['sections'][$row->id] = $section->id;
+        }
+    }
+
+    private function importEmployees(): void
+    {
+        foreach ($this->source('employees')->whereNull('deleted_at')->get() as $row) {
+            $employee = Employee::updateOrCreate(
+                ['employee_number' => $row->employee_number],
+                [
+                    'first_name' => $row->first_name,
+                    'middle_name' => $row->middle_name,
+                    'last_name' => $row->last_name,
+                    'suffix' => $row->suffix,
+                    'position_id' => $this->idMap['positions'][$row->position_id] ?? null,
+                    'section_id' => $this->idMap['sections'][$row->section_id] ?? null,
+                    'date_hired' => $row->date_hired,
+                    'employment_status' => $row->employment_status,
+                    'is_active' => (bool) $row->is_active,
+                ],
+            );
+
+            $this->idMap['employees'][$row->id] = $employee->id;
+        }
     }
 
     /**
-     * @return HasMany<TrainingAssignment, $this>
+     * Head designations come last: they point at employees that must exist first.
      */
-    public function assignments(): HasMany
+    private function importHeadDesignations(): void
     {
-        return $this->hasMany(TrainingAssignment::class);
-    }
+        foreach ($this->source('divisions')->get() as $row) {
+            Division::whereKey($this->idMap['divisions'][$row->id])->update([
+                'division_head_employee_id' => $this->idMap['employees'][$row->division_head_employee_id] ?? null,
+            ]);
+        }
 
-    /**
-     * Trainings that ended in the given year.
-     */
-    public function scopeHeldIn(Builder $query, int $year): void
-    {
-        $query->whereYear('to_date', $year);
-    }
-
-    /**
-     * Trainings that ended in the given month.
-     */
-    public function scopeHeldDuring(Builder $query, int $year, int $month): void
-    {
-        $query->whereYear('to_date', $year)->whereMonth('to_date', $month);
+        foreach ($this->source('sections')->get() as $row) {
+            Section::whereKey($this->idMap['sections'][$row->id])->update([
+                'section_head_employee_id' => $this->idMap['employees'][$row->section_head_employee_id] ?? null,
+            ]);
+        }
     }
 }
 ```
 
-`app/Models/TrainingAssignment.php`:
+Ang `division_id` ng employee ay hindi itinatakda dito — ang `saving` hook ng model ang kumukuha nito mula sa section. Isang lugar lang ang may hawak ng tuntuning iyon.
+
+Dalawang bagay ang configurable, at ang test ang nag-o-override ng dalawa: ang koneksyon (`ldi.hris_connection`, default `hris`) at ang pangalan ng table (`ldi.hris_tables`, default `divisions`, `sections`, `positions`, `employees` — ang aktwal na nasa `hris_db`). Kaya nito, hindi na kailangan ng totoong database sa test.
+
+Ang koneksyon ang mahalaga: kung kokopyahin lang ng test ang config ng `hris`, magbubukas ito ng bagong SQLite `:memory:` na database na walang laman. Ang pagturo sa koneksyon mismo ang gumagana.
+
+- [ ] **Step 4: Patakbuhin ang test**
+
+```bash
+php artisan test --compact tests/Feature/ImportEmployeesFromHrisTest.php
+```
+
+Inaasahan: PASS, limang test.
+
+- [ ] **Step 5: Patakbuhin sa totoong datos**
+
+```bash
+php artisan ldi:import-employees
+```
+
+Inaasahan: `Imported 5 divisions, 28 sections, 59 positions, 134 employees.`
+
+Patunayan na walang nagbago sa pinagkunan:
+
+```bash
+php artisan tinker --execute 'echo DB::connection("hris")->table("employees")->count()." employees pa rin sa hris_db\n";'
+```
+
+- [ ] **Step 6: Commit message**
+
+```
+feat: import organisation and employees from hris_db
+```
+
+---
+## Task 6: Training records at approval trail
+
+**Files:**
+- Create: migration `create_training_records_table`, `create_training_approvals_table`
+- Create: `app/Models/TrainingRecord.php`, `app/Models/TrainingApproval.php`, 2 factory
+- Test: `tests/Feature/TrainingRecordTest.php`
+
+**Interfaces:**
+- Consumes: `Employee`, `User`, `LdType`, `TrainingStatus`, `ApprovalLevel`, `ApprovalDecision`
+- Produces: `TrainingRecord` (`employee()`, `submittedBy()`, `approvals()`; `scopeApproved()`, `scopePending()`, `scopeAwaiting(ApprovalLevel)`, `scopeUnroutable()`; accessor na `ld_type_label`), `TrainingApproval`; `TrainingRecordFactory` states `approved()`, `rejected()`, `awaitingDivisionHead()`
+
+- [ ] **Step 1: Isulat ang failing test**
+
+Gumawa ng `tests/Feature/TrainingRecordTest.php`:
+
+```php
+<?php
+
+use App\Enums\ApprovalLevel;
+use App\Enums\LdType;
+use App\Enums\TrainingStatus;
+use App\Models\TrainingRecord;
+
+test('a record keeps the PDS fields and the costs', function () {
+    $record = TrainingRecord::factory()->create([
+        'title' => 'Records Management Seminar',
+        'date_start' => '2026-03-02',
+        'date_end' => '2026-03-04',
+        'hours' => 24,
+        'ld_type' => LdType::Technical,
+        'conducted_by' => 'Civil Service Commission',
+        'registration_fee' => 1500.00,
+        'tev' => 2350.50,
+    ]);
+
+    expect($record->ld_type)->toBe(LdType::Technical)
+        ->and($record->hours)->toBe(24)
+        ->and((float) $record->registration_fee)->toBe(1500.00)
+        ->and((float) $record->tev)->toBe(2350.50);
+});
+
+test('the label of a standard type is the PDS name', function () {
+    $record = TrainingRecord::factory()->create(['ld_type' => LdType::Technical, 'ld_type_other' => null]);
+
+    expect($record->ld_type_label)->toBe('Technical');
+});
+
+test('the label of an other type is its own text', function () {
+    $record = TrainingRecord::factory()->create([
+        'ld_type' => LdType::Other,
+        'ld_type_other' => 'Convention',
+    ]);
+
+    expect($record->ld_type_label)->toBe('Convention');
+});
+
+test('scopes separate pending, approved and awaiting a level', function () {
+    TrainingRecord::factory()->create();
+    TrainingRecord::factory()->awaitingDivisionHead()->create();
+    TrainingRecord::factory()->approved()->create();
+    TrainingRecord::factory()->rejected()->create();
+
+    expect(TrainingRecord::pending()->count())->toBe(2)
+        ->and(TrainingRecord::approved()->count())->toBe(1)
+        ->and(TrainingRecord::awaiting(ApprovalLevel::DivisionHead)->count())->toBe(1)
+        ->and(TrainingRecord::awaiting(ApprovalLevel::SectionHead)->count())->toBe(1);
+});
+
+test('a pending record with no level is unroutable', function () {
+    TrainingRecord::factory()->create();
+    TrainingRecord::factory()->create(['current_level' => null]);
+    TrainingRecord::factory()->approved()->create();
+
+    expect(TrainingRecord::unroutable()->count())->toBe(1);
+});
+
+test('an approval belongs to its record', function () {
+    $record = TrainingRecord::factory()->create();
+    $approval = $record->approvals()->create([
+        'level' => ApprovalLevel::SectionHead,
+        'approver_user_id' => $record->submitted_by,
+        'decision' => App\Enums\ApprovalDecision::Approved,
+        'remarks' => null,
+        'decided_at' => now(),
+    ]);
+
+    expect($record->approvals)->toHaveCount(1)
+        ->and($approval->level)->toBe(ApprovalLevel::SectionHead);
+});
+```
+
+- [ ] **Step 2: Patakbuhin para makitang bumagsak**
+
+```bash
+php artisan test --compact tests/Feature/TrainingRecordTest.php
+```
+
+Inaasahan: FAIL — `Class "App\Models\TrainingRecord" not found`.
+
+- [ ] **Step 3: Gawin ang mga migration**
+
+```bash
+php artisan make:migration create_training_records_table --no-interaction
+php artisan make:migration create_training_approvals_table --no-interaction
+```
+
+```php
+Schema::create('training_records', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
+    $table->string('title');
+    $table->date('date_start');
+    $table->date('date_end')->index();
+    $table->unsignedSmallInteger('hours');
+    $table->string('ld_type');
+    $table->string('ld_type_other')->nullable();
+    $table->string('conducted_by');
+    $table->string('location')->nullable();
+    $table->decimal('expenses', 10, 2)->nullable();
+    $table->decimal('registration_fee', 10, 2)->nullable();
+    $table->decimal('tev', 10, 2)->nullable();
+    $table->float('cpd_units')->nullable();
+    $table->string('status')->index();
+    $table->string('current_level')->nullable()->index();
+    $table->foreignId('submitted_by')->constrained('users');
+    $table->text('rejection_reason')->nullable();
+    $table->timestamps();
+});
+```
+
+```php
+Schema::create('training_approvals', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('training_record_id')->constrained()->cascadeOnDelete();
+    $table->string('level');
+    $table->foreignId('approver_user_id')->constrained('users');
+    $table->string('decision');
+    $table->text('remarks')->nullable();
+    $table->timestamp('decided_at');
+    $table->timestamps();
+});
+```
+
+Isang row bawat empleyado bawat training. Indibidwal ang `registration_fee` at `tev` — kaya nga per-employee ang talaan.
+
+- [ ] **Step 4: Gawin ang mga model**
+
+```bash
+php artisan make:model TrainingRecord --factory --no-interaction
+php artisan make:model TrainingApproval --factory --no-interaction
+```
+
+`app/Models/TrainingRecord.php`:
 
 ```php
 <?php
 
 namespace App\Models;
 
+use App\Enums\ApprovalLevel;
+use App\Enums\LdType;
+use App\Enums\TrainingStatus;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class TrainingAssignment extends Model
+class TrainingRecord extends Model
 {
-    /** @use HasFactory<\Database\Factories\TrainingAssignmentFactory> */
+    /** @use HasFactory<\Database\Factories\TrainingRecordFactory> */
     use HasFactory;
 
     protected $fillable = [
-        'training_id',
         'employee_id',
-        'assigned_by',
-        'due_date',
-        'completed_at',
+        'title',
+        'date_start',
+        'date_end',
+        'hours',
+        'ld_type',
+        'ld_type_other',
+        'conducted_by',
+        'location',
+        'expenses',
+        'registration_fee',
+        'tev',
+        'cpd_units',
+        'status',
+        'current_level',
+        'submitted_by',
+        'rejection_reason',
     ];
 
     /**
@@ -1326,17 +1775,17 @@ class TrainingAssignment extends Model
     protected function casts(): array
     {
         return [
-            'due_date' => 'date',
-            'completed_at' => 'date',
+            'date_start' => 'date',
+            'date_end' => 'date',
+            'hours' => 'integer',
+            'ld_type' => LdType::class,
+            'status' => TrainingStatus::class,
+            'current_level' => ApprovalLevel::class,
+            'expenses' => 'decimal:2',
+            'registration_fee' => 'decimal:2',
+            'tev' => 'decimal:2',
+            'cpd_units' => 'float',
         ];
-    }
-
-    /**
-     * @return BelongsTo<Training, $this>
-     */
-    public function training(): BelongsTo
-    {
-        return $this->belongsTo(Training::class);
     }
 
     /**
@@ -1350,83 +1799,208 @@ class TrainingAssignment extends Model
     /**
      * @return BelongsTo<User, $this>
      */
-    public function assignedBy(): BelongsTo
+    public function submittedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_by');
+        return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    /**
+     * @return HasMany<TrainingApproval, $this>
+     */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(TrainingApproval::class);
+    }
+
+    /**
+     * What to print for the type of LD. An Other type carries its own text.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function ldTypeLabel(): Attribute
+    {
+        return Attribute::get(fn (): string => $this->ld_type->requiresOwnText()
+            ? (string) $this->ld_type_other
+            : $this->ld_type->label());
     }
 
     public function scopePending(Builder $query): void
     {
-        $query->whereNull('completed_at');
+        $query->where('status', TrainingStatus::Pending);
     }
 
-    public function scopeCompleted(Builder $query): void
+    public function scopeApproved(Builder $query): void
     {
-        $query->whereNotNull('completed_at');
+        $query->where('status', TrainingStatus::Approved);
     }
 
-    public function scopeOverdue(Builder $query): void
+    public function scopeAwaiting(Builder $query, ApprovalLevel $level): void
     {
-        $query->whereNull('completed_at')
-            ->whereNotNull('due_date')
-            ->whereDate('due_date', '<', now()->toDateString());
+        $query->where('status', TrainingStatus::Pending)->where('current_level', $level);
+    }
+
+    /**
+     * Pending records with nobody to approve them, because neither the
+     * section nor the division has a head designated.
+     */
+    public function scopeUnroutable(Builder $query): void
+    {
+        $query->where('status', TrainingStatus::Pending)->whereNull('current_level');
+    }
+}
+```
+
+`app/Models/TrainingApproval.php`:
+
+```php
+<?php
+
+namespace App\Models;
+
+use App\Enums\ApprovalDecision;
+use App\Enums\ApprovalLevel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class TrainingApproval extends Model
+{
+    /** @use HasFactory<\Database\Factories\TrainingApprovalFactory> */
+    use HasFactory;
+
+    protected $fillable = [
+        'training_record_id',
+        'level',
+        'approver_user_id',
+        'decision',
+        'remarks',
+        'decided_at',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'level' => ApprovalLevel::class,
+            'decision' => ApprovalDecision::class,
+            'decided_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * @return BelongsTo<TrainingRecord, $this>
+     */
+    public function trainingRecord(): BelongsTo
+    {
+        return $this->belongsTo(TrainingRecord::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_user_id');
     }
 }
 ```
 
 - [ ] **Step 5: Gawin ang mga factory**
 
-`database/factories/TrainingFactory.php`:
+`database/factories/TrainingRecordFactory.php`:
 
 ```php
 <?php
 
 namespace Database\Factories;
 
+use App\Enums\ApprovalLevel;
 use App\Enums\LdType;
+use App\Enums\TrainingStatus;
+use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 
 /**
- * @extends Factory<\App\Models\Training>
+ * @extends Factory<\App\Models\TrainingRecord>
  */
-class TrainingFactory extends Factory
+class TrainingRecordFactory extends Factory
 {
     /**
      * @return array<string, mixed>
      */
     public function definition(): array
     {
-        $from = Carbon::instance(fake()->dateTimeBetween('-2 years', 'now'));
+        $start = Carbon::instance(fake()->dateTimeBetween('-2 years', 'now'));
 
         return [
+            'employee_id' => Employee::factory(),
             'title' => fake()->sentence(4),
-            'from_date' => $from,
-            'to_date' => $from->copy()->addDays(fake()->numberBetween(0, 4)),
+            'date_start' => $start,
+            'date_end' => $start->copy()->addDays(fake()->numberBetween(0, 4)),
             'hours' => fake()->numberBetween(8, 40),
-            'ld_type' => fake()->randomElement(LdType::cases()),
+            'ld_type' => fake()->randomElement([LdType::Technical, LdType::Supervisory, LdType::Managerial, LdType::Foundation]),
+            'ld_type_other' => null,
             'conducted_by' => fake()->company(),
+            'location' => fake()->city(),
+            'expenses' => fake()->randomFloat(2, 0, 5000),
+            'registration_fee' => fake()->randomFloat(2, 0, 3000),
+            'tev' => fake()->randomFloat(2, 0, 4000),
+            'cpd_units' => fake()->randomFloat(1, 0, 20),
+            'status' => TrainingStatus::Pending,
+            'current_level' => ApprovalLevel::SectionHead,
+            'submitted_by' => User::factory(),
+            'rejection_reason' => null,
         ];
+    }
+
+    public function awaitingDivisionHead(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => TrainingStatus::Pending,
+            'current_level' => ApprovalLevel::DivisionHead,
+        ]);
+    }
+
+    public function approved(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => TrainingStatus::Approved,
+            'current_level' => null,
+        ]);
+    }
+
+    public function rejected(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => TrainingStatus::Rejected,
+            'current_level' => null,
+            'rejection_reason' => fake()->sentence(),
+        ]);
     }
 }
 ```
 
-`database/factories/TrainingAssignmentFactory.php`:
+`database/factories/TrainingApprovalFactory.php`:
 
 ```php
 <?php
 
 namespace Database\Factories;
 
-use App\Models\Employee;
-use App\Models\Training;
+use App\Enums\ApprovalDecision;
+use App\Enums\ApprovalLevel;
+use App\Models\TrainingRecord;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\TrainingAssignment>
+ * @extends Factory<\App\Models\TrainingApproval>
  */
-class TrainingAssignmentFactory extends Factory
+class TrainingApprovalFactory extends Factory
 {
     /**
      * @return array<string, mixed>
@@ -1434,254 +2008,231 @@ class TrainingAssignmentFactory extends Factory
     public function definition(): array
     {
         return [
-            'training_id' => Training::factory(),
-            'employee_id' => Employee::factory(),
-            'assigned_by' => User::factory(),
-            'due_date' => null,
-            'completed_at' => null,
+            'training_record_id' => TrainingRecord::factory(),
+            'level' => ApprovalLevel::SectionHead,
+            'approver_user_id' => User::factory(),
+            'decision' => ApprovalDecision::Approved,
+            'remarks' => null,
+            'decided_at' => now(),
         ];
     }
-
-    /**
-     * An assignment the employee has finished.
-     */
-    public function completed(): static
-    {
-        return $this->state(fn (array $attributes): array => [
-            'completed_at' => now()->subDays(7),
-        ]);
-    }
-
-    /**
-     * An unfinished assignment whose due date has passed.
-     */
-    public function overdue(): static
-    {
-        return $this->state(fn (array $attributes): array => [
-            'due_date' => now()->subDay(),
-            'completed_at' => null,
-        ]);
-    }
 }
 ```
 
-- [ ] **Step 6: Gawin ang TrainingPolicy**
+- [ ] **Step 6: Patakbuhin ang test**
 
 ```bash
-php artisan make:policy TrainingPolicy --model=Training --no-interaction
+php artisan test --compact tests/Feature/TrainingRecordTest.php
 ```
 
-Palitan ang buong laman ng `app/Policies/TrainingPolicy.php`:
+Inaasahan: PASS, anim na test.
 
-```php
-<?php
+- [ ] **Step 7: Commit message**
 
-namespace App\Policies;
-
-use App\Models\Training;
-use App\Models\User;
-
-class TrainingPolicy
-{
-    public function viewAny(User $user): bool
-    {
-        return true;
-    }
-
-    public function view(User $user, Training $training): bool
-    {
-        return true;
-    }
-
-    public function create(User $user): bool
-    {
-        return $user->isHrAdmin();
-    }
-
-    public function update(User $user, Training $training): bool
-    {
-        return $user->isHrAdmin();
-    }
-
-    public function delete(User $user, Training $training): bool
-    {
-        return $user->isHrAdmin();
-    }
-
-    /**
-     * Assigning a training and recording completion are both HR-only.
-     */
-    public function assign(User $user, Training $training): bool
-    {
-        return $user->isHrAdmin();
-    }
-}
 ```
-
-- [ ] **Step 7: Patakbuhin ang test**
-
-```bash
-php artisan test --compact tests/Feature/TrainingTest.php
-```
-
-Inaasahan: PASS, limang test.
-
-- [ ] **Step 8: Commit**
-
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add trainings and training assignments"
+feat: add training records and the approval trail
 ```
 
 ---
 
-## Task 6: Actions — bulk assign at pagrecord ng natapos
+## Task 7: Approval routing at pagsu-submit
 
 **Files:**
-- Create: `app/Actions/Training/AssignTrainingToEmployees.php`, `app/Actions/Training/RecordTrainingCompletion.php`
-- Test: `tests/Feature/AssignTrainingToEmployeesTest.php`, `tests/Feature/RecordTrainingCompletionTest.php`
+- Create: `app/Workflow/ApprovalRouter.php`, `app/Actions/Training/SubmitTrainingRecord.php`
+- Test: `tests/Feature/ApprovalRouterTest.php`, `tests/Feature/SubmitTrainingRecordTest.php`
 
 **Interfaces:**
-- Consumes: `Training`, `Employee`, `TrainingAssignment`, `User`
+- Consumes: `Employee`, `Section`, `Division`, `ApprovalLevel`, `TrainingRecord`, `TrainingStatus`
 - Produces:
-  - `AssignTrainingToEmployees::handle(Training $training, array $employeeIds, User $assignedBy, ?Carbon $dueDate = null): int` — nagsasauli ng bilang ng aktwal na nagawang assignment
-  - `RecordTrainingCompletion::handle(Training $training, Employee $employee, Carbon $completedOn, User $recordedBy): TrainingAssignment`
+  - `ApprovalRouter::firstLevelFor(Employee $employee): ?ApprovalLevel`
+  - `ApprovalRouter::levelAfter(ApprovalLevel $level, Employee $employee): ?ApprovalLevel`
+  - `ApprovalRouter::approverFor(ApprovalLevel $level, Employee $employee): ?Employee`
+  - `SubmitTrainingRecord::handle(Employee $employee, array $attributes, User $submittedBy): TrainingRecord`
 
-- [ ] **Step 1: Isulat ang failing test para sa bulk assign**
+Tatlong sangay ang routing, at ito ang pinakamadaling masira sa buong sistema:
 
-Gumawa ng `tests/Feature/AssignTrainingToEmployeesTest.php`:
+1. May head ang section → doon magsisimula.
+2. Walang head ang section (25 sa 28) → laktawan, diretso sa division head.
+3. Walang head kahit saan, **o ang empleyado mismo ang head** → walang makakapag-apruba. Nananatiling `pending` na walang `current_level`, at lalabas sa listahan ng HR.
+
+- [ ] **Step 1: Isulat ang failing test para sa router**
+
+Gumawa ng `tests/Feature/ApprovalRouterTest.php`:
 
 ```php
 <?php
 
-use App\Actions\Training\AssignTrainingToEmployees;
+use App\Enums\ApprovalLevel;
+use App\Models\Division;
 use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use App\Models\User;
+use App\Models\Section;
+use App\Workflow\ApprovalRouter;
 
-test('it assigns a training to many employees at once', function () {
-    $training = Training::factory()->create();
-    $employees = Employee::factory()->count(3)->create();
-    $hr = User::factory()->hrAdmin()->create();
+test('it starts at the section head when the section has one', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+    $head = Employee::factory()->for($section)->create();
+    $section->update(['section_head_employee_id' => $head->id]);
 
-    $assigned = app(AssignTrainingToEmployees::class)
-        ->handle($training, $employees->pluck('id')->all(), $hr);
+    $employee = Employee::factory()->for($section)->create();
 
-    expect($assigned)->toBe(3)
-        ->and(TrainingAssignment::count())->toBe(3);
+    expect(app(ApprovalRouter::class)->firstLevelFor($employee))->toBe(ApprovalLevel::SectionHead);
 });
 
-test('running it twice creates no duplicates', function () {
-    $training = Training::factory()->create();
-    $employees = Employee::factory()->count(2)->create();
-    $hr = User::factory()->hrAdmin()->create();
-    $action = app(AssignTrainingToEmployees::class);
+test('it skips to the division head when the section has no head', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create(['section_head_employee_id' => null]);
+    $divisionHead = Employee::factory()->for($section)->create();
+    $division->update(['division_head_employee_id' => $divisionHead->id]);
 
-    $action->handle($training, $employees->pluck('id')->all(), $hr);
-    $secondRun = $action->handle($training, $employees->pluck('id')->all(), $hr);
+    $employee = Employee::factory()->for($section)->create();
 
-    expect($secondRun)->toBe(0)
-        ->and(TrainingAssignment::count())->toBe(2);
+    expect(app(ApprovalRouter::class)->firstLevelFor($employee))->toBe(ApprovalLevel::DivisionHead);
 });
 
-test('separated employees are skipped', function () {
-    $training = Training::factory()->create();
-    $active = Employee::factory()->create();
-    $separated = Employee::factory()->separated()->create();
-    $hr = User::factory()->hrAdmin()->create();
+test('it returns nothing when neither level has a head', function () {
+    $section = Section::factory()->create(['section_head_employee_id' => null]);
+    $employee = Employee::factory()->for($section)->create();
 
-    $assigned = app(AssignTrainingToEmployees::class)
-        ->handle($training, [$active->id, $separated->id], $hr);
-
-    expect($assigned)->toBe(1)
-        ->and(TrainingAssignment::where('employee_id', $separated->id)->exists())->toBeFalse();
+    expect(app(ApprovalRouter::class)->firstLevelFor($employee))->toBeNull();
 });
 
-test('it stores the due date and who assigned it', function () {
-    $training = Training::factory()->create();
+test('an employee never approves their own record', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+    $head = Employee::factory()->for($section)->create();
+    $section->update(['section_head_employee_id' => $head->id]);
+
+    expect(app(ApprovalRouter::class)->firstLevelFor($head))->toBeNull();
+});
+
+test('a section head submitting their own record skips to the division head', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+    $sectionHead = Employee::factory()->for($section)->create();
+    $divisionHead = Employee::factory()->for($section)->create();
+    $section->update(['section_head_employee_id' => $sectionHead->id]);
+    $division->update(['division_head_employee_id' => $divisionHead->id]);
+
+    expect(app(ApprovalRouter::class)->firstLevelFor($sectionHead))->toBe(ApprovalLevel::DivisionHead);
+});
+
+test('after the section head comes the division head', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+    $divisionHead = Employee::factory()->for($section)->create();
+    $division->update(['division_head_employee_id' => $divisionHead->id]);
+
+    $employee = Employee::factory()->for($section)->create();
+
+    expect(app(ApprovalRouter::class)->levelAfter(ApprovalLevel::SectionHead, $employee))
+        ->toBe(ApprovalLevel::DivisionHead);
+});
+
+test('after the section head comes nothing when the division has no head', function () {
+    $section = Section::factory()->create();
+    $employee = Employee::factory()->for($section)->create();
+
+    expect(app(ApprovalRouter::class)->levelAfter(ApprovalLevel::SectionHead, $employee))->toBeNull();
+});
+
+test('the division head is the last level', function () {
     $employee = Employee::factory()->create();
-    $hr = User::factory()->hrAdmin()->create();
 
-    app(AssignTrainingToEmployees::class)
-        ->handle($training, [$employee->id], $hr, now()->addMonth());
+    expect(app(ApprovalRouter::class)->levelAfter(ApprovalLevel::DivisionHead, $employee))->toBeNull();
+});
 
-    $assignment = TrainingAssignment::first();
+test('an inactive head cannot approve', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+    $head = Employee::factory()->inactive()->for($section)->create();
+    $section->update(['section_head_employee_id' => $head->id]);
 
-    expect($assignment->assigned_by)->toBe($hr->id)
-        ->and($assignment->due_date->toDateString())->toBe(now()->addMonth()->toDateString());
+    $employee = Employee::factory()->for($section)->create();
+
+    expect(app(ApprovalRouter::class)->firstLevelFor($employee))->toBeNull();
 });
 ```
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/AssignTrainingToEmployeesTest.php
+php artisan test --compact tests/Feature/ApprovalRouterTest.php
 ```
 
-Inaasahan: FAIL — `Target class [App\Actions\Training\AssignTrainingToEmployees] does not exist`.
+Inaasahan: FAIL — `Target class [App\Workflow\ApprovalRouter] does not exist`.
 
-- [ ] **Step 3: Isulat ang AssignTrainingToEmployees**
+- [ ] **Step 3: Isulat ang router**
 
 ```bash
-php artisan make:class Actions/Training/AssignTrainingToEmployees --no-interaction
+php artisan make:class Workflow/ApprovalRouter --no-interaction
 ```
 
 ```php
 <?php
 
-namespace App\Actions\Training;
+namespace App\Workflow;
 
+use App\Enums\ApprovalLevel;
 use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
-class AssignTrainingToEmployees
+class ApprovalRouter
 {
     /**
-     * Assign one training to many employees at once.
+     * The level that should act first on a record for this employee.
      *
-     * Separated employees and employees who already have the training are
-     * skipped, so the action is safe to repeat.
-     *
-     * @param  array<int, int>  $employeeIds
-     * @return int  the number of assignments actually created
+     * Null means nobody can approve it: neither the section nor the
+     * division has an available head. The record stays pending and
+     * surfaces on the HR "no approver" list.
      */
-    public function handle(Training $training, array $employeeIds, User $assignedBy, ?Carbon $dueDate = null): int
+    public function firstLevelFor(Employee $employee): ?ApprovalLevel
     {
-        $assignable = Employee::query()
-            ->active()
-            ->whereIn('id', $employeeIds)
-            ->whereDoesntHave(
-                'trainingAssignments',
-                fn (Builder $assignment) => $assignment->where('training_id', $training->id),
-            )
-            ->pluck('id');
-
-        if ($assignable->isEmpty()) {
-            return 0;
+        if ($this->approverFor(ApprovalLevel::SectionHead, $employee) instanceof Employee) {
+            return ApprovalLevel::SectionHead;
         }
 
-        return DB::transaction(function () use ($assignable, $training, $assignedBy, $dueDate): int {
-            $now = now();
+        if ($this->approverFor(ApprovalLevel::DivisionHead, $employee) instanceof Employee) {
+            return ApprovalLevel::DivisionHead;
+        }
 
-            TrainingAssignment::insert($assignable->map(fn (int $employeeId): array => [
-                'training_id' => $training->id,
-                'employee_id' => $employeeId,
-                'assigned_by' => $assignedBy->id,
-                'due_date' => $dueDate?->toDateString(),
-                'completed_at' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ])->all());
+        return null;
+    }
 
-            return $assignable->count();
-        });
+    /**
+     * The level that follows the given one.
+     *
+     * Null means the record is fully approved. This differs from
+     * firstLevelFor() returning null, which means unroutable — the two
+     * are told apart by the caller, not by this value.
+     */
+    public function levelAfter(ApprovalLevel $level, Employee $employee): ?ApprovalLevel
+    {
+        if ($level === ApprovalLevel::DivisionHead) {
+            return null;
+        }
+
+        return $this->approverFor(ApprovalLevel::DivisionHead, $employee) instanceof Employee
+            ? ApprovalLevel::DivisionHead
+            : null;
+    }
+
+    /**
+     * The employee designated to decide at the given level, if there is one.
+     *
+     * Nobody may approve their own record, and an inactive head does not count.
+     */
+    public function approverFor(ApprovalLevel $level, Employee $employee): ?Employee
+    {
+        $headId = match ($level) {
+            ApprovalLevel::SectionHead => $employee->section?->section_head_employee_id,
+            ApprovalLevel::DivisionHead => $employee->division?->division_head_employee_id,
+        };
+
+        if ($headId === null || $headId === $employee->getKey()) {
+            return null;
+        }
+
+        return Employee::query()->active()->find($headId);
     }
 }
 ```
@@ -1689,84 +2240,94 @@ class AssignTrainingToEmployees
 - [ ] **Step 4: Patakbuhin ang test**
 
 ```bash
-php artisan test --compact tests/Feature/AssignTrainingToEmployeesTest.php
+php artisan test --compact tests/Feature/ApprovalRouterTest.php
 ```
 
-Inaasahan: PASS, apat na test.
+Inaasahan: PASS, siyam na test.
 
-- [ ] **Step 5: Isulat ang failing test para sa pagrecord ng natapos**
+- [ ] **Step 5: Isulat ang failing test para sa pagsu-submit**
 
-Gumawa ng `tests/Feature/RecordTrainingCompletionTest.php`:
+Gumawa ng `tests/Feature/SubmitTrainingRecordTest.php`:
 
 ```php
 <?php
 
-use App\Actions\Training\RecordTrainingCompletion;
+use App\Actions\Training\SubmitTrainingRecord;
+use App\Enums\ApprovalLevel;
+use App\Enums\LdType;
+use App\Enums\TrainingStatus;
+use App\Models\Division;
 use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
+use App\Models\Section;
 use App\Models\User;
 
-test('it marks an existing assignment as completed', function () {
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04']);
-    $employee = Employee::factory()->create();
-    $hr = User::factory()->hrAdmin()->create();
-    TrainingAssignment::factory()->for($training)->for($employee)->create();
+function submissionAttributes(): array
+{
+    return [
+        'title' => 'Records Management Seminar',
+        'date_start' => '2026-03-02',
+        'date_end' => '2026-03-04',
+        'hours' => 24,
+        'ld_type' => LdType::Technical,
+        'conducted_by' => 'Civil Service Commission',
+        'location' => 'Manila',
+        'registration_fee' => 1500,
+        'tev' => 2000,
+    ];
+}
 
-    $assignment = app(RecordTrainingCompletion::class)
-        ->handle($training, $employee, now()->parse('2026-03-04'), $hr);
+test('a submitted record waits for the section head', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+    $head = Employee::factory()->for($section)->create();
+    $section->update(['section_head_employee_id' => $head->id]);
 
-    expect($assignment->completed_at->toDateString())->toBe('2026-03-04')
-        ->and(TrainingAssignment::count())->toBe(1);
+    $employee = Employee::factory()->for($section)->create();
+    $user = User::factory()->employee()->create();
+
+    $record = app(SubmitTrainingRecord::class)->handle($employee, submissionAttributes(), $user);
+
+    expect($record->status)->toBe(TrainingStatus::Pending)
+        ->and($record->current_level)->toBe(ApprovalLevel::SectionHead)
+        ->and($record->submitted_by)->toBe($user->id)
+        ->and($record->employee_id)->toBe($employee->id);
 });
 
-test('it records attendance for an employee who was never assigned', function () {
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04']);
-    $employee = Employee::factory()->create();
-    $hr = User::factory()->hrAdmin()->create();
+test('a record with no available head is unroutable but still saved', function () {
+    $section = Section::factory()->create(['section_head_employee_id' => null]);
+    $employee = Employee::factory()->for($section)->create();
+    $user = User::factory()->employee()->create();
 
-    app(RecordTrainingCompletion::class)
-        ->handle($training, $employee, now()->parse('2026-03-04'), $hr);
+    $record = app(SubmitTrainingRecord::class)->handle($employee, submissionAttributes(), $user);
 
-    expect(TrainingAssignment::count())->toBe(1)
-        ->and(TrainingAssignment::first()->assigned_by)->toBe($hr->id);
+    expect($record->status)->toBe(TrainingStatus::Pending)
+        ->and($record->current_level)->toBeNull()
+        ->and(App\Models\TrainingRecord::unroutable()->count())->toBe(1);
 });
 
-test('it rejects a completion date in the future', function () {
-    $training = Training::factory()->create(['from_date' => now()->subWeek(), 'to_date' => now()->subDay()]);
+test('hr may submit on behalf of an employee', function () {
     $employee = Employee::factory()->create();
-    $hr = User::factory()->hrAdmin()->create();
+    $hr = User::factory()->hr()->create();
 
-    expect(fn () => app(RecordTrainingCompletion::class)
-        ->handle($training, $employee, now()->addDay(), $hr))
-        ->toThrow(InvalidArgumentException::class);
-});
+    $record = app(SubmitTrainingRecord::class)->handle($employee, submissionAttributes(), $hr);
 
-test('it rejects a completion date before the training started', function () {
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04']);
-    $employee = Employee::factory()->create();
-    $hr = User::factory()->hrAdmin()->create();
-
-    expect(fn () => app(RecordTrainingCompletion::class)
-        ->handle($training, $employee, now()->parse('2026-03-01'), $hr))
-        ->toThrow(InvalidArgumentException::class);
+    expect($record->employee_id)->toBe($employee->id)
+        ->and($record->submitted_by)->toBe($hr->id);
 });
 ```
-
-Ang test na "in the future" ay gumagamit ng relatibong petsa dahil ang hinaharap ay gumagalaw; ang iba ay nakapirming petsa para malinaw ang boundary.
 
 - [ ] **Step 6: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/RecordTrainingCompletionTest.php
+php artisan test --compact tests/Feature/SubmitTrainingRecordTest.php
 ```
 
-Inaasahan: FAIL — wala pa ang klase.
+Inaasahan: FAIL — wala pa ang action.
 
-- [ ] **Step 7: Isulat ang RecordTrainingCompletion**
+- [ ] **Step 7: Isulat ang action**
 
 ```bash
-php artisan make:class Actions/Training/RecordTrainingCompletion --no-interaction
+php artisan make:class Actions/Training/SubmitTrainingRecord --no-interaction
 ```
 
 ```php
@@ -1774,47 +2335,33 @@ php artisan make:class Actions/Training/RecordTrainingCompletion --no-interactio
 
 namespace App\Actions\Training;
 
+use App\Enums\TrainingStatus;
 use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
+use App\Models\TrainingRecord;
 use App\Models\User;
-use Illuminate\Support\Carbon;
-use InvalidArgumentException;
+use App\Workflow\ApprovalRouter;
 
-class RecordTrainingCompletion
+class SubmitTrainingRecord
 {
+    public function __construct(private readonly ApprovalRouter $router) {}
+
     /**
-     * Mark a training as completed by an employee.
+     * Record a training an employee attended and start its approval.
      *
-     * When the employee was never assigned, an already-completed assignment
-     * is created instead. This is how externally attended trainings enter
-     * the system.
+     * When nobody can approve it the record is still saved, pending and
+     * without a level, so HR can see it and designate a head.
      *
-     * @throws InvalidArgumentException when the completion date is impossible
+     * @param  array<string, mixed>  $attributes
      */
-    public function handle(Training $training, Employee $employee, Carbon $completedOn, User $recordedBy): TrainingAssignment
+    public function handle(Employee $employee, array $attributes, User $submittedBy): TrainingRecord
     {
-        if ($completedOn->isFuture()) {
-            throw new InvalidArgumentException('A training cannot be completed in the future.');
-        }
-
-        if ($completedOn->lt($training->from_date)) {
-            throw new InvalidArgumentException('A training cannot be completed before it started.');
-        }
-
-        $assignment = TrainingAssignment::query()->firstOrNew([
-            'training_id' => $training->id,
-            'employee_id' => $employee->id,
+        return TrainingRecord::create([
+            ...$attributes,
+            'employee_id' => $employee->getKey(),
+            'submitted_by' => $submittedBy->getKey(),
+            'status' => TrainingStatus::Pending,
+            'current_level' => $this->router->firstLevelFor($employee),
         ]);
-
-        if ($assignment->assigned_by === null) {
-            $assignment->assigned_by = $recordedBy->id;
-        }
-
-        $assignment->completed_at = $completedOn;
-        $assignment->save();
-
-        return $assignment;
     }
 }
 ```
@@ -1822,203 +2369,307 @@ class RecordTrainingCompletion
 - [ ] **Step 8: Patakbuhin ang test**
 
 ```bash
-php artisan test --compact tests/Feature/RecordTrainingCompletionTest.php
+php artisan test --compact tests/Feature/SubmitTrainingRecordTest.php
 ```
 
-Inaasahan: PASS, apat na test.
+Inaasahan: PASS, tatlong test.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 9: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add training assignment and completion actions"
+```
+feat: route training submissions to the right approver
 ```
 
 ---
 
-## Task 7: Report — mga empleyadong walang training
+## Task 8: Pag-apruba at pagtanggi
 
 **Files:**
-- Create: `app/Reports/EmployeesWithoutTrainingReport.php`
-- Modify: `app/Models/Employee.php` (dagdag na scope)
-- Test: `tests/Feature/EmployeesWithoutTrainingReportTest.php`
+- Create: `app/Actions/Training/DecideOnTrainingRecord.php`, `app/Policies/TrainingRecordPolicy.php`
+- Test: `tests/Feature/DecideOnTrainingRecordTest.php`
 
 **Interfaces:**
-- Consumes: `Employee`, `Training`, `TrainingAssignment`, `User`
+- Consumes: `ApprovalRouter`, `TrainingRecord`, `TrainingApproval`, `ApprovalDecision`
 - Produces:
-  - `Employee::scopeWithoutCompletedTrainingIn(Builder $query, int $year): void`
-  - `new EmployeesWithoutTrainingReport(int $year, ?User $scopedTo = null)` na may `employees(): Collection<int, Employee>`, `countByDivision(): Collection<string, int>`, `total(): int`
+  - `DecideOnTrainingRecord::handle(TrainingRecord $record, User $approver, ApprovalDecision $decision, ?string $remarks = null): TrainingRecord`
+  - `TrainingRecordPolicy` na may `view`, `create`, `decide`
 
 - [ ] **Step 1: Isulat ang failing test**
 
-Gumawa ng `tests/Feature/EmployeesWithoutTrainingReportTest.php`:
+Gumawa ng `tests/Feature/DecideOnTrainingRecordTest.php`:
 
 ```php
 <?php
 
+use App\Actions\Training\DecideOnTrainingRecord;
+use App\Enums\ApprovalDecision;
+use App\Enums\ApprovalLevel;
+use App\Enums\TrainingStatus;
 use App\Models\Division;
 use App\Models\Employee;
 use App\Models\Section;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
+use App\Models\TrainingRecord;
 use App\Models\User;
-use App\Reports\EmployeesWithoutTrainingReport;
 
-test('it lists only employees with no completed training that year', function () {
-    $trained = Employee::factory()->create();
-    Employee::factory()->count(2)->create();
-
-    $training = Training::factory()->create(['from_date' => '2026-05-04', 'to_date' => '2026-05-06']);
-    TrainingAssignment::factory()->for($training)->for($trained)->completed()->create();
-
-    $report = new EmployeesWithoutTrainingReport(2026);
-
-    expect($report->total())->toBe(2)
-        ->and($report->employees()->pluck('id'))->not->toContain($trained->id);
-});
-
-test('an assignment that is not completed does not count as training', function () {
-    $employee = Employee::factory()->create();
-    $training = Training::factory()->create(['from_date' => '2026-05-04', 'to_date' => '2026-05-06']);
-    TrainingAssignment::factory()->for($training)->for($employee)->create();
-
-    expect((new EmployeesWithoutTrainingReport(2026))->total())->toBe(1);
-});
-
-test('a training counts for the year it ended in, not the year it started', function () {
-    $employee = Employee::factory()->create();
-    $training = Training::factory()->create(['from_date' => '2025-12-31', 'to_date' => '2026-01-01']);
-    TrainingAssignment::factory()->for($training)->for($employee)->completed()->create();
-
-    expect((new EmployeesWithoutTrainingReport(2026))->total())->toBe(0)
-        ->and((new EmployeesWithoutTrainingReport(2025))->total())->toBe(1);
-});
-
-test('separated employees are not reported', function () {
-    Employee::factory()->separated()->create();
-
-    expect((new EmployeesWithoutTrainingReport(2026))->total())->toBe(0);
-});
-
-test('it counts the untrained per division', function () {
-    $division = Division::factory()->create(['name' => 'Finance Division']);
-    $section = Section::factory()->for($division)->create();
-    Employee::factory()->count(2)->for($section)->create();
-
-    $counts = (new EmployeesWithoutTrainingReport(2026))->countByDivision();
-
-    expect($counts['Finance Division'])->toBe(2);
-});
-
-test('a section head only sees their own section', function () {
+/**
+ * A section with both heads designated, and one ordinary employee in it.
+ *
+ * @return array{employee: Employee, sectionHead: Employee, divisionHead: Employee}
+ */
+function staffedSection(): array
+{
     $division = Division::factory()->create();
-    $ownSection = Section::factory()->for($division)->create();
-    $otherSection = Section::factory()->for($division)->create();
+    $section = Section::factory()->for($division)->create();
 
-    Employee::factory()->for($otherSection)->create();
+    $sectionHead = Employee::factory()->for($section)->create(['user_id' => User::factory()->sectionHead()]);
+    $divisionHead = Employee::factory()->for($section)->create(['user_id' => User::factory()->divisionHead()]);
 
-    $head = User::factory()->sectionHead()->create();
-    Employee::factory()->for($ownSection)->create(['user_id' => $head->id]);
+    $section->update(['section_head_employee_id' => $sectionHead->id]);
+    $division->update(['division_head_employee_id' => $divisionHead->id]);
 
-    expect((new EmployeesWithoutTrainingReport(2026, $head))->total())->toBe(1);
+    return [
+        'employee' => Employee::factory()->for($section)->create(),
+        'sectionHead' => $sectionHead,
+        'divisionHead' => $divisionHead,
+    ];
+}
+
+test('section head approval advances the record to the division head', function () {
+    ['employee' => $employee, 'sectionHead' => $sectionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    $record = app(DecideOnTrainingRecord::class)
+        ->handle($record, $sectionHead->user, ApprovalDecision::Approved, 'Endorsed.');
+
+    expect($record->status)->toBe(TrainingStatus::Pending)
+        ->and($record->current_level)->toBe(ApprovalLevel::DivisionHead)
+        ->and($record->approvals)->toHaveCount(1);
+});
+
+test('division head approval completes the record', function () {
+    ['employee' => $employee, 'divisionHead' => $divisionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::DivisionHead]);
+
+    $record = app(DecideOnTrainingRecord::class)
+        ->handle($record, $divisionHead->user, ApprovalDecision::Approved);
+
+    expect($record->status)->toBe(TrainingStatus::Approved)
+        ->and($record->current_level)->toBeNull();
+});
+
+test('both approvals are kept in the trail', function () {
+    ['employee' => $employee, 'sectionHead' => $sectionHead, 'divisionHead' => $divisionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+    $action = app(DecideOnTrainingRecord::class);
+
+    $record = $action->handle($record, $sectionHead->user, ApprovalDecision::Approved);
+    $record = $action->handle($record, $divisionHead->user, ApprovalDecision::Approved);
+
+    expect($record->approvals)->toHaveCount(2)
+        ->and($record->approvals->pluck('level')->all())
+        ->toBe([ApprovalLevel::SectionHead, ApprovalLevel::DivisionHead]);
+});
+
+test('a rejection ends the record and keeps the reason', function () {
+    ['employee' => $employee, 'sectionHead' => $sectionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    $record = app(DecideOnTrainingRecord::class)
+        ->handle($record, $sectionHead->user, ApprovalDecision::Rejected, 'Outside the training plan.');
+
+    expect($record->status)->toBe(TrainingStatus::Rejected)
+        ->and($record->current_level)->toBeNull()
+        ->and($record->rejection_reason)->toBe('Outside the training plan.');
+});
+
+test('an already decided record cannot be decided again', function () {
+    ['employee' => $employee, 'sectionHead' => $sectionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->approved()->create();
+
+    expect(fn () => app(DecideOnTrainingRecord::class)
+        ->handle($record, $sectionHead->user, ApprovalDecision::Approved))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('an unroutable record cannot be decided', function () {
+    ['employee' => $employee, 'sectionHead' => $sectionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => null]);
+
+    expect(fn () => app(DecideOnTrainingRecord::class)
+        ->handle($record, $sectionHead->user, ApprovalDecision::Approved))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('only the designated head at the current level may decide', function () {
+    ['employee' => $employee, 'sectionHead' => $sectionHead, 'divisionHead' => $divisionHead] = staffedSection();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    expect($sectionHead->user->can('decide', $record))->toBeTrue()
+        ->and($divisionHead->user->can('decide', $record))->toBeFalse()
+        ->and(User::factory()->hr()->create()->can('decide', $record))->toBeFalse();
 });
 ```
+
+Ang huling test ang nagtatakda ng desisyong walang override ang HR: hindi sila makakapag-apruba kahit nakikita nila ang lahat.
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/EmployeesWithoutTrainingReportTest.php
+php artisan test --compact tests/Feature/DecideOnTrainingRecordTest.php
 ```
 
-Inaasahan: FAIL — wala pa ang klase.
+Inaasahan: FAIL — wala pa ang action.
 
-- [ ] **Step 3: Idagdag ang scope sa Employee**
-
-Sa `app/Models/Employee.php`:
-
-```php
-/**
- * Employees with no completed training that ended in the given year.
- */
-public function scopeWithoutCompletedTrainingIn(Builder $query, int $year): void
-{
-    $query->whereDoesntHave('trainingAssignments', function (Builder $assignment) use ($year): void {
-        $assignment->completed()
-            ->whereHas('training', fn (Builder $training) => $training->heldIn($year));
-    });
-}
-```
-
-- [ ] **Step 4: Isulat ang report**
+- [ ] **Step 3: Isulat ang action**
 
 ```bash
-php artisan make:class Reports/EmployeesWithoutTrainingReport --no-interaction
+php artisan make:class Actions/Training/DecideOnTrainingRecord --no-interaction
 ```
 
 ```php
 <?php
 
-namespace App\Reports;
+namespace App\Actions\Training;
 
-use App\Models\Employee;
+use App\Enums\ApprovalDecision;
+use App\Enums\TrainingStatus;
+use App\Models\TrainingRecord;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
+use App\Workflow\ApprovalRouter;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
-class EmployeesWithoutTrainingReport
+class DecideOnTrainingRecord
 {
-    public function __construct(
-        private readonly int $year,
-        private readonly ?User $scopedTo = null,
-    ) {}
+    public function __construct(private readonly ApprovalRouter $router) {}
 
     /**
-     * Active employees with no completed training held in the report year.
+     * Record one approval decision and move the record along.
      *
-     * @return Collection<int, Employee>
-     */
-    public function employees(): Collection
-    {
-        return $this->query()
-            ->with(['section.division', 'position'])
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->get();
-    }
-
-    /**
-     * Head count of untrained employees per division name.
+     * Approval at the section level advances to the division head, unless
+     * the division has no head, in which case the record is complete.
+     * Rejection ends it at whatever level rejected.
      *
-     * @return Collection<string, int>
+     * @throws InvalidArgumentException when the record is not awaiting a decision
      */
-    public function countByDivision(): Collection
-    {
-        return $this->employees()
-            ->groupBy(fn (Employee $employee): string => $employee->section->division->name)
-            ->map(fn (Collection $group): int => $group->count())
-            ->sortKeys();
-    }
-
-    public function total(): int
-    {
-        return $this->query()->count();
-    }
-
-    /**
-     * @return Builder<Employee>
-     */
-    private function query(): Builder
-    {
-        $query = Employee::query()
-            ->active()
-            ->withoutCompletedTrainingIn($this->year);
-
-        if ($this->scopedTo instanceof User) {
-            $query->visibleTo($this->scopedTo);
+    public function handle(
+        TrainingRecord $record,
+        User $approver,
+        ApprovalDecision $decision,
+        ?string $remarks = null,
+    ): TrainingRecord {
+        if ($record->status !== TrainingStatus::Pending) {
+            throw new InvalidArgumentException('Only a pending record can be decided on.');
         }
 
-        return $query;
+        $level = $record->current_level;
+
+        if ($level === null) {
+            throw new InvalidArgumentException('This record has no approver assigned.');
+        }
+
+        DB::transaction(function () use ($record, $approver, $decision, $remarks, $level): void {
+            $record->approvals()->create([
+                'level' => $level,
+                'approver_user_id' => $approver->getKey(),
+                'decision' => $decision,
+                'remarks' => $remarks,
+                'decided_at' => now(),
+            ]);
+
+            if ($decision === ApprovalDecision::Rejected) {
+                $record->update([
+                    'status' => TrainingStatus::Rejected,
+                    'current_level' => null,
+                    'rejection_reason' => $remarks,
+                ]);
+
+                return;
+            }
+
+            $next = $this->router->levelAfter($level, $record->employee);
+
+            $record->update([
+                'status' => $next === null ? TrainingStatus::Approved : TrainingStatus::Pending,
+                'current_level' => $next,
+            ]);
+        });
+
+        return $record->refresh()->load('approvals');
+    }
+}
+```
+
+- [ ] **Step 4: Isulat ang policy**
+
+```bash
+php artisan make:policy TrainingRecordPolicy --model=TrainingRecord --no-interaction
+```
+
+Palitan ang buong laman:
+
+```php
+<?php
+
+namespace App\Policies;
+
+use App\Enums\TrainingStatus;
+use App\Models\Employee;
+use App\Models\TrainingRecord;
+use App\Models\User;
+use App\Workflow\ApprovalRouter;
+
+class TrainingRecordPolicy
+{
+    public function __construct(private readonly ApprovalRouter $router) {}
+
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
+    public function view(User $user, TrainingRecord $record): bool
+    {
+        return Employee::query()->visibleTo($user)->whereKey($record->employee_id)->exists();
+    }
+
+    /**
+     * Anyone may record a training. Whose record it is decides the rest.
+     */
+    public function create(User $user): bool
+    {
+        return true;
+    }
+
+    /**
+     * Submitting for somebody else is an HR and admin matter.
+     */
+    public function createFor(User $user, Employee $employee): bool
+    {
+        return $user->isAdminOrHr() || $user->employee?->is($employee) === true;
+    }
+
+    /**
+     * Only the designated head at the record's current level may decide.
+     *
+     * HR and admin see everything but never decide — every record goes
+     * through both steps.
+     */
+    public function decide(User $user, TrainingRecord $record): bool
+    {
+        if ($record->status !== TrainingStatus::Pending || $record->current_level === null) {
+            return false;
+        }
+
+        $employee = $user->employee;
+
+        if ($employee === null) {
+            return false;
+        }
+
+        $approver = $this->router->approverFor($record->current_level, $record->employee);
+
+        return $approver instanceof Employee && $approver->is($employee);
     }
 }
 ```
@@ -2026,380 +2677,186 @@ class EmployeesWithoutTrainingReport
 - [ ] **Step 5: Patakbuhin ang test**
 
 ```bash
-php artisan test --compact tests/Feature/EmployeesWithoutTrainingReportTest.php
+php artisan test --compact tests/Feature/DecideOnTrainingRecordTest.php
 ```
 
-Inaasahan: PASS, anim na test.
+Inaasahan: PASS, pitong test.
 
-- [ ] **Step 6: Commit**
-
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add employees-without-training report"
-```
-
----
-
-## Task 8: Report — buod ng aktibidad kada buwan
-
-**Files:**
-- Create: `app/Reports/MonthlyTrainingActivityReport.php`
-- Test: `tests/Feature/MonthlyTrainingActivityReportTest.php`
-
-**Interfaces:**
-- Consumes: `TrainingAssignment`, `Training`, `Employee`, `User`
-- Produces: `new MonthlyTrainingActivityReport(int $year, int $month, ?User $scopedTo = null)` na may:
-  - `trainings(): Collection<int, array{training: Training, participants: int, hours: int}>`
-  - `totals(): array{trainings: int, participants: int, hours: int}`
-  - `byDivision(): Collection<string, array{participants: int, hours: int}>`
-
-Ang buong report ay hinuhugot sa **natapos na assignment**, hindi sa lahat ng training. Ang training na walang naitalang kalahok ay hindi lumalabas — aktibidad ang sinusukat nito, hindi katalogo. Ganito rin gumagana ang scoping: ang division head ay nakakakita lang ng training na dinaluhan ng tao nila.
-
-- [ ] **Step 1: Isulat ang failing test**
-
-Gumawa ng `tests/Feature/MonthlyTrainingActivityReportTest.php`:
-
-```php
-<?php
-
-use App\Models\Division;
-use App\Models\Employee;
-use App\Models\Section;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use App\Reports\MonthlyTrainingActivityReport;
-
-test('it totals trainings, participants and hours for the month', function () {
-    $training = Training::factory()->create([
-        'from_date' => '2026-03-02',
-        'to_date' => '2026-03-04',
-        'hours' => 24,
-    ]);
-    $employees = Employee::factory()->count(3)->create();
-
-    foreach ($employees as $employee) {
-        TrainingAssignment::factory()->for($training)->for($employee)->completed()->create();
-    }
-
-    $totals = (new MonthlyTrainingActivityReport(2026, 3))->totals();
-
-    expect($totals['trainings'])->toBe(1)
-        ->and($totals['participants'])->toBe(3)
-        ->and($totals['hours'])->toBe(72);
-});
-
-test('it ignores trainings from other months', function () {
-    $march = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04', 'hours' => 8]);
-    $april = Training::factory()->create(['from_date' => '2026-04-02', 'to_date' => '2026-04-04', 'hours' => 8]);
-
-    TrainingAssignment::factory()->for($march)->completed()->create();
-    TrainingAssignment::factory()->for($april)->completed()->create();
-
-    expect((new MonthlyTrainingActivityReport(2026, 3))->totals()['trainings'])->toBe(1);
-});
-
-test('it ignores assignments that were never completed', function () {
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04', 'hours' => 8]);
-    TrainingAssignment::factory()->for($training)->create();
-
-    expect((new MonthlyTrainingActivityReport(2026, 3))->totals()['participants'])->toBe(0);
-});
-
-test('it groups participants and hours by division', function () {
-    $finance = Division::factory()->create(['name' => 'Finance Division']);
-    $operations = Division::factory()->create(['name' => 'Operations Division']);
-    $financeSection = Section::factory()->for($finance)->create();
-    $operationsSection = Section::factory()->for($operations)->create();
-
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04', 'hours' => 16]);
-
-    TrainingAssignment::factory()->for($training)
-        ->for(Employee::factory()->for($financeSection))->completed()->create();
-    TrainingAssignment::factory()->for($training)
-        ->for(Employee::factory()->for($financeSection))->completed()->create();
-    TrainingAssignment::factory()->for($training)
-        ->for(Employee::factory()->for($operationsSection))->completed()->create();
-
-    $byDivision = (new MonthlyTrainingActivityReport(2026, 3))->byDivision();
-
-    expect($byDivision['Finance Division'])->toBe(['participants' => 2, 'hours' => 32])
-        ->and($byDivision['Operations Division'])->toBe(['participants' => 1, 'hours' => 16]);
-});
-```
-
-- [ ] **Step 2: Patakbuhin para makitang bumagsak**
-
-```bash
-php artisan test --compact tests/Feature/MonthlyTrainingActivityReportTest.php
-```
-
-Inaasahan: FAIL — wala pa ang klase.
-
-- [ ] **Step 3: Isulat ang report**
-
-```bash
-php artisan make:class Reports/MonthlyTrainingActivityReport --no-interaction
-```
-
-```php
-<?php
-
-namespace App\Reports;
-
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
-
-class MonthlyTrainingActivityReport
-{
-    /**
-     * @var Collection<int, TrainingAssignment>|null
-     */
-    private ?Collection $assignments = null;
-
-    public function __construct(
-        private readonly int $year,
-        private readonly int $month,
-        private readonly ?User $scopedTo = null,
-    ) {}
-
-    /**
-     * Trainings attended during the month, with attendance counts.
-     *
-     * @return Collection<int, array{training: Training, participants: int, hours: int}>
-     */
-    public function trainings(): Collection
-    {
-        return $this->completedAssignments()
-            ->groupBy('training_id')
-            ->map(function (Collection $group): array {
-                $training = $group->first()->training;
-
-                return [
-                    'training' => $training,
-                    'participants' => $group->count(),
-                    'hours' => $training->hours * $group->count(),
-                ];
-            })
-            ->sortBy(fn (array $row): string => $row['training']->from_date->toDateString())
-            ->values();
-    }
-
-    /**
-     * @return array{trainings: int, participants: int, hours: int}
-     */
-    public function totals(): array
-    {
-        $rows = $this->trainings();
-
-        return [
-            'trainings' => $rows->count(),
-            'participants' => (int) $rows->sum('participants'),
-            'hours' => (int) $rows->sum('hours'),
-        ];
-    }
-
-    /**
-     * Attendance and training hours per division name.
-     *
-     * @return Collection<string, array{participants: int, hours: int}>
-     */
-    public function byDivision(): Collection
-    {
-        return $this->completedAssignments()
-            ->groupBy(fn (TrainingAssignment $assignment): string => $assignment->employee->section->division->name)
-            ->map(fn (Collection $group): array => [
-                'participants' => $group->count(),
-                'hours' => (int) $group->sum(fn (TrainingAssignment $assignment): int => $assignment->training->hours),
-            ])
-            ->sortKeys();
-    }
-
-    /**
-     * Every completed assignment for a training that ended in the report month.
-     *
-     * @return Collection<int, TrainingAssignment>
-     */
-    private function completedAssignments(): Collection
-    {
-        if ($this->assignments instanceof Collection) {
-            return $this->assignments;
-        }
-
-        $query = TrainingAssignment::query()
-            ->completed()
-            ->whereHas('training', fn (Builder $training) => $training->heldDuring($this->year, $this->month))
-            ->with(['training', 'employee.section.division']);
-
-        if ($this->scopedTo instanceof User) {
-            $query->whereHas('employee', fn (Builder $employee) => $employee->visibleTo($this->scopedTo));
-        }
-
-        return $this->assignments = $query->get();
-    }
-}
-```
-
-- [ ] **Step 4: Patakbuhin ang test**
-
-```bash
-php artisan test --compact tests/Feature/MonthlyTrainingActivityReportTest.php
-```
-
-Inaasahan: PASS, apat na test.
-
-- [ ] **Step 5: Patakbuhin ang buong suite**
+- [ ] **Step 6: Patakbuhin ang buong suite**
 
 ```bash
 php artisan test --compact
 ```
 
-Inaasahan: PASS lahat. Tapos na ang buong backend; UI na ang natitira.
+Inaasahan: PASS lahat. Buo na ang backend; UI na ang natitira.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add monthly training activity report"
+```
+feat: approve and reject training records
 ```
 
 ---
-## Livewire page conventions (basahin bago ang Task 9)
-
-Bawat page ay isang single-file component. Ang hugis, batay sa `resources/views/pages/settings/⚡profile.blade.php`:
-
-```blade
-<?php
-
-use Livewire\Attributes\Title;
-use Livewire\Component;
-
-new #[Title('Page title')] class extends Component {
-    public string $example = '';
-
-    public function save(): void
-    {
-        //
-    }
-}; ?>
-
-<div>
-    {{-- markup dito --}}
-</div>
-```
-
-Mahahalagang tuntunin:
-
-- Ang file ay `resources/views/pages/<folder>/⚡<name>.blade.php`, tinutukoy bilang `pages::<folder>.<name>`.
-- **Huwag ibalot ang page sa `<x-layouts::app>`.** Ang default na `component_layout` ng Livewire ay `layouts::app` at awtomatiko itong nilalapat ng `Route::livewire()`. Nasa layout na ang `<flux:main>`.
-- Isang root element lang ang markup.
-- Ang mga route parameter ay ipinapasa sa `mount()`.
-- Sa test: `Livewire::test('pages::employees.index')`.
-
----
-
-## Task 9: Setup screens — divisions, sections, positions
+## Task 9: Training screens — sarili, pagsu-submit, at detalye
 
 **Files:**
-- Create: `resources/views/pages/setup/⚡divisions.blade.php`, `⚡sections.blade.php`, `⚡positions.blade.php`
+- Create: `resources/views/pages/trainings/⚡mine.blade.php`, `⚡form.blade.php`, `⚡show.blade.php`
 - Modify: `routes/web.php`
-- Test: `tests/Feature/SetupScreensTest.php`
+- Test: `tests/Feature/TrainingScreensTest.php`
 
 **Interfaces:**
-- Consumes: `Division`, `Section`, `Position`, `User::isHrAdmin()`
-- Produces: mga route na `setup.divisions`, `setup.sections`, `setup.positions`
-
-Ang reference data ay walang policy class. Isang linyang `abort_unless(auth()->user()->isHrAdmin(), 403)` sa `mount()` at sa bawat mutating action ang ginagamit — mas kaunti kaysa tatlong halos magkaparehong policy class para sa tatlong table na HR lang naman ang humahawak.
+- Consumes: `SubmitTrainingRecord`, `TrainingRecord`, `TrainingRecordPolicy`, `LdType`
+- Produces: mga route na `trainings.mine`, `trainings.create`, `trainings.show`
 
 - [ ] **Step 1: Isulat ang failing test**
 
-Gumawa ng `tests/Feature/SetupScreensTest.php`:
+Gumawa ng `tests/Feature/TrainingScreensTest.php`:
 
 ```php
 <?php
 
-use App\Models\Division;
-use App\Models\Position;
-use App\Models\Section;
+use App\Enums\ApprovalLevel;
+use App\Enums\LdType;
+use App\Models\Employee;
+use App\Models\TrainingApproval;
+use App\Models\TrainingRecord;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('an hr admin can add a division', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+function actingAsEmployee(): Employee
+{
+    $user = User::factory()->employee()->create();
+    $employee = Employee::factory()->create(['user_id' => $user->id]);
+    test()->actingAs($user);
 
-    Livewire::test('pages::setup.divisions')
-        ->set('name', 'Finance and Administrative Division')
-        ->set('code', 'FAD')
+    return $employee;
+}
+
+test('an employee can record a training for themselves', function () {
+    $employee = actingAsEmployee();
+
+    Livewire::test('pages::trainings.form')
+        ->set('employeeId', $employee->id)
+        ->set('title', 'Records Management Seminar')
+        ->set('date_start', '2026-03-02')
+        ->set('date_end', '2026-03-04')
+        ->set('hours', 24)
+        ->set('ld_type', LdType::Technical->value)
+        ->set('conducted_by', 'Civil Service Commission')
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(Division::where('code', 'FAD')->exists())->toBeTrue();
+    expect(TrainingRecord::where('employee_id', $employee->id)->count())->toBe(1);
 });
 
-test('division codes must be unique', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-    Division::factory()->create(['code' => 'FAD']);
+test('an other type must carry its own text', function () {
+    $employee = actingAsEmployee();
 
-    Livewire::test('pages::setup.divisions')
-        ->set('name', 'Another Division')
-        ->set('code', 'FAD')
+    Livewire::test('pages::trainings.form')
+        ->set('employeeId', $employee->id)
+        ->set('title', 'Annual Convention')
+        ->set('date_start', '2026-03-02')
+        ->set('date_end', '2026-03-04')
+        ->set('hours', 8)
+        ->set('ld_type', LdType::Other->value)
+        ->set('ld_type_other', '')
+        ->set('conducted_by', 'PHA')
         ->call('save')
-        ->assertHasErrors('code');
+        ->assertHasErrors('ld_type_other');
 });
 
-test('an hr admin can add a section under a division', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-    $division = Division::factory()->create();
+test('the end date cannot come before the start date', function () {
+    $employee = actingAsEmployee();
 
-    Livewire::test('pages::setup.sections')
-        ->set('divisionId', $division->id)
-        ->set('name', 'Human Resource Section')
-        ->set('code', 'HRS')
+    Livewire::test('pages::trainings.form')
+        ->set('employeeId', $employee->id)
+        ->set('title', 'Records Management Seminar')
+        ->set('date_start', '2026-03-04')
+        ->set('date_end', '2026-03-02')
+        ->set('hours', 24)
+        ->set('ld_type', LdType::Technical->value)
+        ->set('conducted_by', 'Civil Service Commission')
+        ->call('save')
+        ->assertHasErrors('date_end');
+});
+
+test('hr can record a training for somebody else', function () {
+    $this->actingAs(User::factory()->hr()->create());
+    $employee = Employee::factory()->create();
+
+    Livewire::test('pages::trainings.form')
+        ->set('employeeId', $employee->id)
+        ->set('title', 'Records Management Seminar')
+        ->set('date_start', '2026-03-02')
+        ->set('date_end', '2026-03-04')
+        ->set('hours', 24)
+        ->set('ld_type', LdType::Technical->value)
+        ->set('conducted_by', 'Civil Service Commission')
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(Section::where('code', 'HRS')->first()->division_id)->toBe($division->id);
+    expect(TrainingRecord::where('employee_id', $employee->id)->count())->toBe(1);
 });
 
-test('an hr admin can add a position', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('an employee cannot record a training for somebody else', function () {
+    actingAsEmployee();
+    $other = Employee::factory()->create();
 
-    Livewire::test('pages::setup.positions')
-        ->set('title', 'Administrative Officer V')
-        ->set('salaryGrade', 18)
+    Livewire::test('pages::trainings.form')
+        ->set('employeeId', $other->id)
+        ->set('title', 'Records Management Seminar')
+        ->set('date_start', '2026-03-02')
+        ->set('date_end', '2026-03-04')
+        ->set('hours', 24)
+        ->set('ld_type', LdType::Technical->value)
+        ->set('conducted_by', 'Civil Service Commission')
         ->call('save')
-        ->assertHasNoErrors();
-
-    expect(Position::where('title', 'Administrative Officer V')->first()->salary_grade)->toBe(18);
+        ->assertForbidden();
 });
 
-test('a section head cannot open the setup screens', function () {
-    $this->actingAs(User::factory()->sectionHead()->create());
+test('my trainings lists only my own records', function () {
+    $employee = actingAsEmployee();
+    TrainingRecord::factory()->for($employee)->create(['title' => 'Mine Seminar']);
+    TrainingRecord::factory()->create(['title' => 'Somebody Else Seminar']);
 
-    $this->get(route('setup.divisions'))->assertForbidden();
+    Livewire::test('pages::trainings.mine')
+        ->assertSee('Mine Seminar')
+        ->assertDontSee('Somebody Else Seminar');
+});
+
+test('the detail page shows the approval trail', function () {
+    $employee = actingAsEmployee();
+    $record = TrainingRecord::factory()->for($employee)->create();
+    TrainingApproval::factory()->for($record)->create([
+        'level' => ApprovalLevel::SectionHead,
+        'remarks' => 'Endorsed by the section.',
+    ]);
+
+    $this->get(route('trainings.show', $record))
+        ->assertOk()
+        ->assertSee('Endorsed by the section.');
 });
 ```
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/SetupScreensTest.php
+php artisan test --compact tests/Feature/TrainingScreensTest.php
 ```
 
-Inaasahan: FAIL — walang route na `setup.divisions`.
+Inaasahan: FAIL — walang component na `pages::trainings.form`.
 
-- [ ] **Step 3: Gawin ang divisions page**
+- [ ] **Step 3: Gawin ang submission form**
 
-Gumawa ng `resources/views/pages/setup/⚡divisions.blade.php`:
+Gumawa ng `resources/views/pages/trainings/⚡form.blade.php`:
 
 ```blade
 <?php
 
-use App\Models\Division;
+use App\Actions\Training\SubmitTrainingRecord;
+use App\Enums\LdType;
+use App\Models\Employee;
+use App\Models\TrainingRecord;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -2407,376 +2864,238 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Divisions')] class extends Component {
-    public ?int $editingId = null;
-
-    public string $name = '';
-
-    public string $code = '';
-
-    public function mount(): void
-    {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-    }
-
-    /**
-     * @return Collection<int, Division>
-     */
-    #[Computed]
-    public function divisions(): Collection
-    {
-        return Division::query()->withCount('sections')->orderBy('name')->get();
-    }
-
-    public function edit(int $id): void
-    {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-
-        $division = Division::findOrFail($id);
-
-        $this->editingId = $division->id;
-        $this->name = $division->name;
-        $this->code = $division->code;
-    }
-
-    public function save(): void
-    {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-
-        $validated = $this->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:20', Rule::unique('divisions', 'code')->ignore($this->editingId)],
-        ]);
-
-        Division::updateOrCreate(['id' => $this->editingId], $validated);
-
-        $this->resetForm();
-        unset($this->divisions);
-
-        Flux::toast(variant: 'success', text: __('Division saved.'));
-    }
-
-    public function resetForm(): void
-    {
-        $this->reset('editingId', 'name', 'code');
-        $this->resetValidation();
-    }
-}; ?>
-
-<div class="space-y-6">
-    <flux:heading size="xl">{{ __('Divisions') }}</flux:heading>
-
-    <flux:card>
-        <form wire:submit="save" class="flex flex-col gap-4 md:flex-row md:items-end">
-            <flux:input wire:model="name" :label="__('Name')" class="flex-1" required />
-            <flux:input wire:model="code" :label="__('Code')" class="md:w-40" required />
-
-            <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">
-                    {{ $editingId ? __('Update') : __('Add') }}
-                </flux:button>
-
-                @if ($editingId)
-                    <flux:button type="button" variant="ghost" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
-                @endif
-            </div>
-        </form>
-    </flux:card>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Name') }}</flux:table.column>
-            <flux:table.column>{{ __('Code') }}</flux:table.column>
-            <flux:table.column>{{ __('Sections') }}</flux:table.column>
-            <flux:table.column />
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->divisions as $division)
-                <flux:table.row :key="$division->id">
-                    <flux:table.cell>{{ $division->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $division->code }}</flux:table.cell>
-                    <flux:table.cell>{{ $division->sections_count }}</flux:table.cell>
-                    <flux:table.cell>
-                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $division->id }})">
-                            {{ __('Edit') }}
-                        </flux:button>
-                    </flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="4">{{ __('No divisions yet.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-</div>
-```
-
-- [ ] **Step 4: Gawin ang sections page**
-
-Gumawa ng `resources/views/pages/setup/⚡sections.blade.php`:
-
-```blade
-<?php
-
-use App\Models\Division;
-use App\Models\Section;
-use Flux\Flux;
-use Illuminate\Support\Collection;
-use Illuminate\Validation\Rule;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Title;
-use Livewire\Component;
-
-new #[Title('Sections')] class extends Component {
-    public ?int $editingId = null;
-
-    public ?int $divisionId = null;
-
-    public string $name = '';
-
-    public string $code = '';
-
-    public function mount(): void
-    {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-    }
-
-    /**
-     * @return Collection<int, Section>
-     */
-    #[Computed]
-    public function sections(): Collection
-    {
-        return Section::query()->with('division')->withCount('employees')->orderBy('name')->get();
-    }
-
-    /**
-     * @return Collection<int, Division>
-     */
-    #[Computed]
-    public function divisions(): Collection
-    {
-        return Division::query()->orderBy('name')->get();
-    }
-
-    public function edit(int $id): void
-    {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-
-        $section = Section::findOrFail($id);
-
-        $this->editingId = $section->id;
-        $this->divisionId = $section->division_id;
-        $this->name = $section->name;
-        $this->code = $section->code;
-    }
-
-    public function save(): void
-    {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-
-        $validated = $this->validate([
-            'divisionId' => ['required', 'exists:divisions,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:20', Rule::unique('sections', 'code')->ignore($this->editingId)],
-        ]);
-
-        Section::updateOrCreate(['id' => $this->editingId], [
-            'division_id' => $validated['divisionId'],
-            'name' => $validated['name'],
-            'code' => $validated['code'],
-        ]);
-
-        $this->resetForm();
-        unset($this->sections);
-
-        Flux::toast(variant: 'success', text: __('Section saved.'));
-    }
-
-    public function resetForm(): void
-    {
-        $this->reset('editingId', 'divisionId', 'name', 'code');
-        $this->resetValidation();
-    }
-}; ?>
-
-<div class="space-y-6">
-    <flux:heading size="xl">{{ __('Sections') }}</flux:heading>
-
-    <flux:card>
-        <form wire:submit="save" class="flex flex-col gap-4 md:flex-row md:items-end">
-            <flux:select wire:model="divisionId" :label="__('Division')" class="flex-1" required>
-                <flux:select.option value="">{{ __('Select a division') }}</flux:select.option>
-                @foreach ($this->divisions as $division)
-                    <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-
-            <flux:input wire:model="name" :label="__('Name')" class="flex-1" required />
-            <flux:input wire:model="code" :label="__('Code')" class="md:w-40" required />
-
-            <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">
-                    {{ $editingId ? __('Update') : __('Add') }}
-                </flux:button>
-
-                @if ($editingId)
-                    <flux:button type="button" variant="ghost" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
-                @endif
-            </div>
-        </form>
-    </flux:card>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Section') }}</flux:table.column>
-            <flux:table.column>{{ __('Division') }}</flux:table.column>
-            <flux:table.column>{{ __('Code') }}</flux:table.column>
-            <flux:table.column>{{ __('Employees') }}</flux:table.column>
-            <flux:table.column />
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->sections as $section)
-                <flux:table.row :key="$section->id">
-                    <flux:table.cell>{{ $section->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $section->division->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $section->code }}</flux:table.cell>
-                    <flux:table.cell>{{ $section->employees_count }}</flux:table.cell>
-                    <flux:table.cell>
-                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $section->id }})">
-                            {{ __('Edit') }}
-                        </flux:button>
-                    </flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('No sections yet.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-</div>
-```
-
-- [ ] **Step 5: Gawin ang positions page**
-
-Gumawa ng `resources/views/pages/setup/⚡positions.blade.php`:
-
-```blade
-<?php
-
-use App\Models\Position;
-use Flux\Flux;
-use Illuminate\Support\Collection;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Title;
-use Livewire\Component;
-
-new #[Title('Positions')] class extends Component {
-    public ?int $editingId = null;
+new #[Title('Record a training')] class extends Component {
+    public ?int $employeeId = null;
 
     public string $title = '';
 
-    public ?int $salaryGrade = null;
+    public string $date_start = '';
+
+    public string $date_end = '';
+
+    public ?int $hours = null;
+
+    public string $ld_type = '';
+
+    public string $ld_type_other = '';
+
+    public string $conducted_by = '';
+
+    public string $location = '';
+
+    public ?float $expenses = null;
+
+    public ?float $registration_fee = null;
+
+    public ?float $tev = null;
+
+    public ?float $cpd_units = null;
 
     public function mount(): void
     {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
+        $this->employeeId = auth()->user()->employee?->getKey();
     }
 
     /**
-     * @return Collection<int, Position>
+     * Only HR and admin choose somebody else; everyone else records their own.
      */
     #[Computed]
-    public function positions(): Collection
+    public function canChooseEmployee(): bool
     {
-        return Position::query()->withCount('employees')->orderBy('title')->get();
+        return auth()->user()->isAdminOrHr();
     }
 
-    public function edit(int $id): void
+    /**
+     * @return Collection<int, Employee>
+     */
+    #[Computed]
+    public function employees(): Collection
     {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-
-        $position = Position::findOrFail($id);
-
-        $this->editingId = $position->id;
-        $this->title = $position->title;
-        $this->salaryGrade = $position->salary_grade;
+        return Employee::query()->active()->orderBy('last_name')->get();
     }
 
     public function save(): void
     {
-        abort_unless(auth()->user()->isHrAdmin(), 403);
-
         $validated = $this->validate([
+            'employeeId' => ['required', 'exists:employees,id'],
             'title' => ['required', 'string', 'max:255'],
-            'salaryGrade' => ['nullable', 'integer', 'between:1,33'],
+            'date_start' => ['required', 'date'],
+            'date_end' => ['required', 'date', 'after_or_equal:date_start'],
+            'hours' => ['required', 'integer', 'min:1', 'max:9999'],
+            'ld_type' => ['required', Rule::enum(LdType::class)],
+            'ld_type_other' => ['nullable', 'string', 'max:255', Rule::requiredIf($this->ld_type === LdType::Other->value)],
+            'conducted_by' => ['required', 'string', 'max:255'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'expenses' => ['nullable', 'numeric', 'min:0'],
+            'registration_fee' => ['nullable', 'numeric', 'min:0'],
+            'tev' => ['nullable', 'numeric', 'min:0'],
+            'cpd_units' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        Position::updateOrCreate(['id' => $this->editingId], [
-            'title' => $validated['title'],
-            'salary_grade' => $validated['salaryGrade'],
-        ]);
+        $employee = Employee::findOrFail($validated['employeeId']);
 
-        $this->resetForm();
-        unset($this->positions);
+        $this->authorize('createFor', [TrainingRecord::class, $employee]);
 
-        Flux::toast(variant: 'success', text: __('Position saved.'));
-    }
+        $record = app(SubmitTrainingRecord::class)->handle(
+            $employee,
+            [
+                'title' => $validated['title'],
+                'date_start' => $validated['date_start'],
+                'date_end' => $validated['date_end'],
+                'hours' => $validated['hours'],
+                'ld_type' => $validated['ld_type'],
+                'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
+                'conducted_by' => $validated['conducted_by'],
+                'location' => $validated['location'] ?: null,
+                'expenses' => $validated['expenses'],
+                'registration_fee' => $validated['registration_fee'],
+                'tev' => $validated['tev'],
+                'cpd_units' => $validated['cpd_units'],
+            ],
+            auth()->user(),
+        );
 
-    public function resetForm(): void
-    {
-        $this->reset('editingId', 'title', 'salaryGrade');
-        $this->resetValidation();
+        Flux::toast(variant: 'success', text: __('Training submitted for approval.'));
+
+        $this->redirectRoute('trainings.show', $record, navigate: true);
     }
 }; ?>
 
 <div class="space-y-6">
-    <flux:heading size="xl">{{ __('Positions') }}</flux:heading>
+    <flux:heading size="xl">{{ __('Record a training') }}</flux:heading>
 
     <flux:card>
-        <form wire:submit="save" class="flex flex-col gap-4 md:flex-row md:items-end">
-            <flux:input wire:model="title" :label="__('Title')" class="flex-1" required />
-            <flux:input wire:model="salaryGrade" :label="__('Salary grade')" type="number" min="1" max="33" class="md:w-40" />
+        <form wire:submit="save" class="space-y-6">
+            @if ($this->canChooseEmployee)
+                <flux:select wire:model="employeeId" :label="__('Employee')" required>
+                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
+                    @foreach ($this->employees as $employee)
+                        <flux:select.option :value="$employee->id">
+                            {{ $employee->full_name }} — {{ $employee->employee_number }}
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
+
+            <flux:input wire:model="title" :label="__('Title of learning and development intervention')" required />
+
+            <div class="grid gap-4 md:grid-cols-3">
+                <flux:input wire:model="date_start" :label="__('From')" type="date" required />
+                <flux:input wire:model="date_end" :label="__('To')" type="date" required />
+                <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+                <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
+                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
+                    @foreach (App\Enums\LdType::cases() as $type)
+                        <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                @if ($ld_type === App\Enums\LdType::Other->value)
+                    <flux:input wire:model="ld_type_other" :label="__('Specify the type')"
+                        :placeholder="__('Soft Skill, Workshop, Convention')" required />
+                @endif
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+                <flux:input wire:model="conducted_by" :label="__('Conducted or sponsored by')" required />
+                <flux:input wire:model="location" :label="__('Location')" />
+            </div>
+
+            <flux:separator :text="__('Costs')" />
+
+            <div class="grid gap-4 md:grid-cols-4">
+                <flux:input wire:model="registration_fee" :label="__('Registration fee')" type="number" step="0.01" min="0" />
+                <flux:input wire:model="tev" :label="__('Travel expenses')" type="number" step="0.01" min="0" />
+                <flux:input wire:model="expenses" :label="__('Other expenses')" type="number" step="0.01" min="0" />
+                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0" />
+            </div>
 
             <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">
-                    {{ $editingId ? __('Update') : __('Add') }}
-                </flux:button>
-
-                @if ($editingId)
-                    <flux:button type="button" variant="ghost" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
-                @endif
+                <flux:button type="submit" variant="primary">{{ __('Submit for approval') }}</flux:button>
+                <flux:button :href="route('trainings.mine')" variant="ghost" wire:navigate>{{ __('Cancel') }}</flux:button>
             </div>
         </form>
     </flux:card>
+</div>
+```
 
-    <flux:table>
+- [ ] **Step 4: Gawin ang "my trainings" page**
+
+Gumawa ng `resources/views/pages/trainings/⚡mine.blade.php`:
+
+```blade
+<?php
+
+use App\Models\TrainingRecord;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+new #[Title('My trainings')] class extends Component {
+    use WithPagination;
+
+    /**
+     * @return LengthAwarePaginator<int, TrainingRecord>
+     */
+    #[Computed]
+    public function records(): LengthAwarePaginator
+    {
+        return TrainingRecord::query()
+            ->where('employee_id', auth()->user()->employee?->getKey())
+            ->orderByDesc('date_end')
+            ->paginate(20);
+    }
+}; ?>
+
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <flux:heading size="xl">{{ __('My trainings') }}</flux:heading>
+
+        <flux:button :href="route('trainings.create')" variant="primary" wire:navigate>
+            {{ __('Record a training') }}
+        </flux:button>
+    </div>
+
+    @if (auth()->user()->employee === null)
+        <flux:callout variant="warning" icon="exclamation-triangle">
+            {{ __('Your account is not linked to an employee record yet. Ask HR to link it before recording a training.') }}
+        </flux:callout>
+    @endif
+
+    <flux:table :paginate="$this->records">
         <flux:table.columns>
             <flux:table.column>{{ __('Title') }}</flux:table.column>
-            <flux:table.column>{{ __('Salary grade') }}</flux:table.column>
-            <flux:table.column>{{ __('Employees') }}</flux:table.column>
-            <flux:table.column />
+            <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
+            <flux:table.column>{{ __('Hours') }}</flux:table.column>
+            <flux:table.column>{{ __('Type of LD') }}</flux:table.column>
+            <flux:table.column>{{ __('Status') }}</flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
-            @forelse ($this->positions as $position)
-                <flux:table.row :key="$position->id">
-                    <flux:table.cell>{{ $position->title }}</flux:table.cell>
-                    <flux:table.cell>{{ $position->salary_grade ?? '—' }}</flux:table.cell>
-                    <flux:table.cell>{{ $position->employees_count }}</flux:table.cell>
+            @forelse ($this->records as $record)
+                <flux:table.row :key="$record->id">
                     <flux:table.cell>
-                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $position->id }})">
-                            {{ __('Edit') }}
-                        </flux:button>
+                        <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                            {{ $record->title }}
+                        </flux:link>
+                    </flux:table.cell>
+                    <flux:table.cell>
+                        {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
+                    </flux:table.cell>
+                    <flux:table.cell>{{ $record->hours }}</flux:table.cell>
+                    <flux:table.cell>{{ $record->ld_type_label }}</flux:table.cell>
+                    <flux:table.cell>
+                        <x-training-status :record="$record" />
                     </flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>
-                    <flux:table.cell colspan="4">{{ __('No positions yet.') }}</flux:table.cell>
+                    <flux:table.cell colspan="5">{{ __('No trainings recorded yet.') }}</flux:table.cell>
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
@@ -2784,44 +3103,537 @@ new #[Title('Positions')] class extends Component {
 </div>
 ```
 
-- [ ] **Step 6: Irehistro ang mga route**
+- [ ] **Step 5: Gawin ang status badge component**
 
-Sa `routes/web.php`, sa loob ng umiiral na `Route::middleware(['auth', 'verified'])->group(...)`:
+Ginagamit ito ng tatlong page, kaya isang Blade component. Gumawa ng `resources/views/components/training-status.blade.php`:
+
+```blade
+@props(['record'])
+
+@php($status = $record->status)
+
+@if ($status === App\Enums\TrainingStatus::Approved)
+    <flux:badge color="green">{{ __('Approved') }}</flux:badge>
+@elseif ($status === App\Enums\TrainingStatus::Rejected)
+    <flux:badge color="red">{{ __('Rejected') }}</flux:badge>
+@elseif ($record->current_level === null)
+    <flux:badge color="amber">{{ __('No approver') }}</flux:badge>
+@else
+    <flux:badge color="zinc">
+        {{ __('Waiting for :level', ['level' => $record->current_level->label()]) }}
+    </flux:badge>
+@endif
+```
+
+Ang "No approver" ang nakikitang anyo ng nakabinbing record na walang head — 25 sa 28 na section ang nanganganib dito, kaya hindi ito maaaring maging tahimik.
+
+- [ ] **Step 6: Gawin ang detail page**
+
+Gumawa ng `resources/views/pages/trainings/⚡show.blade.php`:
+
+```blade
+<?php
+
+use App\Models\TrainingRecord;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+
+new #[Title('Training record')] class extends Component {
+    public TrainingRecord $record;
+
+    public function mount(TrainingRecord $record): void
+    {
+        $this->authorize('view', $record);
+
+        $this->record = $record->load(['employee.section.division', 'submittedBy', 'approvals.approver']);
+    }
+}; ?>
+
+<div class="space-y-6">
+    <div class="flex items-start justify-between">
+        <div>
+            <flux:heading size="xl">{{ $record->title }}</flux:heading>
+            <flux:text>
+                {{ $record->employee->full_name }} · {{ $record->employee->section?->name }}
+            </flux:text>
+        </div>
+
+        <x-training-status :record="$record" />
+    </div>
+
+    <flux:card class="grid gap-4 md:grid-cols-3">
+        <div>
+            <flux:text size="sm">{{ __('Inclusive dates') }}</flux:text>
+            <flux:heading size="lg">
+                {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
+            </flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Number of hours') }}</flux:text>
+            <flux:heading size="lg">{{ $record->hours }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Type of LD') }}</flux:text>
+            <flux:heading size="lg">{{ $record->ld_type_label }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Conducted by') }}</flux:text>
+            <flux:heading size="lg">{{ $record->conducted_by }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Location') }}</flux:text>
+            <flux:heading size="lg">{{ $record->location ?? '—' }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('CPD units') }}</flux:text>
+            <flux:heading size="lg">{{ $record->cpd_units ?? '—' }}</flux:heading>
+        </div>
+    </flux:card>
+
+    <flux:card class="grid gap-4 md:grid-cols-4">
+        <div>
+            <flux:text size="sm">{{ __('Registration fee') }}</flux:text>
+            <flux:heading size="lg">{{ $record->registration_fee ?? '—' }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Travel expenses') }}</flux:text>
+            <flux:heading size="lg">{{ $record->tev ?? '—' }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Other expenses') }}</flux:text>
+            <flux:heading size="lg">{{ $record->expenses ?? '—' }}</flux:heading>
+        </div>
+        <div>
+            <flux:text size="sm">{{ __('Submitted by') }}</flux:text>
+            <flux:heading size="lg">{{ $record->submittedBy->name }}</flux:heading>
+        </div>
+    </flux:card>
+
+    @if ($record->rejection_reason)
+        <flux:callout variant="danger" icon="x-circle" :heading="__('Rejected')">
+            {{ $record->rejection_reason }}
+        </flux:callout>
+    @endif
+
+    <flux:heading size="lg">{{ __('Approval trail') }}</flux:heading>
+
+    <flux:table>
+        <flux:table.columns>
+            <flux:table.column>{{ __('Level') }}</flux:table.column>
+            <flux:table.column>{{ __('Decision') }}</flux:table.column>
+            <flux:table.column>{{ __('By') }}</flux:table.column>
+            <flux:table.column>{{ __('When') }}</flux:table.column>
+            <flux:table.column>{{ __('Remarks') }}</flux:table.column>
+        </flux:table.columns>
+
+        <flux:table.rows>
+            @forelse ($record->approvals as $approval)
+                <flux:table.row :key="$approval->id">
+                    <flux:table.cell>{{ $approval->level->label() }}</flux:table.cell>
+                    <flux:table.cell>{{ $approval->decision->label() }}</flux:table.cell>
+                    <flux:table.cell>{{ $approval->approver->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $approval->decided_at->format('d M Y H:i') }}</flux:table.cell>
+                    <flux:table.cell>{{ $approval->remarks ?? '—' }}</flux:table.cell>
+                </flux:table.row>
+            @empty
+                <flux:table.row>
+                    <flux:table.cell colspan="5">{{ __('Nobody has acted on this yet.') }}</flux:table.cell>
+                </flux:table.row>
+            @endforelse
+        </flux:table.rows>
+    </flux:table>
+</div>
+```
+
+- [ ] **Step 7: Irehistro ang mga route**
+
+Sa `routes/web.php`, sa loob ng auth group. Nauuna ang `create` kaysa `{record}`:
 
 ```php
-Route::livewire('setup/divisions', 'pages::setup.divisions')->name('setup.divisions');
-Route::livewire('setup/sections', 'pages::setup.sections')->name('setup.sections');
-Route::livewire('setup/positions', 'pages::setup.positions')->name('setup.positions');
+Route::livewire('trainings/mine', 'pages::trainings.mine')->name('trainings.mine');
+Route::livewire('trainings/create', 'pages::trainings.form')->name('trainings.create');
+Route::livewire('trainings/{record}', 'pages::trainings.show')->name('trainings.show');
 ```
 
-- [ ] **Step 7: Patakbuhin ang test**
+- [ ] **Step 8: Patakbuhin ang test**
 
 ```bash
-php artisan test --compact tests/Feature/SetupScreensTest.php
+php artisan test --compact tests/Feature/TrainingScreensTest.php
 ```
 
-Inaasahan: PASS, limang test.
+Inaasahan: PASS, pitong test.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add reference data setup screens"
+```
+feat: add training submission and detail screens
 ```
 
 ---
 
-## Task 10: Employee screens
+## Task 10: Approvals queue
 
 **Files:**
-- Create: `resources/views/pages/employees/⚡index.blade.php`, `⚡form.blade.php`, `⚡show.blade.php`
+- Create: `resources/views/pages/⚡approvals.blade.php`
+- Modify: `routes/web.php`
+- Test: `tests/Feature/ApprovalScreenTest.php`
+
+**Interfaces:**
+- Consumes: `DecideOnTrainingRecord`, `ApprovalRouter`, `TrainingRecordPolicy`
+- Produces: ang route na `approvals`
+
+- [ ] **Step 1: Isulat ang failing test**
+
+Gumawa ng `tests/Feature/ApprovalScreenTest.php`:
+
+```php
+<?php
+
+use App\Enums\ApprovalLevel;
+use App\Enums\TrainingStatus;
+use App\Models\Division;
+use App\Models\Employee;
+use App\Models\Section;
+use App\Models\TrainingRecord;
+use App\Models\User;
+use Livewire\Livewire;
+
+/**
+ * @return array{employee: Employee, sectionHeadUser: User}
+ */
+function sectionWithHead(): array
+{
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+
+    $headUser = User::factory()->sectionHead()->create();
+    $head = Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
+    $section->update(['section_head_employee_id' => $head->id]);
+
+    return [
+        'employee' => Employee::factory()->for($section)->create(),
+        'sectionHeadUser' => $headUser,
+    ];
+}
+
+test('the queue shows only records waiting on me', function () {
+    ['employee' => $employee, 'sectionHeadUser' => $headUser] = sectionWithHead();
+
+    TrainingRecord::factory()->for($employee)->create([
+        'title' => 'Mine To Decide',
+        'current_level' => ApprovalLevel::SectionHead,
+    ]);
+    TrainingRecord::factory()->create(['title' => 'Someone Elses Queue']);
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::approvals')
+        ->assertSee('Mine To Decide')
+        ->assertDontSee('Someone Elses Queue');
+});
+
+test('the section head can approve from the queue', function () {
+    ['employee' => $employee, 'sectionHeadUser' => $headUser] = sectionWithHead();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::approvals')
+        ->set('remarks', 'Endorsed.')
+        ->call('approve', $record->id)
+        ->assertHasNoErrors();
+
+    expect($record->fresh()->current_level)->toBe(ApprovalLevel::DivisionHead);
+});
+
+test('the section head can reject with a reason', function () {
+    ['employee' => $employee, 'sectionHeadUser' => $headUser] = sectionWithHead();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::approvals')
+        ->set('remarks', 'Outside the training plan.')
+        ->call('reject', $record->id)
+        ->assertHasNoErrors();
+
+    expect($record->fresh()->status)->toBe(TrainingStatus::Rejected)
+        ->and($record->fresh()->rejection_reason)->toBe('Outside the training plan.');
+});
+
+test('rejecting without a reason is refused', function () {
+    ['employee' => $employee, 'sectionHeadUser' => $headUser] = sectionWithHead();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::approvals')
+        ->set('remarks', '')
+        ->call('reject', $record->id)
+        ->assertHasErrors('remarks');
+
+    expect($record->fresh()->status)->toBe(TrainingStatus::Pending);
+});
+
+test('somebody who is not the current approver cannot decide', function () {
+    ['employee' => $employee] = sectionWithHead();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::approvals')
+        ->set('remarks', 'Approving anyway.')
+        ->call('approve', $record->id)
+        ->assertForbidden();
+});
+
+test('hr sees the records that have no approver at all', function () {
+    $section = Section::factory()->create(['section_head_employee_id' => null]);
+    $employee = Employee::factory()->for($section)->create();
+    TrainingRecord::factory()->for($employee)->create([
+        'title' => 'Stuck Seminar',
+        'current_level' => null,
+    ]);
+
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::approvals')->assertSee('Stuck Seminar');
+});
+```
+
+- [ ] **Step 2: Patakbuhin para makitang bumagsak**
+
+```bash
+php artisan test --compact tests/Feature/ApprovalScreenTest.php
+```
+
+Inaasahan: FAIL — walang component na `pages::approvals`.
+
+- [ ] **Step 3: Gawin ang page**
+
+Gumawa ng `resources/views/pages/⚡approvals.blade.php`:
+
+```blade
+<?php
+
+use App\Actions\Training\DecideOnTrainingRecord;
+use App\Enums\ApprovalDecision;
+use App\Models\Employee;
+use App\Models\TrainingRecord;
+use App\Workflow\ApprovalRouter;
+use Flux\Flux;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+
+new #[Title('Approvals')] class extends Component {
+    public string $remarks = '';
+
+    /**
+     * Records this user is the designated approver for, right now.
+     *
+     * The level is filtered in SQL; the designation itself is checked in
+     * PHP through the router, so there is exactly one definition of who
+     * approves what.
+     *
+     * @return Collection<int, TrainingRecord>
+     */
+    #[Computed]
+    public function queue(): Collection
+    {
+        $user = auth()->user();
+        $employee = $user->employee;
+
+        if ($employee === null) {
+            return collect();
+        }
+
+        $router = app(ApprovalRouter::class);
+
+        return TrainingRecord::query()
+            ->pending()
+            ->whereNotNull('current_level')
+            ->with(['employee.section.division'])
+            ->orderBy('created_at')
+            ->get()
+            ->filter(function (TrainingRecord $record) use ($router, $employee): bool {
+                $approver = $router->approverFor($record->current_level, $record->employee);
+
+                return $approver instanceof Employee && $approver->is($employee);
+            })
+            ->values();
+    }
+
+    /**
+     * Pending records nobody can approve. HR and admin only.
+     *
+     * @return Collection<int, TrainingRecord>
+     */
+    #[Computed]
+    public function unroutable(): Collection
+    {
+        if (! auth()->user()->isAdminOrHr()) {
+            return collect();
+        }
+
+        return TrainingRecord::query()
+            ->unroutable()
+            ->with(['employee.section.division'])
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    public function approve(int $recordId): void
+    {
+        $this->decide($recordId, ApprovalDecision::Approved);
+    }
+
+    public function reject(int $recordId): void
+    {
+        $this->validate(
+            ['remarks' => ['required', 'string', 'max:1000']],
+            ['remarks.required' => __('A reason is required when rejecting.')],
+        );
+
+        $this->decide($recordId, ApprovalDecision::Rejected);
+    }
+
+    private function decide(int $recordId, ApprovalDecision $decision): void
+    {
+        $record = TrainingRecord::findOrFail($recordId);
+
+        $this->authorize('decide', $record);
+
+        app(DecideOnTrainingRecord::class)->handle(
+            $record,
+            auth()->user(),
+            $decision,
+            $this->remarks !== '' ? $this->remarks : null,
+        );
+
+        $this->reset('remarks');
+        unset($this->queue, $this->unroutable);
+
+        Flux::toast(variant: 'success', text: __('Decision recorded.'));
+    }
+}; ?>
+
+<div class="space-y-6">
+    <flux:heading size="xl">{{ __('Approvals') }}</flux:heading>
+
+    <flux:card>
+        <flux:textarea wire:model="remarks" :label="__('Remarks')" rows="2"
+            :description="__('Optional when approving, required when rejecting.')" />
+    </flux:card>
+
+    <flux:table>
+        <flux:table.columns>
+            <flux:table.column>{{ __('Employee') }}</flux:table.column>
+            <flux:table.column>{{ __('Training') }}</flux:table.column>
+            <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
+            <flux:table.column>{{ __('Hours') }}</flux:table.column>
+            <flux:table.column />
+        </flux:table.columns>
+
+        <flux:table.rows>
+            @forelse ($this->queue as $record)
+                <flux:table.row :key="$record->id">
+                    <flux:table.cell>{{ $record->employee->full_name }}</flux:table.cell>
+                    <flux:table.cell>
+                        <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                            {{ $record->title }}
+                        </flux:link>
+                    </flux:table.cell>
+                    <flux:table.cell>
+                        {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
+                    </flux:table.cell>
+                    <flux:table.cell>{{ $record->hours }}</flux:table.cell>
+                    <flux:table.cell>
+                        <div class="flex gap-2">
+                            <flux:button size="sm" variant="primary" wire:click="approve({{ $record->id }})">
+                                {{ __('Approve') }}
+                            </flux:button>
+                            <flux:button size="sm" variant="danger" wire:click="reject({{ $record->id }})">
+                                {{ __('Reject') }}
+                            </flux:button>
+                        </div>
+                    </flux:table.cell>
+                </flux:table.row>
+            @empty
+                <flux:table.row>
+                    <flux:table.cell colspan="5">{{ __('Nothing is waiting for you.') }}</flux:table.cell>
+                </flux:table.row>
+            @endforelse
+        </flux:table.rows>
+    </flux:table>
+
+    @if ($this->unroutable->isNotEmpty())
+        <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('No approver assigned')">
+            {{ __('These records cannot move because neither the section nor the division has a head designated. Set a head under Setup.') }}
+        </flux:callout>
+
+        <flux:table>
+            <flux:table.columns>
+                <flux:table.column>{{ __('Employee') }}</flux:table.column>
+                <flux:table.column>{{ __('Training') }}</flux:table.column>
+                <flux:table.column>{{ __('Section') }}</flux:table.column>
+            </flux:table.columns>
+
+            <flux:table.rows>
+                @foreach ($this->unroutable as $record)
+                    <flux:table.row :key="$record->id">
+                        <flux:table.cell>{{ $record->employee->full_name }}</flux:table.cell>
+                        <flux:table.cell>
+                            <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                                {{ $record->title }}
+                            </flux:link>
+                        </flux:table.cell>
+                        <flux:table.cell>{{ $record->employee->section?->name ?? '—' }}</flux:table.cell>
+                    </flux:table.row>
+                @endforeach
+            </flux:table.rows>
+        </flux:table>
+    @endif
+</div>
+```
+
+Ang pila ay sinasala sa PHP sa pamamagitan ng router, hindi sa SQL. Sinadya ito: iisa lang ang kahulugan ng "sino ang nag-a-apruba", at ang bilang ng nakabinbing record ay maliit. Kung lumaki ito, doon pa lang mag-iisip ng index.
+
+- [ ] **Step 4: Irehistro ang route**
+
+```php
+Route::livewire('approvals', 'pages::approvals')->name('approvals');
+```
+
+- [ ] **Step 5: Patakbuhin ang test**
+
+```bash
+php artisan test --compact tests/Feature/ApprovalScreenTest.php
+```
+
+Inaasahan: PASS, anim na test.
+
+- [ ] **Step 6: Commit message**
+
+```
+feat: add the approvals queue
+```
+
+---
+## Task 11: Employee screens
+
+**Files:**
+- Create: `resources/views/pages/employees/⚡index.blade.php`, `⚡show.blade.php`
 - Modify: `routes/web.php`
 - Test: `tests/Feature/EmployeeScreensTest.php`
 
 **Interfaces:**
-- Consumes: `Employee`, `Section`, `Position`, enums, `EmployeePolicy`
-- Produces: mga route na `employees.index`, `employees.create`, `employees.edit`, `employees.show`
+- Consumes: `Employee`, `EmployeePolicy`, `TrainingRecord`
+- Produces: mga route na `employees.index`, `employees.show`
+
+Walang employee form sa Phase 1 — ang `ldi:import-employees` ang pinagmumulan ng datos. Ang pag-edit ay tatalakayin kapag may aktwal nang pangangailangan.
 
 - [ ] **Step 1: Isulat ang failing test**
 
@@ -2830,102 +3642,70 @@ Gumawa ng `tests/Feature/EmployeeScreensTest.php`:
 ```php
 <?php
 
-use App\Enums\EmploymentStatus;
-use App\Enums\Sex;
+use App\Models\Division;
 use App\Models\Employee;
-use App\Models\Position;
 use App\Models\Section;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
+use App\Models\TrainingRecord;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('the index lists only visible active employees', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('hr sees every active employee', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
-    $active = Employee::factory()->create(['last_name' => 'Bonifacio']);
-    Employee::factory()->separated()->create(['last_name' => 'Aguinaldo']);
+    Employee::factory()->create(['last_name' => 'Bonifacio']);
+    Employee::factory()->inactive()->create(['last_name' => 'Aguinaldo']);
 
     Livewire::test('pages::employees.index')
         ->assertSee('Bonifacio')
         ->assertDontSee('Aguinaldo');
 });
 
-test('the index can filter down to employees without training this year', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('a section head sees only their own section', function () {
+    $division = Division::factory()->create();
+    $ownSection = Section::factory()->for($division)->create();
 
-    $trained = Employee::factory()->create(['last_name' => 'Mabini']);
-    Employee::factory()->create(['last_name' => 'Jacinto']);
+    $headUser = User::factory()->sectionHead()->create();
+    Employee::factory()->for($ownSection)->create(['user_id' => $headUser->id, 'last_name' => 'Mabini']);
+    Employee::factory()->for(Section::factory()->create())->create(['last_name' => 'Jacinto']);
 
-    $training = Training::factory()->create([
-        'from_date' => now()->startOfYear(),
-        'to_date' => now()->startOfYear()->addDay(),
-    ]);
-    TrainingAssignment::factory()->for($training)->for($trained)->completed()->create();
+    $this->actingAs($headUser);
 
     Livewire::test('pages::employees.index')
-        ->set('trainingStatus', 'untrained')
-        ->assertSee('Jacinto')
-        ->assertDontSee('Mabini');
+        ->assertSee('Mabini')
+        ->assertDontSee('Jacinto');
 });
 
-test('an hr admin can create an employee', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-    $section = Section::factory()->create();
-    $position = Position::factory()->create();
+test('search narrows by name and employee number', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
-    Livewire::test('pages::employees.form')
-        ->set('employee_no', 'EMP-00001')
-        ->set('first_name', 'Andres')
-        ->set('last_name', 'Bonifacio')
-        ->set('sex', Sex::Male->value)
-        ->set('date_of_birth', '1990-11-30')
-        ->set('section_id', $section->id)
-        ->set('position_id', $position->id)
-        ->set('employment_status', EmploymentStatus::Permanent->value)
-        ->set('date_hired', '2015-01-05')
-        ->call('save')
-        ->assertHasNoErrors();
+    Employee::factory()->create(['last_name' => 'Bonifacio', 'employee_number' => 'EMP-111']);
+    Employee::factory()->create(['last_name' => 'Jacinto', 'employee_number' => 'EMP-222']);
 
-    expect(Employee::where('employee_no', 'EMP-00001')->exists())->toBeTrue();
+    Livewire::test('pages::employees.index')
+        ->set('search', 'EMP-111')
+        ->assertSee('Bonifacio')
+        ->assertDontSee('Jacinto');
 });
 
-test('employee numbers must be unique', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-    Employee::factory()->create(['employee_no' => 'EMP-00001']);
-    $section = Section::factory()->create();
-    $position = Position::factory()->create();
-
-    Livewire::test('pages::employees.form')
-        ->set('employee_no', 'EMP-00001')
-        ->set('first_name', 'Andres')
-        ->set('last_name', 'Bonifacio')
-        ->set('sex', Sex::Male->value)
-        ->set('date_of_birth', '1990-11-30')
-        ->set('section_id', $section->id)
-        ->set('position_id', $position->id)
-        ->set('employment_status', EmploymentStatus::Permanent->value)
-        ->set('date_hired', '2015-01-05')
-        ->call('save')
-        ->assertHasErrors('employee_no');
-});
-
-test('a division head cannot reach the employee form', function () {
-    $this->actingAs(User::factory()->divisionHead()->create());
-
-    $this->get(route('employees.create'))->assertForbidden();
-});
-
-test('the show page lists the employee training history', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('the profile lists the training history', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
     $employee = Employee::factory()->create();
-    $training = Training::factory()->create(['title' => 'Records Management Seminar']);
-    TrainingAssignment::factory()->for($training)->for($employee)->completed()->create();
+    TrainingRecord::factory()->for($employee)->approved()->create(['title' => 'Records Management Seminar']);
 
     $this->get(route('employees.show', $employee))
         ->assertOk()
         ->assertSee('Records Management Seminar');
+});
+
+test('an employee cannot open somebody elses profile', function () {
+    $user = User::factory()->employee()->create();
+    Employee::factory()->create(['user_id' => $user->id]);
+    $other = Employee::factory()->create();
+
+    $this->actingAs($user);
+
+    $this->get(route('employees.show', $other))->assertForbidden();
 });
 ```
 
@@ -2964,23 +3744,12 @@ new #[Title('Employees')] class extends Component {
     #[Url]
     public ?int $sectionId = null;
 
-    /**
-     * Either an empty string for everyone, or "untrained".
-     */
-    #[Url]
-    public string $trainingStatus = '';
-
     public function updatedSearch(): void
     {
         $this->resetPage();
     }
 
     public function updatedSectionId(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedTrainingStatus(): void
     {
         $this->resetPage();
     }
@@ -3000,11 +3769,10 @@ new #[Title('Employees')] class extends Component {
                 $query->where(function (Builder $match) use ($term): void {
                     $match->where('first_name', 'like', $term)
                         ->orWhere('last_name', 'like', $term)
-                        ->orWhere('employee_no', 'like', $term);
+                        ->orWhere('employee_number', 'like', $term);
                 });
             })
             ->when($this->sectionId !== null, fn (Builder $query) => $query->where('section_id', $this->sectionId))
-            ->when($this->trainingStatus === 'untrained', fn (Builder $query) => $query->withoutCompletedTrainingIn(now()->year))
             ->with(['section.division', 'position'])
             ->orderBy('last_name')
             ->orderBy('first_name')
@@ -3022,29 +3790,17 @@ new #[Title('Employees')] class extends Component {
 }; ?>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Employees') }}</flux:heading>
-
-        @can('create', App\Models\Employee::class)
-            <flux:button :href="route('employees.create')" variant="primary" wire:navigate>
-                {{ __('Add employee') }}
-            </flux:button>
-        @endcan
-    </div>
+    <flux:heading size="xl">{{ __('Employees') }}</flux:heading>
 
     <div class="flex flex-col gap-4 md:flex-row">
-        <flux:input wire:model.live.debounce.300ms="search" :placeholder="__('Search name or employee number')" class="flex-1" />
+        <flux:input wire:model.live.debounce.300ms="search"
+            :placeholder="__('Search name or employee number')" class="flex-1" />
 
         <flux:select wire:model.live="sectionId" class="md:w-64">
             <flux:select.option value="">{{ __('All sections') }}</flux:select.option>
             @foreach ($this->sections as $section)
                 <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
             @endforeach
-        </flux:select>
-
-        <flux:select wire:model.live="trainingStatus" class="md:w-64">
-            <flux:select.option value="">{{ __('All employees') }}</flux:select.option>
-            <flux:select.option value="untrained">{{ __('No training this year') }}</flux:select.option>
         </flux:select>
     </div>
 
@@ -3060,15 +3816,15 @@ new #[Title('Employees')] class extends Component {
         <flux:table.rows>
             @forelse ($this->employees as $employee)
                 <flux:table.row :key="$employee->id">
-                    <flux:table.cell>{{ $employee->employee_no }}</flux:table.cell>
+                    <flux:table.cell>{{ $employee->employee_number }}</flux:table.cell>
                     <flux:table.cell>
                         <flux:link :href="route('employees.show', $employee)" wire:navigate>
                             {{ $employee->full_name }}
                         </flux:link>
                     </flux:table.cell>
-                    <flux:table.cell>{{ $employee->position->title }}</flux:table.cell>
-                    <flux:table.cell>{{ $employee->section->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $employee->section->division->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $employee->position?->title ?? '—' }}</flux:table.cell>
+                    <flux:table.cell>{{ $employee->section?->name ?? '—' }}</flux:table.cell>
+                    <flux:table.cell>{{ $employee->section?->division?->name ?? '—' }}</flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>
@@ -3080,199 +3836,7 @@ new #[Title('Employees')] class extends Component {
 </div>
 ```
 
-- [ ] **Step 4: Gawin ang form page**
-
-Gumawa ng `resources/views/pages/employees/⚡form.blade.php`. Ang isang page na ito ang humahawak ng create at edit — ang route ang nagpapasa ng `Employee` kung meron.
-
-```blade
-<?php
-
-use App\Enums\EmploymentStatus;
-use App\Enums\Sex;
-use App\Models\Employee;
-use App\Models\Position;
-use App\Models\Section;
-use Flux\Flux;
-use Illuminate\Support\Collection;
-use Illuminate\Validation\Rule;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Title;
-use Livewire\Component;
-
-new #[Title('Employee')] class extends Component {
-    public ?Employee $employee = null;
-
-    public string $employee_no = '';
-
-    public string $first_name = '';
-
-    public string $middle_name = '';
-
-    public string $last_name = '';
-
-    public string $name_extension = '';
-
-    public string $sex = '';
-
-    public string $date_of_birth = '';
-
-    public ?int $section_id = null;
-
-    public ?int $position_id = null;
-
-    public string $employment_status = '';
-
-    public string $date_hired = '';
-
-    public string $separated_at = '';
-
-    public function mount(?Employee $employee = null): void
-    {
-        if ($employee?->exists) {
-            $this->authorize('update', $employee);
-
-            $this->employee = $employee;
-            $this->employee_no = $employee->employee_no;
-            $this->first_name = $employee->first_name;
-            $this->middle_name = $employee->middle_name ?? '';
-            $this->last_name = $employee->last_name;
-            $this->name_extension = $employee->name_extension ?? '';
-            $this->sex = $employee->sex->value;
-            $this->date_of_birth = $employee->date_of_birth->toDateString();
-            $this->section_id = $employee->section_id;
-            $this->position_id = $employee->position_id;
-            $this->employment_status = $employee->employment_status->value;
-            $this->date_hired = $employee->date_hired->toDateString();
-            $this->separated_at = $employee->separated_at?->toDateString() ?? '';
-
-            return;
-        }
-
-        $this->authorize('create', Employee::class);
-    }
-
-    /**
-     * @return Collection<int, Section>
-     */
-    #[Computed]
-    public function sections(): Collection
-    {
-        return Section::query()->with('division')->orderBy('name')->get();
-    }
-
-    /**
-     * @return Collection<int, Position>
-     */
-    #[Computed]
-    public function positions(): Collection
-    {
-        return Position::query()->orderBy('title')->get();
-    }
-
-    public function save(): void
-    {
-        $validated = $this->validate([
-            'employee_no' => ['required', 'string', 'max:50', Rule::unique('employees', 'employee_no')->ignore($this->employee?->id)],
-            'first_name' => ['required', 'string', 'max:100'],
-            'middle_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
-            'name_extension' => ['nullable', 'string', 'max:20'],
-            'sex' => ['required', Rule::enum(Sex::class)],
-            'date_of_birth' => ['required', 'date', 'before:today'],
-            'section_id' => ['required', 'exists:sections,id'],
-            'position_id' => ['required', 'exists:positions,id'],
-            'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
-            'date_hired' => ['required', 'date'],
-            'separated_at' => ['nullable', 'date', 'after_or_equal:date_hired'],
-        ]);
-
-        $validated['middle_name'] = $validated['middle_name'] ?: null;
-        $validated['name_extension'] = $validated['name_extension'] ?: null;
-        $validated['separated_at'] = $validated['separated_at'] ?: null;
-
-        if ($this->employee instanceof Employee) {
-            $this->authorize('update', $this->employee);
-            $this->employee->update($validated);
-        } else {
-            $this->authorize('create', Employee::class);
-            $this->employee = Employee::create($validated);
-        }
-
-        Flux::toast(variant: 'success', text: __('Employee saved.'));
-
-        $this->redirectRoute('employees.show', $this->employee, navigate: true);
-    }
-}; ?>
-
-<div class="space-y-6">
-    <flux:heading size="xl">
-        {{ $employee ? __('Edit employee') : __('Add employee') }}
-    </flux:heading>
-
-    <flux:card>
-        <form wire:submit="save" class="space-y-6">
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:input wire:model="employee_no" :label="__('Employee number')" required />
-                <flux:select wire:model="employment_status" :label="__('Employment status')" required>
-                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                    @foreach (App\Enums\EmploymentStatus::cases() as $status)
-                        <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-4">
-                <flux:input wire:model="first_name" :label="__('First name')" required />
-                <flux:input wire:model="middle_name" :label="__('Middle name')" />
-                <flux:input wire:model="last_name" :label="__('Last name')" required />
-                <flux:input wire:model="name_extension" :label="__('Extension')" :placeholder="__('Jr., Sr., III')" />
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:select wire:model="sex" :label="__('Sex')" required>
-                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                    @foreach (App\Enums\Sex::cases() as $sex)
-                        <flux:select.option :value="$sex->value">{{ $sex->label() }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-
-                <flux:input wire:model="date_of_birth" :label="__('Date of birth')" type="date" required />
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:select wire:model="section_id" :label="__('Section')" required>
-                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                    @foreach ($this->sections as $section)
-                        <flux:select.option :value="$section->id">
-                            {{ $section->division->name }} — {{ $section->name }}
-                        </flux:select.option>
-                    @endforeach
-                </flux:select>
-
-                <flux:select wire:model="position_id" :label="__('Position')" required>
-                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                    @foreach ($this->positions as $position)
-                        <flux:select.option :value="$position->id">{{ $position->title }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:input wire:model="date_hired" :label="__('Date hired')" type="date" required />
-                <flux:input wire:model="separated_at" :label="__('Separated on')" type="date"
-                    :description="__('Leave blank while the employee is still in service.')" />
-            </div>
-
-            <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
-                <flux:button :href="route('employees.index')" variant="ghost" wire:navigate>{{ __('Cancel') }}</flux:button>
-            </div>
-        </form>
-    </flux:card>
-</div>
-```
-
-- [ ] **Step 5: Gawin ang show page**
+- [ ] **Step 4: Gawin ang profile page**
 
 Gumawa ng `resources/views/pages/employees/⚡show.blade.php`:
 
@@ -3280,7 +3844,7 @@ Gumawa ng `resources/views/pages/employees/⚡show.blade.php`:
 <?php
 
 use App\Models\Employee;
-use App\Models\TrainingAssignment;
+use App\Models\TrainingRecord;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -3297,43 +3861,34 @@ new #[Title('Employee')] class extends Component {
     }
 
     /**
-     * The employee's whole training history, newest first.
+     * The whole training history, newest first. This is what PDS page 4
+     * will be built from in Phase 4.
      *
-     * This listing is what PDS page 4 will be built from in Phase 4.
-     *
-     * @return Collection<int, TrainingAssignment>
+     * @return Collection<int, TrainingRecord>
      */
     #[Computed]
-    public function assignments(): Collection
+    public function records(): Collection
     {
-        return $this->employee->trainingAssignments()
-            ->with('training')
-            ->get()
-            ->sortByDesc(fn (TrainingAssignment $assignment): string => $assignment->training->to_date->toDateString())
-            ->values();
+        return $this->employee->trainingRecords()->orderByDesc('date_end')->get();
     }
 }; ?>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <div>
-            <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
-            <flux:text>{{ $employee->position->title }} — {{ $employee->section->name }}</flux:text>
-        </div>
-
-        @can('update', $employee)
-            <flux:button :href="route('employees.edit', $employee)" wire:navigate>{{ __('Edit') }}</flux:button>
-        @endcan
+    <div>
+        <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
+        <flux:text>
+            {{ $employee->position?->title ?? '—' }} · {{ $employee->section?->name ?? '—' }}
+        </flux:text>
     </div>
 
-    <flux:card class="grid gap-4 md:grid-cols-3">
+    <flux:card class="grid gap-4 md:grid-cols-4">
         <div>
-            <flux:text size="sm">{{ __('Employee number') }}</flux:text>
-            <flux:heading size="lg">{{ $employee->employee_no }}</flux:heading>
+            <flux:text size="sm">{{ __('Employee no.') }}</flux:text>
+            <flux:heading size="lg">{{ $employee->employee_number }}</flux:heading>
         </div>
         <div>
             <flux:text size="sm">{{ __('Division') }}</flux:text>
-            <flux:heading size="lg">{{ $employee->section->division->name }}</flux:heading>
+            <flux:heading size="lg">{{ $employee->section?->division?->name ?? '—' }}</flux:heading>
         </div>
         <div>
             <flux:text size="sm">{{ __('Employment status') }}</flux:text>
@@ -3341,23 +3896,9 @@ new #[Title('Employee')] class extends Component {
         </div>
         <div>
             <flux:text size="sm">{{ __('Date hired') }}</flux:text>
-            <flux:heading size="lg">{{ $employee->date_hired->format('d M Y') }}</flux:heading>
-        </div>
-        <div>
-            <flux:text size="sm">{{ __('Date of birth') }}</flux:text>
-            <flux:heading size="lg">{{ $employee->date_of_birth->format('d M Y') }}</flux:heading>
-        </div>
-        <div>
-            <flux:text size="sm">{{ __('Sex') }}</flux:text>
-            <flux:heading size="lg">{{ $employee->sex->label() }}</flux:heading>
+            <flux:heading size="lg">{{ $employee->date_hired?->format('d M Y') ?? '—' }}</flux:heading>
         </div>
     </flux:card>
-
-    @if ($employee->separated_at)
-        <flux:callout variant="warning" icon="exclamation-triangle">
-            {{ __('Separated on :date', ['date' => $employee->separated_at->format('d M Y')]) }}
-        </flux:callout>
-    @endif
 
     <flux:heading size="lg">{{ __('Training history') }}</flux:heading>
 
@@ -3372,23 +3913,20 @@ new #[Title('Employee')] class extends Component {
         </flux:table.columns>
 
         <flux:table.rows>
-            @forelse ($this->assignments as $assignment)
-                <flux:table.row :key="$assignment->id">
-                    <flux:table.cell>{{ $assignment->training->title }}</flux:table.cell>
+            @forelse ($this->records as $record)
+                <flux:table.row :key="$record->id">
                     <flux:table.cell>
-                        {{ $assignment->training->from_date->format('d M Y') }} –
-                        {{ $assignment->training->to_date->format('d M Y') }}
+                        <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                            {{ $record->title }}
+                        </flux:link>
                     </flux:table.cell>
-                    <flux:table.cell>{{ $assignment->training->hours }}</flux:table.cell>
-                    <flux:table.cell>{{ $assignment->training->ld_type->label() }}</flux:table.cell>
-                    <flux:table.cell>{{ $assignment->training->conducted_by }}</flux:table.cell>
                     <flux:table.cell>
-                        @if ($assignment->completed_at)
-                            <flux:badge color="green">{{ __('Completed') }}</flux:badge>
-                        @else
-                            <flux:badge color="zinc">{{ __('Pending') }}</flux:badge>
-                        @endif
+                        {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
                     </flux:table.cell>
+                    <flux:table.cell>{{ $record->hours }}</flux:table.cell>
+                    <flux:table.cell>{{ $record->ld_type_label }}</flux:table.cell>
+                    <flux:table.cell>{{ $record->conducted_by }}</flux:table.cell>
+                    <flux:table.cell><x-training-status :record="$record" /></flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>
@@ -3400,1265 +3938,659 @@ new #[Title('Employee')] class extends Component {
 </div>
 ```
 
-- [ ] **Step 6: Irehistro ang mga route**
-
-Sa `routes/web.php`, sa loob ng auth group. **Mahalaga ang pagkakasunod** — dapat nauuna ang `employees/create` kaysa `employees/{employee}`, kung hindi ay susubukan nitong hanapin ang employee na ang id ay "create".
+- [ ] **Step 5: Irehistro ang mga route**
 
 ```php
 Route::livewire('employees', 'pages::employees.index')->name('employees.index');
-Route::livewire('employees/create', 'pages::employees.form')->name('employees.create');
 Route::livewire('employees/{employee}', 'pages::employees.show')->name('employees.show');
-Route::livewire('employees/{employee}/edit', 'pages::employees.form')->name('employees.edit');
 ```
 
-- [ ] **Step 7: Patakbuhin ang test**
+- [ ] **Step 6: Patakbuhin ang test**
 
 ```bash
 php artisan test --compact tests/Feature/EmployeeScreensTest.php
 ```
 
-Inaasahan: PASS, anim na test.
+Inaasahan: PASS, limang test.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add employee screens"
+```
+feat: add employee list and profile screens
 ```
 
 ---
-## Task 11: Training screens
+
+## Task 12: Setup screens at pagtatakda ng head
 
 **Files:**
-- Create: `resources/views/pages/trainings/⚡index.blade.php`, `⚡form.blade.php`, `⚡show.blade.php`
+- Create: `resources/views/pages/setup/⚡divisions.blade.php`, `⚡sections.blade.php`, `⚡positions.blade.php`
 - Modify: `routes/web.php`
-- Test: `tests/Feature/TrainingScreensTest.php`
+- Test: `tests/Feature/SetupScreensTest.php`
 
 **Interfaces:**
-- Consumes: `Training`, `Employee`, `TrainingAssignment`, `AssignTrainingToEmployees`, `RecordTrainingCompletion`, `TrainingPolicy`
-- Produces: mga route na `trainings.index`, `trainings.create`, `trainings.show`, `trainings.edit`
+- Consumes: `Division`, `Section`, `Position`, `Employee`, `User::isAdminOrHr()`
+- Produces: mga route na `setup.divisions`, `setup.sections`, `setup.positions`
+
+Ito ang lunas sa pinakamalaking butas sa datos: 3 lang sa 28 na section ang may head, at hangga't ganoon, hindi umuusad ang karamihan ng submission. Dito iyon naitatakda.
+
+Walang policy class para sa reference data — isang `abort_unless(auth()->user()->isAdminOrHr(), 403)` sa `mount()` at sa bawat mutating action. Mas kaunti kaysa tatlong halos magkaparehong policy.
 
 - [ ] **Step 1: Isulat ang failing test**
 
-Gumawa ng `tests/Feature/TrainingScreensTest.php`:
+Gumawa ng `tests/Feature/SetupScreensTest.php`:
 
 ```php
 <?php
 
-use App\Enums\LdType;
+use App\Models\Division;
 use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
+use App\Models\Position;
+use App\Models\Section;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('an hr admin can create a training with the PDS fields', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('hr can designate a section head', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
-    Livewire::test('pages::trainings.form')
-        ->set('title', 'Records Management Seminar')
-        ->set('from_date', '2026-03-02')
-        ->set('to_date', '2026-03-04')
-        ->set('hours', 24)
-        ->set('ld_type', LdType::Technical->value)
-        ->set('conducted_by', 'Civil Service Commission')
+    $section = Section::factory()->create(['section_head_employee_id' => null]);
+    $head = Employee::factory()->for($section)->create();
+
+    Livewire::test('pages::setup.sections')
+        ->call('edit', $section->id)
+        ->set('sectionHeadEmployeeId', $head->id)
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(Training::where('title', 'Records Management Seminar')->first()->hours)->toBe(24);
+    expect($section->fresh()->section_head_employee_id)->toBe($head->id);
 });
 
-test('the end date cannot come before the start date', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('hr can designate a division head', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
-    Livewire::test('pages::trainings.form')
-        ->set('title', 'Records Management Seminar')
-        ->set('from_date', '2026-03-04')
-        ->set('to_date', '2026-03-02')
-        ->set('hours', 24)
-        ->set('ld_type', LdType::Technical->value)
-        ->set('conducted_by', 'Civil Service Commission')
+    $division = Division::factory()->create();
+    $head = Employee::factory()->for(Section::factory()->for($division))->create();
+
+    Livewire::test('pages::setup.divisions')
+        ->call('edit', $division->id)
+        ->set('divisionHeadEmployeeId', $head->id)
         ->call('save')
-        ->assertHasErrors('to_date');
-});
-
-test('an hr admin can bulk assign a training', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-
-    $training = Training::factory()->create();
-    $employees = Employee::factory()->count(3)->create();
-
-    Livewire::test('pages::trainings.show', ['training' => $training])
-        ->set('selectedEmployeeIds', $employees->pluck('id')->all())
-        ->call('assign')
         ->assertHasNoErrors();
 
-    expect(TrainingAssignment::where('training_id', $training->id)->count())->toBe(3);
+    expect($division->fresh()->division_head_employee_id)->toBe($head->id);
 });
 
-test('an hr admin can mark a participant as completed', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('hr can add a position', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04']);
-    $employee = Employee::factory()->create();
-    TrainingAssignment::factory()->for($training)->for($employee)->create();
-
-    Livewire::test('pages::trainings.show', ['training' => $training])
-        ->set('completionDate', '2026-03-04')
-        ->call('markCompleted', $employee->id)
+    Livewire::test('pages::setup.positions')
+        ->set('title', 'Administrative Officer V')
+        ->set('salaryGrade', 18)
+        ->call('save')
         ->assertHasNoErrors();
 
-    expect(TrainingAssignment::first()->completed_at->toDateString())->toBe('2026-03-04');
+    expect(Position::where('title', 'Administrative Officer V')->first()->salary_grade)->toBe(18);
 });
 
-test('an impossible completion date is reported as a form error', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('a section head cannot open setup', function () {
+    $this->actingAs(User::factory()->sectionHead()->create());
 
-    $training = Training::factory()->create(['from_date' => '2026-03-02', 'to_date' => '2026-03-04']);
-    $employee = Employee::factory()->create();
-    TrainingAssignment::factory()->for($training)->for($employee)->create();
-
-    Livewire::test('pages::trainings.show', ['training' => $training])
-        ->set('completionDate', '2026-03-01')
-        ->call('markCompleted', $employee->id)
-        ->assertHasErrors('completionDate');
+    $this->get(route('setup.sections'))->assertForbidden();
 });
 
-test('a division head cannot assign a training', function () {
-    $this->actingAs(User::factory()->divisionHead()->create());
+test('the section list shows which sections still have no head', function () {
+    $this->actingAs(User::factory()->hr()->create());
 
-    $training = Training::factory()->create();
-    $employee = Employee::factory()->create();
+    Section::factory()->create(['name' => 'Headless Section', 'section_head_employee_id' => null]);
 
-    Livewire::test('pages::trainings.show', ['training' => $training])
-        ->set('selectedEmployeeIds', [$employee->id])
-        ->call('assign')
-        ->assertForbidden();
+    Livewire::test('pages::setup.sections')
+        ->assertSee('Headless Section')
+        ->assertSee('No head');
 });
 ```
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
 ```bash
-php artisan test --compact tests/Feature/TrainingScreensTest.php
+php artisan test --compact tests/Feature/SetupScreensTest.php
 ```
 
-Inaasahan: FAIL — walang component na `pages::trainings.form`.
+Inaasahan: FAIL — walang route na `setup.sections`.
 
-- [ ] **Step 3: Gawin ang index page**
+- [ ] **Step 3: Gawin ang sections page**
 
-Gumawa ng `resources/views/pages/trainings/⚡index.blade.php`:
+Gumawa ng `resources/views/pages/setup/⚡sections.blade.php`:
 
 ```blade
 <?php
 
-use App\Enums\LdType;
-use App\Models\Training;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\Division;
+use App\Models\Employee;
+use App\Models\Section;
+use Flux\Flux;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
-new #[Title('Trainings')] class extends Component {
-    use WithPagination;
+new #[Title('Sections')] class extends Component {
+    public ?int $editingId = null;
 
-    #[Url]
-    public int $year;
+    public ?int $divisionId = null;
 
-    #[Url]
-    public string $ldType = '';
+    public string $name = '';
+
+    public string $code = '';
+
+    public ?int $sectionHeadEmployeeId = null;
 
     public function mount(): void
     {
-        $this->year = now()->year;
-    }
-
-    public function updatedYear(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedLdType(): void
-    {
-        $this->resetPage();
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
     }
 
     /**
-     * @return LengthAwarePaginator<int, Training>
+     * @return Collection<int, Section>
      */
     #[Computed]
-    public function trainings(): LengthAwarePaginator
+    public function sections(): Collection
     {
-        return Training::query()
-            ->heldIn($this->year)
-            ->when($this->ldType !== '', fn (Builder $query) => $query->where('ld_type', $this->ldType))
-            ->withCount(['assignments as completed_count' => fn (Builder $query) => $query->whereNotNull('completed_at')])
-            ->withCount('assignments')
-            ->orderByDesc('from_date')
-            ->paginate(25);
+        return Section::query()->with(['division', 'head'])->withCount('employees')->orderBy('name')->get();
     }
 
     /**
-     * @return array<int, int>
+     * @return Collection<int, Division>
      */
     #[Computed]
-    public function years(): array
+    public function divisions(): Collection
     {
-        return range(now()->year, now()->year - 10);
+        return Division::query()->orderBy('name')->get();
     }
-}; ?>
 
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Trainings') }}</flux:heading>
-
-        @can('create', App\Models\Training::class)
-            <flux:button :href="route('trainings.create')" variant="primary" wire:navigate>
-                {{ __('Add training') }}
-            </flux:button>
-        @endcan
-    </div>
-
-    <div class="flex flex-col gap-4 md:flex-row">
-        <flux:select wire:model.live="year" class="md:w-40">
-            @foreach ($this->years as $year)
-                <flux:select.option :value="$year">{{ $year }}</flux:select.option>
-            @endforeach
-        </flux:select>
-
-        <flux:select wire:model.live="ldType" class="md:w-64">
-            <flux:select.option value="">{{ __('All types of LD') }}</flux:select.option>
-            @foreach (App\Enums\LdType::cases() as $type)
-                <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
-            @endforeach
-        </flux:select>
-    </div>
-
-    <flux:table :paginate="$this->trainings">
-        <flux:table.columns>
-            <flux:table.column>{{ __('Title') }}</flux:table.column>
-            <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-            <flux:table.column>{{ __('Hours') }}</flux:table.column>
-            <flux:table.column>{{ __('Type of LD') }}</flux:table.column>
-            <flux:table.column>{{ __('Completed') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->trainings as $training)
-                <flux:table.row :key="$training->id">
-                    <flux:table.cell>
-                        <flux:link :href="route('trainings.show', $training)" wire:navigate>
-                            {{ $training->title }}
-                        </flux:link>
-                    </flux:table.cell>
-                    <flux:table.cell>
-                        {{ $training->from_date->format('d M Y') }} – {{ $training->to_date->format('d M Y') }}
-                    </flux:table.cell>
-                    <flux:table.cell>{{ $training->hours }}</flux:table.cell>
-                    <flux:table.cell>{{ $training->ld_type->label() }}</flux:table.cell>
-                    <flux:table.cell>{{ $training->completed_count }} / {{ $training->assignments_count }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('No trainings for this year.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-</div>
-```
-
-- [ ] **Step 4: Gawin ang form page**
-
-Gumawa ng `resources/views/pages/trainings/⚡form.blade.php`:
-
-```blade
-<?php
-
-use App\Enums\LdType;
-use App\Models\Training;
-use Flux\Flux;
-use Illuminate\Validation\Rule;
-use Livewire\Attributes\Title;
-use Livewire\Component;
-
-new #[Title('Training')] class extends Component {
-    public ?Training $training = null;
-
-    public string $title = '';
-
-    public string $from_date = '';
-
-    public string $to_date = '';
-
-    public ?int $hours = null;
-
-    public string $ld_type = '';
-
-    public string $conducted_by = '';
-
-    public function mount(?Training $training = null): void
+    /**
+     * @return Collection<int, Employee>
+     */
+    #[Computed]
+    public function employees(): Collection
     {
-        if ($training?->exists) {
-            $this->authorize('update', $training);
+        return Employee::query()->active()->orderBy('last_name')->get();
+    }
 
-            $this->training = $training;
-            $this->title = $training->title;
-            $this->from_date = $training->from_date->toDateString();
-            $this->to_date = $training->to_date->toDateString();
-            $this->hours = $training->hours;
-            $this->ld_type = $training->ld_type->value;
-            $this->conducted_by = $training->conducted_by;
+    public function edit(int $id): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
 
-            return;
-        }
+        $section = Section::findOrFail($id);
 
-        $this->authorize('create', Training::class);
+        $this->editingId = $section->id;
+        $this->divisionId = $section->division_id;
+        $this->name = $section->name;
+        $this->code = $section->code;
+        $this->sectionHeadEmployeeId = $section->section_head_employee_id;
     }
 
     public function save(): void
     {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
         $validated = $this->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'from_date' => ['required', 'date'],
-            'to_date' => ['required', 'date', 'after_or_equal:from_date'],
-            'hours' => ['required', 'integer', 'min:1', 'max:9999'],
-            'ld_type' => ['required', Rule::enum(LdType::class)],
-            'conducted_by' => ['required', 'string', 'max:255'],
+            'divisionId' => ['required', 'exists:divisions,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:20', Rule::unique('sections', 'code')->ignore($this->editingId)],
+            'sectionHeadEmployeeId' => ['nullable', 'exists:employees,id'],
         ]);
 
-        if ($this->training instanceof Training) {
-            $this->authorize('update', $this->training);
-            $this->training->update($validated);
-        } else {
-            $this->authorize('create', Training::class);
-            $this->training = Training::create($validated);
-        }
+        Section::updateOrCreate(['id' => $this->editingId], [
+            'division_id' => $validated['divisionId'],
+            'name' => $validated['name'],
+            'code' => $validated['code'],
+            'section_head_employee_id' => $validated['sectionHeadEmployeeId'],
+        ]);
 
-        Flux::toast(variant: 'success', text: __('Training saved.'));
+        $this->resetForm();
+        unset($this->sections);
 
-        $this->redirectRoute('trainings.show', $this->training, navigate: true);
+        Flux::toast(variant: 'success', text: __('Section saved.'));
+    }
+
+    public function resetForm(): void
+    {
+        $this->reset('editingId', 'divisionId', 'name', 'code', 'sectionHeadEmployeeId');
+        $this->resetValidation();
     }
 }; ?>
 
 <div class="space-y-6">
-    <flux:heading size="xl">{{ $training ? __('Edit training') : __('Add training') }}</flux:heading>
+    <flux:heading size="xl">{{ __('Sections') }}</flux:heading>
 
     <flux:callout icon="information-circle">
-        {{ __('These are the Learning and Development fields of the Personal Data Sheet. Fill them in exactly as they should appear there.') }}
+        {{ __('A section with no head sends its submissions straight to the division head. If neither has a head, submissions cannot move at all.') }}
     </flux:callout>
 
     <flux:card>
-        <form wire:submit="save" class="space-y-6">
-            <flux:input wire:model="title" :label="__('Title of learning and development intervention')" required />
-
+        <form wire:submit="save" class="space-y-4">
             <div class="grid gap-4 md:grid-cols-3">
-                <flux:input wire:model="from_date" :label="__('From')" type="date" required />
-                <flux:input wire:model="to_date" :label="__('To')" type="date" required />
-                <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:select wire:model="ld_type" :label="__('Type of LD')" required>
+                <flux:select wire:model="divisionId" :label="__('Division')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                    @foreach (App\Enums\LdType::cases() as $type)
-                        <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
+                    @foreach ($this->divisions as $division)
+                        <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:input wire:model="conducted_by" :label="__('Conducted or sponsored by')" required />
+                <flux:input wire:model="name" :label="__('Name')" required />
+                <flux:input wire:model="code" :label="__('Code')" required />
             </div>
 
+            <flux:select wire:model="sectionHeadEmployeeId" :label="__('Section head')">
+                <flux:select.option value="">{{ __('No head') }}</flux:select.option>
+                @foreach ($this->employees as $employee)
+                    <flux:select.option :value="$employee->id">{{ $employee->full_name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
             <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
-                <flux:button :href="route('trainings.index')" variant="ghost" wire:navigate>{{ __('Cancel') }}</flux:button>
+                <flux:button type="submit" variant="primary">
+                    {{ $editingId ? __('Update') : __('Add') }}
+                </flux:button>
+
+                @if ($editingId)
+                    <flux:button type="button" variant="ghost" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
+                @endif
             </div>
         </form>
     </flux:card>
-</div>
-```
-
-- [ ] **Step 5: Gawin ang show page**
-
-Gumawa ng `resources/views/pages/trainings/⚡show.blade.php`:
-
-```blade
-<?php
-
-use App\Actions\Training\AssignTrainingToEmployees;
-use App\Actions\Training\RecordTrainingCompletion;
-use App\Models\Employee;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use Flux\Flux;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
-use InvalidArgumentException;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Title;
-use Livewire\Component;
-
-new #[Title('Training')] class extends Component {
-    public Training $training;
-
-    /**
-     * @var array<int, int>
-     */
-    public array $selectedEmployeeIds = [];
-
-    public string $dueDate = '';
-
-    public string $completionDate = '';
-
-    public function mount(Training $training): void
-    {
-        $this->authorize('view', $training);
-
-        $this->training = $training;
-        $this->completionDate = $training->to_date->toDateString();
-    }
-
-    /**
-     * @return Collection<int, TrainingAssignment>
-     */
-    #[Computed]
-    public function assignments(): Collection
-    {
-        return $this->training->assignments()
-            ->with('employee.section')
-            ->get()
-            ->sortBy(fn (TrainingAssignment $assignment): string => $assignment->employee->last_name)
-            ->values();
-    }
-
-    /**
-     * Active employees who do not have this training yet.
-     *
-     * @return Collection<int, Employee>
-     */
-    #[Computed]
-    public function assignableEmployees(): Collection
-    {
-        return Employee::query()
-            ->active()
-            ->whereDoesntHave(
-                'trainingAssignments',
-                fn (Builder $assignment) => $assignment->where('training_id', $this->training->id),
-            )
-            ->with('section')
-            ->orderBy('last_name')
-            ->get();
-    }
-
-    public function assign(): void
-    {
-        $this->authorize('assign', $this->training);
-
-        $this->validate([
-            'selectedEmployeeIds' => ['required', 'array', 'min:1'],
-            'selectedEmployeeIds.*' => ['integer', 'exists:employees,id'],
-            'dueDate' => ['nullable', 'date'],
-        ]);
-
-        $assigned = app(AssignTrainingToEmployees::class)->handle(
-            $this->training,
-            $this->selectedEmployeeIds,
-            auth()->user(),
-            $this->dueDate !== '' ? Carbon::parse($this->dueDate) : null,
-        );
-
-        $this->reset('selectedEmployeeIds', 'dueDate');
-        unset($this->assignments, $this->assignableEmployees);
-
-        Flux::toast(variant: 'success', text: trans_choice(':count employee assigned.|:count employees assigned.', $assigned, ['count' => $assigned]));
-        Flux::modal('assign-employees')->close();
-    }
-
-    public function markCompleted(int $employeeId): void
-    {
-        $this->authorize('assign', $this->training);
-
-        $this->validate(['completionDate' => ['required', 'date']]);
-
-        try {
-            app(RecordTrainingCompletion::class)->handle(
-                $this->training,
-                Employee::findOrFail($employeeId),
-                Carbon::parse($this->completionDate),
-                auth()->user(),
-            );
-        } catch (InvalidArgumentException $exception) {
-            $this->addError('completionDate', $exception->getMessage());
-
-            return;
-        }
-
-        unset($this->assignments);
-
-        Flux::toast(variant: 'success', text: __('Completion recorded.'));
-    }
-}; ?>
-
-<div class="space-y-6">
-    <div class="flex items-start justify-between">
-        <div>
-            <flux:heading size="xl">{{ $training->title }}</flux:heading>
-            <flux:text>
-                {{ $training->from_date->format('d M Y') }} – {{ $training->to_date->format('d M Y') }} ·
-                {{ $training->hours }} {{ __('hours') }} · {{ $training->ld_type->label() }} ·
-                {{ $training->conducted_by }}
-            </flux:text>
-        </div>
-
-        <div class="flex gap-2">
-            @can('update', $training)
-                <flux:button :href="route('trainings.edit', $training)" wire:navigate>{{ __('Edit') }}</flux:button>
-            @endcan
-
-            @can('assign', $training)
-                <flux:modal.trigger name="assign-employees">
-                    <flux:button variant="primary">{{ __('Assign employees') }}</flux:button>
-                </flux:modal.trigger>
-            @endcan
-        </div>
-    </div>
-
-    @can('assign', $training)
-        <flux:card class="flex flex-col gap-4 md:flex-row md:items-end">
-            <flux:input wire:model="completionDate" :label="__('Completion date')" type="date" class="md:w-64" />
-            <flux:text size="sm">{{ __('Used when marking a participant as completed below.') }}</flux:text>
-        </flux:card>
-    @endcan
 
     <flux:table>
         <flux:table.columns>
-            <flux:table.column>{{ __('Employee') }}</flux:table.column>
             <flux:table.column>{{ __('Section') }}</flux:table.column>
-            <flux:table.column>{{ __('Due') }}</flux:table.column>
-            <flux:table.column>{{ __('Status') }}</flux:table.column>
+            <flux:table.column>{{ __('Division') }}</flux:table.column>
+            <flux:table.column>{{ __('Head') }}</flux:table.column>
+            <flux:table.column>{{ __('Employees') }}</flux:table.column>
             <flux:table.column />
         </flux:table.columns>
 
         <flux:table.rows>
-            @forelse ($this->assignments as $assignment)
-                <flux:table.row :key="$assignment->id">
-                    <flux:table.cell>{{ $assignment->employee->full_name }}</flux:table.cell>
-                    <flux:table.cell>{{ $assignment->employee->section->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $assignment->due_date?->format('d M Y') ?? '—' }}</flux:table.cell>
+            @forelse ($this->sections as $section)
+                <flux:table.row :key="$section->id">
+                    <flux:table.cell>{{ $section->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $section->division->name }}</flux:table.cell>
                     <flux:table.cell>
-                        @if ($assignment->completed_at)
-                            <flux:badge color="green">
-                                {{ __('Completed :date', ['date' => $assignment->completed_at->format('d M Y')]) }}
-                            </flux:badge>
+                        @if ($section->head)
+                            {{ $section->head->full_name }}
                         @else
-                            <flux:badge color="zinc">{{ __('Pending') }}</flux:badge>
+                            <flux:badge color="amber">{{ __('No head') }}</flux:badge>
                         @endif
                     </flux:table.cell>
+                    <flux:table.cell>{{ $section->employees_count }}</flux:table.cell>
                     <flux:table.cell>
-                        @if (! $assignment->completed_at)
-                            @can('assign', $training)
-                                <flux:button size="sm" wire:click="markCompleted({{ $assignment->employee_id }})">
-                                    {{ __('Mark completed') }}
-                                </flux:button>
-                            @endcan
-                        @endif
+                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $section->id }})">
+                            {{ __('Edit') }}
+                        </flux:button>
                     </flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('Nobody has been assigned yet.') }}</flux:table.cell>
+                    <flux:table.cell colspan="5">{{ __('No sections yet.') }}</flux:table.cell>
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
     </flux:table>
+</div>
+```
 
-    <flux:error name="completionDate" />
+- [ ] **Step 4: Gawin ang divisions page**
 
-    <flux:modal name="assign-employees" class="md:w-2xl">
-        <form wire:submit="assign" class="space-y-6">
-            <flux:heading size="lg">{{ __('Assign employees') }}</flux:heading>
+Gumawa ng `resources/views/pages/setup/⚡divisions.blade.php`:
 
-            <flux:input wire:model="dueDate" :label="__('Due date (optional)')" type="date" />
+```blade
+<?php
 
-            <flux:error name="selectedEmployeeIds" />
+use App\Models\Division;
+use App\Models\Employee;
+use Flux\Flux;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 
-            <div class="max-h-80 space-y-2 overflow-y-auto">
-                @forelse ($this->assignableEmployees as $employee)
-                    <flux:checkbox
-                        wire:model="selectedEmployeeIds"
-                        :value="$employee->id"
-                        :label="$employee->full_name.' — '.$employee->section->name"
-                    />
-                @empty
-                    <flux:text>{{ __('Every active employee already has this training.') }}</flux:text>
-                @endforelse
+new #[Title('Divisions')] class extends Component {
+    public ?int $editingId = null;
+
+    public string $name = '';
+
+    public string $code = '';
+
+    public ?int $divisionHeadEmployeeId = null;
+
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+    }
+
+    /**
+     * @return Collection<int, Division>
+     */
+    #[Computed]
+    public function divisions(): Collection
+    {
+        return Division::query()->with('head')->withCount('sections')->orderBy('name')->get();
+    }
+
+    /**
+     * @return Collection<int, Employee>
+     */
+    #[Computed]
+    public function employees(): Collection
+    {
+        return Employee::query()->active()->orderBy('last_name')->get();
+    }
+
+    public function edit(int $id): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $division = Division::findOrFail($id);
+
+        $this->editingId = $division->id;
+        $this->name = $division->name;
+        $this->code = $division->code;
+        $this->divisionHeadEmployeeId = $division->division_head_employee_id;
+    }
+
+    public function save(): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $validated = $this->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:20', Rule::unique('divisions', 'code')->ignore($this->editingId)],
+            'divisionHeadEmployeeId' => ['nullable', 'exists:employees,id'],
+        ]);
+
+        Division::updateOrCreate(['id' => $this->editingId], [
+            'name' => $validated['name'],
+            'code' => $validated['code'],
+            'division_head_employee_id' => $validated['divisionHeadEmployeeId'],
+        ]);
+
+        $this->resetForm();
+        unset($this->divisions);
+
+        Flux::toast(variant: 'success', text: __('Division saved.'));
+    }
+
+    public function resetForm(): void
+    {
+        $this->reset('editingId', 'name', 'code', 'divisionHeadEmployeeId');
+        $this->resetValidation();
+    }
+}; ?>
+
+<div class="space-y-6">
+    <flux:heading size="xl">{{ __('Divisions') }}</flux:heading>
+
+    <flux:card>
+        <form wire:submit="save" class="space-y-4">
+            <div class="grid gap-4 md:grid-cols-3">
+                <flux:input wire:model="name" :label="__('Name')" required />
+                <flux:input wire:model="code" :label="__('Code')" required />
+
+                <flux:select wire:model="divisionHeadEmployeeId" :label="__('Division head')">
+                    <flux:select.option value="">{{ __('No head') }}</flux:select.option>
+                    @foreach ($this->employees as $employee)
+                        <flux:select.option :value="$employee->id">{{ $employee->full_name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
             </div>
 
-            <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
+            <div class="flex gap-2">
+                <flux:button type="submit" variant="primary">
+                    {{ $editingId ? __('Update') : __('Add') }}
+                </flux:button>
 
-                <flux:button type="submit" variant="primary">{{ __('Assign') }}</flux:button>
+                @if ($editingId)
+                    <flux:button type="button" variant="ghost" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
+                @endif
             </div>
         </form>
-    </flux:modal>
+    </flux:card>
+
+    <flux:table>
+        <flux:table.columns>
+            <flux:table.column>{{ __('Name') }}</flux:table.column>
+            <flux:table.column>{{ __('Code') }}</flux:table.column>
+            <flux:table.column>{{ __('Head') }}</flux:table.column>
+            <flux:table.column>{{ __('Sections') }}</flux:table.column>
+            <flux:table.column />
+        </flux:table.columns>
+
+        <flux:table.rows>
+            @forelse ($this->divisions as $division)
+                <flux:table.row :key="$division->id">
+                    <flux:table.cell>{{ $division->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $division->code }}</flux:table.cell>
+                    <flux:table.cell>
+                        @if ($division->head)
+                            {{ $division->head->full_name }}
+                        @else
+                            <flux:badge color="amber">{{ __('No head') }}</flux:badge>
+                        @endif
+                    </flux:table.cell>
+                    <flux:table.cell>{{ $division->sections_count }}</flux:table.cell>
+                    <flux:table.cell>
+                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $division->id }})">
+                            {{ __('Edit') }}
+                        </flux:button>
+                    </flux:table.cell>
+                </flux:table.row>
+            @empty
+                <flux:table.row>
+                    <flux:table.cell colspan="5">{{ __('No divisions yet.') }}</flux:table.cell>
+                </flux:table.row>
+            @endforelse
+        </flux:table.rows>
+    </flux:table>
+</div>
+```
+
+- [ ] **Step 5: Gawin ang positions page**
+
+Gumawa ng `resources/views/pages/setup/⚡positions.blade.php`:
+
+```blade
+<?php
+
+use App\Models\Position;
+use Flux\Flux;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+
+new #[Title('Positions')] class extends Component {
+    public ?int $editingId = null;
+
+    public string $title = '';
+
+    public string $itemNumber = '';
+
+    public ?int $salaryGrade = null;
+
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+    }
+
+    /**
+     * @return Collection<int, Position>
+     */
+    #[Computed]
+    public function positions(): Collection
+    {
+        return Position::query()->withCount('employees')->orderBy('title')->get();
+    }
+
+    public function edit(int $id): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $position = Position::findOrFail($id);
+
+        $this->editingId = $position->id;
+        $this->title = $position->title;
+        $this->itemNumber = $position->item_number ?? '';
+        $this->salaryGrade = $position->salary_grade;
+    }
+
+    public function save(): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $validated = $this->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'itemNumber' => ['nullable', 'string', 'max:50'],
+            'salaryGrade' => ['nullable', 'integer', 'between:1,33'],
+        ]);
+
+        Position::updateOrCreate(['id' => $this->editingId], [
+            'title' => $validated['title'],
+            'item_number' => $validated['itemNumber'] ?: null,
+            'salary_grade' => $validated['salaryGrade'],
+        ]);
+
+        $this->resetForm();
+        unset($this->positions);
+
+        Flux::toast(variant: 'success', text: __('Position saved.'));
+    }
+
+    public function resetForm(): void
+    {
+        $this->reset('editingId', 'title', 'itemNumber', 'salaryGrade');
+        $this->resetValidation();
+    }
+}; ?>
+
+<div class="space-y-6">
+    <flux:heading size="xl">{{ __('Positions') }}</flux:heading>
+
+    <flux:card>
+        <form wire:submit="save" class="flex flex-col gap-4 md:flex-row md:items-end">
+            <flux:input wire:model="title" :label="__('Title')" class="flex-1" required />
+            <flux:input wire:model="itemNumber" :label="__('Item number')" class="md:w-48" />
+            <flux:input wire:model="salaryGrade" :label="__('Salary grade')" type="number" min="1" max="33" class="md:w-40" />
+
+            <div class="flex gap-2">
+                <flux:button type="submit" variant="primary">
+                    {{ $editingId ? __('Update') : __('Add') }}
+                </flux:button>
+
+                @if ($editingId)
+                    <flux:button type="button" variant="ghost" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
+                @endif
+            </div>
+        </form>
+    </flux:card>
+
+    <flux:table>
+        <flux:table.columns>
+            <flux:table.column>{{ __('Title') }}</flux:table.column>
+            <flux:table.column>{{ __('Item number') }}</flux:table.column>
+            <flux:table.column>{{ __('Salary grade') }}</flux:table.column>
+            <flux:table.column>{{ __('Employees') }}</flux:table.column>
+            <flux:table.column />
+        </flux:table.columns>
+
+        <flux:table.rows>
+            @forelse ($this->positions as $position)
+                <flux:table.row :key="$position->id">
+                    <flux:table.cell>{{ $position->title }}</flux:table.cell>
+                    <flux:table.cell>{{ $position->item_number ?? '—' }}</flux:table.cell>
+                    <flux:table.cell>{{ $position->salary_grade ?? '—' }}</flux:table.cell>
+                    <flux:table.cell>{{ $position->employees_count }}</flux:table.cell>
+                    <flux:table.cell>
+                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $position->id }})">
+                            {{ __('Edit') }}
+                        </flux:button>
+                    </flux:table.cell>
+                </flux:table.row>
+            @empty
+                <flux:table.row>
+                    <flux:table.cell colspan="5">{{ __('No positions yet.') }}</flux:table.cell>
+                </flux:table.row>
+            @endforelse
+        </flux:table.rows>
+    </flux:table>
 </div>
 ```
 
 - [ ] **Step 6: Irehistro ang mga route**
 
-Sa `routes/web.php`, sa loob ng auth group. Gaya ng employees, nauuna ang `create` kaysa `{training}`:
-
 ```php
-Route::livewire('trainings', 'pages::trainings.index')->name('trainings.index');
-Route::livewire('trainings/create', 'pages::trainings.form')->name('trainings.create');
-Route::livewire('trainings/{training}', 'pages::trainings.show')->name('trainings.show');
-Route::livewire('trainings/{training}/edit', 'pages::trainings.form')->name('trainings.edit');
+Route::livewire('setup/divisions', 'pages::setup.divisions')->name('setup.divisions');
+Route::livewire('setup/sections', 'pages::setup.sections')->name('setup.sections');
+Route::livewire('setup/positions', 'pages::setup.positions')->name('setup.positions');
 ```
 
 - [ ] **Step 7: Patakbuhin ang test**
 
 ```bash
-php artisan test --compact tests/Feature/TrainingScreensTest.php
+php artisan test --compact tests/Feature/SetupScreensTest.php
 ```
 
-Inaasahan: PASS, anim na test.
+Inaasahan: PASS, limang test.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Commit message**
 
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add training screens with bulk assign and completion"
 ```
-
----
-
-## Task 12: Report screens at print view
-
-**Files:**
-- Create: `resources/views/pages/reports/⚡monthly-activity.blade.php`, `⚡no-training.blade.php`
-- Create: `resources/views/layouts/print.blade.php`, `resources/views/reports/monthly-activity-print.blade.php`, `resources/views/reports/no-training-print.blade.php`
-- Create: `app/Http/Controllers/TrainingReportPrintController.php`
-- Modify: `routes/web.php`
-- Test: `tests/Feature/ReportScreensTest.php`
-
-**Interfaces:**
-- Consumes: `MonthlyTrainingActivityReport`, `EmployeesWithoutTrainingReport`
-- Produces: mga route na `reports.monthly-activity`, `reports.no-training`, `reports.monthly-activity.print`, `reports.no-training.print`
-
-- [ ] **Step 1: Isulat ang failing test**
-
-Gumawa ng `tests/Feature/ReportScreensTest.php`:
-
-```php
-<?php
-
-use App\Models\Division;
-use App\Models\Employee;
-use App\Models\Section;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
-use App\Models\User;
-use Livewire\Livewire;
-
-test('the monthly activity screen shows the trainings held that month', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-
-    $training = Training::factory()->create([
-        'title' => 'Records Management Seminar',
-        'from_date' => '2026-03-02',
-        'to_date' => '2026-03-04',
-        'hours' => 24,
-    ]);
-    TrainingAssignment::factory()->for($training)->completed()->create();
-
-    Livewire::test('pages::reports.monthly-activity')
-        ->set('year', 2026)
-        ->set('month', 3)
-        ->assertSee('Records Management Seminar');
-});
-
-test('the monthly activity screen hides trainings from other months', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-
-    $training = Training::factory()->create([
-        'title' => 'April Only Seminar',
-        'from_date' => '2026-04-02',
-        'to_date' => '2026-04-04',
-    ]);
-    TrainingAssignment::factory()->for($training)->completed()->create();
-
-    Livewire::test('pages::reports.monthly-activity')
-        ->set('year', 2026)
-        ->set('month', 3)
-        ->assertDontSee('April Only Seminar');
-});
-
-test('the no-training screen lists employees with nothing completed that year', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-
-    $division = Division::factory()->create(['name' => 'Finance Division']);
-    $section = Section::factory()->for($division)->create();
-    Employee::factory()->for($section)->create(['last_name' => 'Jacinto']);
-
-    Livewire::test('pages::reports.no-training')
-        ->set('year', 2026)
-        ->assertSee('Jacinto')
-        ->assertSee('Finance Division');
-});
-
-test('the print views render', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
-
-    $this->get(route('reports.monthly-activity.print', ['year' => 2026, 'month' => 3]))->assertOk();
-    $this->get(route('reports.no-training.print', ['year' => 2026]))->assertOk();
-});
-```
-
-- [ ] **Step 2: Patakbuhin para makitang bumagsak**
-
-```bash
-php artisan test --compact tests/Feature/ReportScreensTest.php
-```
-
-Inaasahan: FAIL — wala pa ang mga component.
-
-- [ ] **Step 3: Gawin ang monthly activity page**
-
-Gumawa ng `resources/views/pages/reports/⚡monthly-activity.blade.php`:
-
-```blade
-<?php
-
-use App\Reports\MonthlyTrainingActivityReport;
-use Illuminate\Support\Collection;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
-use Livewire\Component;
-
-new #[Title('Monthly training activity')] class extends Component {
-    #[Url]
-    public int $year;
-
-    #[Url]
-    public int $month;
-
-    public function mount(): void
-    {
-        $this->year = now()->year;
-        $this->month = now()->month;
-    }
-
-    #[Computed]
-    public function report(): MonthlyTrainingActivityReport
-    {
-        return new MonthlyTrainingActivityReport($this->year, $this->month, auth()->user());
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    #[Computed]
-    public function years(): array
-    {
-        return range(now()->year, now()->year - 10);
-    }
-
-    /**
-     * @return Collection<int, array{value: int, label: string}>
-     */
-    #[Computed]
-    public function months(): Collection
-    {
-        return collect(range(1, 12))->map(fn (int $month): array => [
-            'value' => $month,
-            'label' => now()->startOfYear()->addMonths($month - 1)->format('F'),
-        ]);
-    }
-}; ?>
-
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Monthly training activity') }}</flux:heading>
-
-        <flux:button
-            :href="route('reports.monthly-activity.print', ['year' => $year, 'month' => $month])"
-            target="_blank"
-            icon="printer"
-        >
-            {{ __('Print') }}
-        </flux:button>
-    </div>
-
-    <div class="flex flex-col gap-4 md:flex-row">
-        <flux:select wire:model.live="month" class="md:w-48">
-            @foreach ($this->months as $month)
-                <flux:select.option :value="$month['value']">{{ $month['label'] }}</flux:select.option>
-            @endforeach
-        </flux:select>
-
-        <flux:select wire:model.live="year" class="md:w-40">
-            @foreach ($this->years as $year)
-                <flux:select.option :value="$year">{{ $year }}</flux:select.option>
-            @endforeach
-        </flux:select>
-    </div>
-
-    @php($totals = $this->report->totals())
-
-    <div class="grid gap-4 md:grid-cols-3">
-        <flux:card>
-            <flux:text size="sm">{{ __('Trainings') }}</flux:text>
-            <flux:heading size="xl">{{ $totals['trainings'] }}</flux:heading>
-        </flux:card>
-        <flux:card>
-            <flux:text size="sm">{{ __('Participants') }}</flux:text>
-            <flux:heading size="xl">{{ $totals['participants'] }}</flux:heading>
-        </flux:card>
-        <flux:card>
-            <flux:text size="sm">{{ __('Training hours') }}</flux:text>
-            <flux:heading size="xl">{{ $totals['hours'] }}</flux:heading>
-        </flux:card>
-    </div>
-
-    <flux:heading size="lg">{{ __('Trainings held') }}</flux:heading>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Title') }}</flux:table.column>
-            <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-            <flux:table.column>{{ __('Type of LD') }}</flux:table.column>
-            <flux:table.column>{{ __('Participants') }}</flux:table.column>
-            <flux:table.column>{{ __('Total hours') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->report->trainings() as $row)
-                <flux:table.row :key="$row['training']->id">
-                    <flux:table.cell>{{ $row['training']->title }}</flux:table.cell>
-                    <flux:table.cell>
-                        {{ $row['training']->from_date->format('d M Y') }} –
-                        {{ $row['training']->to_date->format('d M Y') }}
-                    </flux:table.cell>
-                    <flux:table.cell>{{ $row['training']->ld_type->label() }}</flux:table.cell>
-                    <flux:table.cell>{{ $row['participants'] }}</flux:table.cell>
-                    <flux:table.cell>{{ $row['hours'] }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('No training activity this month.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-
-    <flux:heading size="lg">{{ __('By division') }}</flux:heading>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Division') }}</flux:table.column>
-            <flux:table.column>{{ __('Participants') }}</flux:table.column>
-            <flux:table.column>{{ __('Training hours') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->report->byDivision() as $division => $figures)
-                <flux:table.row :key="$division">
-                    <flux:table.cell>{{ $division }}</flux:table.cell>
-                    <flux:table.cell>{{ $figures['participants'] }}</flux:table.cell>
-                    <flux:table.cell>{{ $figures['hours'] }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="3">{{ __('Nothing to show.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-</div>
-```
-
-- [ ] **Step 4: Gawin ang no-training page**
-
-Gumawa ng `resources/views/pages/reports/⚡no-training.blade.php`:
-
-```blade
-<?php
-
-use App\Reports\EmployeesWithoutTrainingReport;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
-use Livewire\Component;
-
-new #[Title('Employees without training')] class extends Component {
-    #[Url]
-    public int $year;
-
-    public function mount(): void
-    {
-        $this->year = now()->year;
-    }
-
-    #[Computed]
-    public function report(): EmployeesWithoutTrainingReport
-    {
-        return new EmployeesWithoutTrainingReport($this->year, auth()->user());
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    #[Computed]
-    public function years(): array
-    {
-        return range(now()->year, now()->year - 10);
-    }
-}; ?>
-
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Employees without training') }}</flux:heading>
-
-        <flux:button :href="route('reports.no-training.print', ['year' => $year])" target="_blank" icon="printer">
-            {{ __('Print') }}
-        </flux:button>
-    </div>
-
-    <flux:select wire:model.live="year" class="md:w-40">
-        @foreach ($this->years as $year)
-            <flux:select.option :value="$year">{{ $year }}</flux:select.option>
-        @endforeach
-    </flux:select>
-
-    <flux:card>
-        <flux:text size="sm">{{ __('Employees with no completed training in :year', ['year' => $year]) }}</flux:text>
-        <flux:heading size="xl">{{ $this->report->total() }}</flux:heading>
-    </flux:card>
-
-    <flux:heading size="lg">{{ __('By division') }}</flux:heading>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Division') }}</flux:table.column>
-            <flux:table.column>{{ __('Untrained') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->report->countByDivision() as $division => $count)
-                <flux:table.row :key="$division">
-                    <flux:table.cell>{{ $division }}</flux:table.cell>
-                    <flux:table.cell>{{ $count }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="2">{{ __('Everyone has training this year.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-
-    <flux:heading size="lg">{{ __('Employees') }}</flux:heading>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Employee no.') }}</flux:table.column>
-            <flux:table.column>{{ __('Name') }}</flux:table.column>
-            <flux:table.column>{{ __('Position') }}</flux:table.column>
-            <flux:table.column>{{ __('Section') }}</flux:table.column>
-            <flux:table.column>{{ __('Division') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->report->employees() as $employee)
-                <flux:table.row :key="$employee->id">
-                    <flux:table.cell>{{ $employee->employee_no }}</flux:table.cell>
-                    <flux:table.cell>
-                        <flux:link :href="route('employees.show', $employee)" wire:navigate>
-                            {{ $employee->full_name }}
-                        </flux:link>
-                    </flux:table.cell>
-                    <flux:table.cell>{{ $employee->position->title }}</flux:table.cell>
-                    <flux:table.cell>{{ $employee->section->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $employee->section->division->name }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('Everyone has training this year.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-</div>
-```
-
-- [ ] **Step 5: Gawin ang print layout at views**
-
-Gumawa ng `resources/views/layouts/print.blade.php`:
-
-```blade
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title }}</title>
-    <style>
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; margin: 24px; }
-        h1 { font-size: 16px; margin: 0 0 4px; }
-        h2 { font-size: 13px; margin: 24px 0 8px; }
-        p.meta { margin: 0 0 16px; color: #444; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th, td { border: 1px solid #999; padding: 4px 6px; text-align: left; }
-        th { background: #eee; }
-        @media print { body { margin: 0; } }
-    </style>
-</head>
-<body>
-    <h1>{{ $heading }}</h1>
-    <p class="meta">{{ $subheading }}</p>
-
-    {{ $slot }}
-</body>
-</html>
-```
-
-Gumawa ng `resources/views/reports/monthly-activity-print.blade.php`:
-
-```blade
-<x-layouts.print
-    :title="__('Monthly training activity')"
-    :heading="config('app.name').' — '.__('Monthly Training Activity Report')"
-    :subheading="$periodLabel"
->
-    <table>
-        <thead>
-            <tr>
-                <th>{{ __('Title') }}</th>
-                <th>{{ __('Inclusive dates') }}</th>
-                <th>{{ __('Type of LD') }}</th>
-                <th>{{ __('Conducted by') }}</th>
-                <th>{{ __('Participants') }}</th>
-                <th>{{ __('Total hours') }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($report->trainings() as $row)
-                <tr>
-                    <td>{{ $row['training']->title }}</td>
-                    <td>{{ $row['training']->from_date->format('d M Y') }} – {{ $row['training']->to_date->format('d M Y') }}</td>
-                    <td>{{ $row['training']->ld_type->label() }}</td>
-                    <td>{{ $row['training']->conducted_by }}</td>
-                    <td>{{ $row['participants'] }}</td>
-                    <td>{{ $row['hours'] }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="6">{{ __('No training activity this month.') }}</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-
-    <h2>{{ __('By division') }}</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>{{ __('Division') }}</th>
-                <th>{{ __('Participants') }}</th>
-                <th>{{ __('Training hours') }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($report->byDivision() as $division => $figures)
-                <tr>
-                    <td>{{ $division }}</td>
-                    <td>{{ $figures['participants'] }}</td>
-                    <td>{{ $figures['hours'] }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="3">{{ __('Nothing to show.') }}</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-</x-layouts.print>
-```
-
-Gumawa ng `resources/views/reports/no-training-print.blade.php`:
-
-```blade
-<x-layouts.print
-    :title="__('Employees without training')"
-    :heading="config('app.name').' — '.__('Employees Without Training')"
-    :subheading="__('Calendar year :year', ['year' => $year])"
->
-    <table>
-        <thead>
-            <tr>
-                <th>{{ __('Employee no.') }}</th>
-                <th>{{ __('Name') }}</th>
-                <th>{{ __('Position') }}</th>
-                <th>{{ __('Section') }}</th>
-                <th>{{ __('Division') }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($report->employees() as $employee)
-                <tr>
-                    <td>{{ $employee->employee_no }}</td>
-                    <td>{{ $employee->full_name }}</td>
-                    <td>{{ $employee->position->title }}</td>
-                    <td>{{ $employee->section->name }}</td>
-                    <td>{{ $employee->section->division->name }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="5">{{ __('Everyone has training this year.') }}</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-</x-layouts.print>
-```
-
-- [ ] **Step 6: Gawin ang print controller**
-
-```bash
-php artisan make:controller TrainingReportPrintController --no-interaction
-```
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Reports\EmployeesWithoutTrainingReport;
-use App\Reports\MonthlyTrainingActivityReport;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-
-class TrainingReportPrintController extends Controller
-{
-    public function monthlyActivity(Request $request): View
-    {
-        $validated = $request->validate([
-            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
-            'month' => ['required', 'integer', 'between:1,12'],
-        ]);
-
-        $period = Carbon::create($validated['year'], $validated['month'], 1);
-
-        return view('reports.monthly-activity-print', [
-            'report' => new MonthlyTrainingActivityReport($validated['year'], $validated['month'], $request->user()),
-            'periodLabel' => $period->format('F Y'),
-        ]);
-    }
-
-    public function employeesWithoutTraining(Request $request): View
-    {
-        $validated = $request->validate([
-            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
-        ]);
-
-        return view('reports.no-training-print', [
-            'report' => new EmployeesWithoutTrainingReport($validated['year'], $request->user()),
-            'year' => $validated['year'],
-        ]);
-    }
-}
-```
-
-- [ ] **Step 7: Irehistro ang mga route**
-
-Sa `routes/web.php`, sa loob ng auth group. Idagdag ang import na `use App\Http\Controllers\TrainingReportPrintController;` sa itaas ng file.
-
-```php
-Route::livewire('reports/monthly-activity', 'pages::reports.monthly-activity')->name('reports.monthly-activity');
-Route::livewire('reports/no-training', 'pages::reports.no-training')->name('reports.no-training');
-
-Route::get('reports/monthly-activity/print', [TrainingReportPrintController::class, 'monthlyActivity'])
-    ->name('reports.monthly-activity.print');
-Route::get('reports/no-training/print', [TrainingReportPrintController::class, 'employeesWithoutTraining'])
-    ->name('reports.no-training.print');
-```
-
-- [ ] **Step 8: Patakbuhin ang test**
-
-```bash
-php artisan test --compact tests/Feature/ReportScreensTest.php
-```
-
-Inaasahan: PASS, apat na test.
-
-- [ ] **Step 9: Commit**
-
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add report screens and printable views"
+feat: add setup screens and head designation
 ```
 
 ---
 
-## Task 13: Dashboard at navigation
+## Task 13: Dashboard, navigation, at pagpapatunay
 
 **Files:**
 - Create: `resources/views/pages/⚡dashboard.blade.php`
 - Delete: `resources/views/dashboard.blade.php`
 - Modify: `routes/web.php`, `resources/views/layouts/app/sidebar.blade.php`
-- Test: `tests/Feature/DashboardTest.php` (dagdagan ang umiiral)
+- Test: `tests/Feature/DashboardTest.php`
 
 **Interfaces:**
-- Consumes: `Employee`, `TrainingAssignment`, `EmployeesWithoutTrainingReport`
+- Consumes: lahat ng nauna
 - Produces: ang route na `dashboard` ay Livewire component na
 
 - [ ] **Step 1: Dagdagan ang umiiral na test**
 
-Idagdag sa `tests/Feature/DashboardTest.php`:
+Idagdag sa `tests/Feature/DashboardTest.php` (at ang mga import na `App\Models\Employee`, `App\Models\TrainingRecord`, `Livewire\Livewire`):
 
 ```php
-use App\Models\Division;
-use App\Models\Employee;
-use App\Models\Section;
-use App\Models\Training;
-use App\Models\TrainingAssignment;
+test('the dashboard counts my own records by state', function () {
+    $user = User::factory()->employee()->create();
+    $employee = Employee::factory()->create(['user_id' => $user->id]);
 
-test('the dashboard counts active employees and those without training', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+    TrainingRecord::factory()->for($employee)->count(2)->create();
+    TrainingRecord::factory()->for($employee)->approved()->create();
+    TrainingRecord::factory()->create();
 
-    $trained = Employee::factory()->create();
-    Employee::factory()->count(2)->create();
-    Employee::factory()->separated()->create();
-
-    $training = Training::factory()->create([
-        'from_date' => now()->startOfYear(),
-        'to_date' => now()->startOfYear()->addDay(),
-    ]);
-    TrainingAssignment::factory()->for($training)->for($trained)->completed()->create();
+    $this->actingAs($user);
 
     Livewire::test('pages::dashboard')
-        ->assertSet('activeEmployees', 3)
-        ->assertSet('untrainedEmployees', 2);
+        ->assertSet('myPending', 2)
+        ->assertSet('myApproved', 1);
 });
 
-test('the dashboard lists overdue assignments', function () {
-    $this->actingAs(User::factory()->hrAdmin()->create());
+test('the dashboard tells a head how many records await them', function () {
+    $user = User::factory()->sectionHead()->create();
+    Employee::factory()->create(['user_id' => $user->id]);
 
-    $employee = Employee::factory()->create(['last_name' => 'Jacinto']);
-    $training = Training::factory()->create(['title' => 'Overdue Seminar']);
-    TrainingAssignment::factory()->for($training)->for($employee)->overdue()->create();
+    $this->actingAs($user);
 
-    Livewire::test('pages::dashboard')->assertSee('Overdue Seminar');
+    Livewire::test('pages::dashboard')->assertSet('awaitingMe', 0);
 });
 ```
-
-Idagdag ang import na `use Livewire\Livewire;` sa itaas ng file.
 
 - [ ] **Step 2: Patakbuhin para makitang bumagsak**
 
@@ -4668,7 +4600,7 @@ php artisan test --compact tests/Feature/DashboardTest.php
 
 Inaasahan: FAIL — hindi Livewire component ang `dashboard`.
 
-- [ ] **Step 3: Gawin ang dashboard page**
+- [ ] **Step 3: Gawin ang dashboard**
 
 Gumawa ng `resources/views/pages/⚡dashboard.blade.php`:
 
@@ -4676,120 +4608,89 @@ Gumawa ng `resources/views/pages/⚡dashboard.blade.php`:
 <?php
 
 use App\Models\Employee;
-use App\Models\TrainingAssignment;
-use App\Reports\EmployeesWithoutTrainingReport;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
-use Livewire\Attributes\Computed;
+use App\Models\TrainingRecord;
+use App\Workflow\ApprovalRouter;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Dashboard')] class extends Component {
-    public int $activeEmployees = 0;
+    public int $myPending = 0;
 
-    public int $untrainedEmployees = 0;
+    public int $myApproved = 0;
+
+    public int $awaitingMe = 0;
+
+    public int $unroutable = 0;
 
     public function mount(): void
     {
-        $this->activeEmployees = Employee::query()->visibleTo(auth()->user())->active()->count();
-        $this->untrainedEmployees = (new EmployeesWithoutTrainingReport(now()->year, auth()->user()))->total();
+        $user = auth()->user();
+        $employee = $user->employee;
+
+        if ($employee instanceof Employee) {
+            $this->myPending = $employee->trainingRecords()->pending()->count();
+            $this->myApproved = $employee->trainingRecords()->approved()->count();
+            $this->awaitingMe = $this->countAwaitingMe($employee);
+        }
+
+        if ($user->isAdminOrHr()) {
+            $this->unroutable = TrainingRecord::query()->unroutable()->count();
+        }
     }
 
-    /**
-     * @return Collection<string, int>
-     */
-    #[Computed]
-    public function untrainedByDivision(): Collection
+    private function countAwaitingMe(Employee $employee): int
     {
-        return (new EmployeesWithoutTrainingReport(now()->year, auth()->user()))->countByDivision();
-    }
+        $router = app(ApprovalRouter::class);
 
-    /**
-     * @return Collection<int, TrainingAssignment>
-     */
-    #[Computed]
-    public function overdue(): Collection
-    {
-        return TrainingAssignment::query()
-            ->overdue()
-            ->whereHas('employee', fn (Builder $employee) => $employee->visibleTo(auth()->user())->active())
-            ->with(['training', 'employee'])
-            ->orderBy('due_date')
-            ->limit(20)
-            ->get();
+        return TrainingRecord::query()
+            ->pending()
+            ->whereNotNull('current_level')
+            ->with('employee')
+            ->get()
+            ->filter(function (TrainingRecord $record) use ($router, $employee): bool {
+                $approver = $router->approverFor($record->current_level, $record->employee);
+
+                return $approver instanceof Employee && $approver->is($employee);
+            })
+            ->count();
     }
 }; ?>
 
 <div class="space-y-6">
-    <flux:heading size="xl">{{ __('Training compliance :year', ['year' => now()->year]) }}</flux:heading>
+    <flux:heading size="xl">{{ __('Dashboard') }}</flux:heading>
 
     <div class="grid gap-4 md:grid-cols-3">
         <flux:card>
-            <flux:text size="sm">{{ __('Active employees') }}</flux:text>
-            <flux:heading size="xl">{{ $activeEmployees }}</flux:heading>
+            <flux:text size="sm">{{ __('My pending trainings') }}</flux:text>
+            <flux:heading size="xl">{{ $myPending }}</flux:heading>
+            <flux:link :href="route('trainings.mine')" wire:navigate>{{ __('View mine') }}</flux:link>
         </flux:card>
 
         <flux:card>
-            <flux:text size="sm">{{ __('No training this year') }}</flux:text>
-            <flux:heading size="xl">{{ $untrainedEmployees }}</flux:heading>
-            <flux:link :href="route('reports.no-training')" wire:navigate>{{ __('View report') }}</flux:link>
+            <flux:text size="sm">{{ __('My approved trainings') }}</flux:text>
+            <flux:heading size="xl">{{ $myApproved }}</flux:heading>
         </flux:card>
 
         <flux:card>
-            <flux:text size="sm">{{ __('Overdue assignments') }}</flux:text>
-            <flux:heading size="xl">{{ $this->overdue->count() }}</flux:heading>
+            <flux:text size="sm">{{ __('Waiting for my decision') }}</flux:text>
+            <flux:heading size="xl">{{ $awaitingMe }}</flux:heading>
+            @if ($awaitingMe > 0)
+                <flux:link :href="route('approvals')" wire:navigate>{{ __('Go to approvals') }}</flux:link>
+            @endif
         </flux:card>
     </div>
 
-    <flux:heading size="lg">{{ __('Untrained by division') }}</flux:heading>
+    @if ($unroutable > 0)
+        <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('Records with no approver')">
+            {{ __(':count records cannot move because no head is designated. Set one under Setup.', ['count' => $unroutable]) }}
+        </flux:callout>
+    @endif
 
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Division') }}</flux:table.column>
-            <flux:table.column>{{ __('Untrained') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->untrainedByDivision as $division => $count)
-                <flux:table.row :key="$division">
-                    <flux:table.cell>{{ $division }}</flux:table.cell>
-                    <flux:table.cell>{{ $count }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="2">{{ __('Everyone has training this year.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
-
-    <flux:heading size="lg">{{ __('Overdue assignments') }}</flux:heading>
-
-    <flux:table>
-        <flux:table.columns>
-            <flux:table.column>{{ __('Employee') }}</flux:table.column>
-            <flux:table.column>{{ __('Training') }}</flux:table.column>
-            <flux:table.column>{{ __('Due') }}</flux:table.column>
-        </flux:table.columns>
-
-        <flux:table.rows>
-            @forelse ($this->overdue as $assignment)
-                <flux:table.row :key="$assignment->id">
-                    <flux:table.cell>{{ $assignment->employee->full_name }}</flux:table.cell>
-                    <flux:table.cell>
-                        <flux:link :href="route('trainings.show', $assignment->training)" wire:navigate>
-                            {{ $assignment->training->title }}
-                        </flux:link>
-                    </flux:table.cell>
-                    <flux:table.cell>{{ $assignment->due_date->format('d M Y') }}</flux:table.cell>
-                </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="3">{{ __('Nothing is overdue.') }}</flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
+    @if (auth()->user()->employee === null)
+        <flux:callout variant="warning" icon="exclamation-triangle">
+            {{ __('Your account is not linked to an employee record yet.') }}
+        </flux:callout>
+    @endif
 </div>
 ```
 
@@ -4801,7 +4702,7 @@ Sa `routes/web.php`, palitan ang `Route::view('dashboard', 'dashboard')->name('d
 Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 ```
 
-Tapos burahin ang lumang view:
+Tapos:
 
 ```bash
 rm resources/views/dashboard.blade.php
@@ -4809,31 +4710,25 @@ rm resources/views/dashboard.blade.php
 
 - [ ] **Step 5: Idagdag ang navigation**
 
-Sa `resources/views/layouts/app/sidebar.blade.php`, palitan ang umiiral na `Platform` group ng:
+Sa `resources/views/layouts/app/sidebar.blade.php`, palitan ang `Platform` group ng:
 
 ```blade
-<flux:sidebar.group :heading="__('Monitoring')" class="grid">
+<flux:sidebar.group :heading="__('Training')" class="grid">
     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
         {{ __('Dashboard') }}
+    </flux:sidebar.item>
+    <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')" :current="request()->routeIs('trainings.*')" wire:navigate>
+        {{ __('My trainings') }}
+    </flux:sidebar.item>
+    <flux:sidebar.item icon="check-circle" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
+        {{ __('Approvals') }}
     </flux:sidebar.item>
     <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
         {{ __('Employees') }}
     </flux:sidebar.item>
-    <flux:sidebar.item icon="academic-cap" :href="route('trainings.index')" :current="request()->routeIs('trainings.*')" wire:navigate>
-        {{ __('Trainings') }}
-    </flux:sidebar.item>
 </flux:sidebar.group>
 
-<flux:sidebar.group :heading="__('Reports')" class="grid">
-    <flux:sidebar.item icon="calendar" :href="route('reports.monthly-activity')" :current="request()->routeIs('reports.monthly-activity')" wire:navigate>
-        {{ __('Monthly activity') }}
-    </flux:sidebar.item>
-    <flux:sidebar.item icon="exclamation-triangle" :href="route('reports.no-training')" :current="request()->routeIs('reports.no-training')" wire:navigate>
-        {{ __('Without training') }}
-    </flux:sidebar.item>
-</flux:sidebar.group>
-
-@if (auth()->user()->isHrAdmin())
+@if (auth()->user()->isAdminOrHr())
     <flux:sidebar.group :heading="__('Setup')" class="grid">
         <flux:sidebar.item icon="building-office" :href="route('setup.divisions')" :current="request()->routeIs('setup.divisions')" wire:navigate>
             {{ __('Divisions') }}
@@ -4848,259 +4743,9 @@ Sa `resources/views/layouts/app/sidebar.blade.php`, palitan ang umiiral na `Plat
 @endif
 ```
 
-Tanggalin din ang `Repository` at `Documentation` na link ng starter kit sa ibabang `flux:sidebar.nav` — hindi na ito kabilang sa isang HR system.
+Tanggalin din ang `Repository` at `Documentation` na link ng starter kit sa ibabang `flux:sidebar.nav`.
 
-- [ ] **Step 6: Patakbuhin ang test**
-
-```bash
-php artisan test --compact tests/Feature/DashboardTest.php
-```
-
-Inaasahan: PASS, apat na test.
-
-- [ ] **Step 7: Commit**
-
-```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add compliance dashboard and navigation"
-```
-
----
-
-## Task 14: Seeder at unang HR admin
-
-**Files:**
-- Create: `database/seeders/OrgStructureSeeder.php`, `app/Console/Commands/CreateHrAdmin.php`
-- Modify: `database/seeders/DatabaseSeeder.php`
-- Test: `tests/Feature/CreateHrAdminTest.php`
-
-**Interfaces:**
-- Consumes: `Division`, `Section`, `Position`, `User`, `UserRole`
-- Produces: ang command na `php artisan hr:create-admin`
-
-- [ ] **Step 1: Isulat ang failing test**
-
-Gumawa ng `tests/Feature/CreateHrAdminTest.php`:
-
-```php
-<?php
-
-use App\Enums\UserRole;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-
-test('it creates an hr administrator', function () {
-    $this->artisan('hr:create-admin', [
-        '--name' => 'HR Officer',
-        '--email' => 'hr@example.test',
-        '--password' => 'secret-password',
-    ])->assertSuccessful();
-
-    $user = User::where('email', 'hr@example.test')->first();
-
-    expect($user->role)->toBe(UserRole::HrAdmin)
-        ->and(Hash::check('secret-password', $user->password))->toBeTrue()
-        ->and($user->email_verified_at)->not->toBeNull();
-});
-
-test('it refuses a duplicate email address', function () {
-    User::factory()->create(['email' => 'hr@example.test']);
-
-    $this->artisan('hr:create-admin', [
-        '--name' => 'HR Officer',
-        '--email' => 'hr@example.test',
-        '--password' => 'secret-password',
-    ])->assertFailed();
-});
-```
-
-- [ ] **Step 2: Patakbuhin para makitang bumagsak**
-
-```bash
-php artisan test --compact tests/Feature/CreateHrAdminTest.php
-```
-
-Inaasahan: FAIL — walang command na `hr:create-admin`.
-
-- [ ] **Step 3: Gawin ang command**
-
-```bash
-php artisan make:command CreateHrAdmin --no-interaction
-```
-
-```php
-<?php
-
-namespace App\Console\Commands;
-
-use App\Enums\UserRole;
-use App\Models\User;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-
-use function Laravel\Prompts\password;
-use function Laravel\Prompts\text;
-
-class CreateHrAdmin extends Command
-{
-    protected $signature = 'hr:create-admin {--name=} {--email=} {--password=}';
-
-    protected $description = 'Create an HR administrator account';
-
-    public function handle(): int
-    {
-        $attributes = [
-            'name' => $this->option('name') ?: text('Name', required: true),
-            'email' => $this->option('email') ?: text('Email address', required: true),
-            'password' => $this->option('password') ?: password('Password', required: true),
-        ];
-
-        $validator = Validator::make($attributes, [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
-        ]);
-
-        if ($validator->fails()) {
-            foreach ($validator->errors()->all() as $error) {
-                $this->error($error);
-            }
-
-            return self::FAILURE;
-        }
-
-        User::create([
-            'name' => $attributes['name'],
-            'email' => $attributes['email'],
-            'password' => Hash::make($attributes['password']),
-            'role' => UserRole::HrAdmin,
-            'email_verified_at' => now(),
-        ]);
-
-        $this->info("HR administrator [{$attributes['email']}] created.");
-
-        return self::SUCCESS;
-    }
-}
-```
-
-Ang `email_verified_at` ay tahasang itinatakda dahil ang account ay gawa ng administrator — walang verification email na ipapadala.
-
-Siguraduhing nasa `$fillable` ng `User` ang `'role'` at `'email_verified_at'`. Kung wala ang `email_verified_at`, itakda ito matapos ang `create()`.
-
-- [ ] **Step 4: Patakbuhin ang test**
-
-```bash
-php artisan test --compact tests/Feature/CreateHrAdminTest.php
-```
-
-Inaasahan: PASS, dalawang test.
-
-- [ ] **Step 5: Gawin ang org structure seeder**
-
-```bash
-php artisan make:seeder OrgStructureSeeder --no-interaction
-```
-
-**Palitan ang halimbawang datos ng aktwal na org chart ng ahensya.** Ito ang bukas na tanong 11.2 sa spec — ito lang ang hugis.
-
-```php
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\Division;
-use App\Models\Position;
-use App\Models\Section;
-use Illuminate\Database\Seeder;
-
-class OrgStructureSeeder extends Seeder
-{
-    /**
-     * Seed the divisions, sections and positions.
-     *
-     * Replace the arrays below with the agency's real organisational chart.
-     *
-     * @var array<string, array{code: string, sections: array<string, string>}>
-     */
-    private const DIVISIONS = [
-        'Office of the Director' => [
-            'code' => 'OD',
-            'sections' => [
-                'Executive Staff' => 'OD-EXE',
-            ],
-        ],
-        'Finance and Administrative Division' => [
-            'code' => 'FAD',
-            'sections' => [
-                'Human Resource Section' => 'FAD-HRS',
-                'Accounting Section' => 'FAD-ACC',
-                'Records Section' => 'FAD-REC',
-            ],
-        ],
-        'Operations Division' => [
-            'code' => 'OPS',
-            'sections' => [
-                'Field Operations Section' => 'OPS-FLD',
-                'Monitoring Section' => 'OPS-MON',
-            ],
-        ],
-    ];
-
-    /**
-     * @var array<string, int>
-     */
-    private const POSITIONS = [
-        'Administrative Aide IV' => 4,
-        'Administrative Assistant II' => 8,
-        'Administrative Officer III' => 14,
-        'Administrative Officer V' => 18,
-        'Project Development Officer II' => 15,
-        'Supervising Administrative Officer' => 22,
-        'Division Chief' => 24,
-    ];
-
-    public function run(): void
-    {
-        foreach (self::DIVISIONS as $name => $details) {
-            $division = Division::firstOrCreate(['code' => $details['code']], ['name' => $name]);
-
-            foreach ($details['sections'] as $sectionName => $sectionCode) {
-                Section::firstOrCreate(
-                    ['code' => $sectionCode],
-                    ['division_id' => $division->id, 'name' => $sectionName],
-                );
-            }
-        }
-
-        foreach (self::POSITIONS as $title => $salaryGrade) {
-            Position::firstOrCreate(['title' => $title], ['salary_grade' => $salaryGrade]);
-        }
-    }
-}
-```
-
-- [ ] **Step 6: Ikabit ang seeder**
-
-Sa `database/seeders/DatabaseSeeder.php`, sa loob ng `run()`, tanggalin ang anumang paggawa ng halimbawang user at ilagay:
-
-```php
-$this->call(OrgStructureSeeder::class);
-```
-
-- [ ] **Step 7: Subukan ang buong daloy**
-
-```bash
-php artisan migrate:fresh --seed
-php artisan hr:create-admin --name="HR Officer" --email=hr@example.test --password=secret-password
-php artisan route:list --except-vendor
-```
-
-Inaasahan: tumatakbo ang migrations, may divisions, sections at positions na, at lumalabas ang lahat ng route na `employees.*`, `trainings.*`, `reports.*`, `setup.*`.
-
-- [ ] **Step 8: Patakbuhin ang buong suite**
+- [ ] **Step 6: Patakbuhin ang buong suite**
 
 ```bash
 php artisan test --compact
@@ -5108,23 +4753,44 @@ php artisan test --compact
 
 Inaasahan: PASS lahat.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Patunayan sa aktwal na app**
 
 ```bash
-vendor/bin/pint --dirty --format agent
-git add -A
-git commit -m "feat: add org structure seeder and hr admin command"
+php artisan migrate:fresh
+php artisan ldi:import-employees
+php artisan tinker --execute 'App\Models\User::create(["name" => "HR Officer", "email" => "hr@example.test", "password" => bcrypt("password"), "role" => App\Enums\UserRole::Hr, "email_verified_at" => now()]);'
+npm run build
+php artisan route:list --except-vendor
+```
+
+Tapos buksan ang app, mag-login bilang `hr@example.test`, at tingnan: may 134 employees, may 5 divisions at 28 sections, at may badge na "No head" ang karamihan ng section.
+
+Patunayan na walang nagalaw sa pinagkunan:
+
+```bash
+php artisan tinker --execute 'echo DB::connection("hris")->table("employees")->count()." employees pa rin sa hris_db\n"; echo DB::connection("mysql")->select("SELECT COUNT(*) c FROM hr_training_system.trainings")[0]->c." records pa rin sa hr_training_system\n";'
+```
+
+Inaasahan: 134 at 1002 — walang binago.
+
+- [ ] **Step 8: Commit message**
+
+```
+feat: add the dashboard and navigation
 ```
 
 ---
 
 ## Matapos ang lahat ng task
 
-1. Patakbuhin ang buong suite: `php artisan test --compact`
-2. Patakbuhin ang static analysis: `vendor/bin/phpstan analyse` (may `phpstan.neon` na ang project)
-3. `npm run build`, tapos tingnan ang app sa browser
-4. Ibalik sa user ang anim na bukas na tanong sa spec — lalo na ang 11.4 (`hours` per training o per kalahok), dahil bago mag-encode ng totoong data ang pinakamurang panahon para baguhin iyon
+1. `php artisan test --compact` — dapat berde lahat
+2. `vendor/bin/phpstan analyse` — may `phpstan.neon` na ang project
+3. Balikan ang apat na bukas na tanong sa §8 ng spec
+
+## Isang bagay na lumitaw habang pinaplano ito
+
+Ang division head na nagsu-submit ng sariling training, sa section na walang head, ay **walang makakapag-apruba** — sila mismo ang huling level. Lima sila. Hinahawakan ito ng plano: naitatala ang record bilang `pending` na walang level at lumalabas sa listahan ng HR. Pero walang paraan itong maaprubahan hangga't hindi nagtatakda ng section head. Kailangan ng desisyon ng user; nakalista ito sa §8 ng spec.
 
 ## Hindi kasama — Phase 2 pataas
 
-LDNA at competency GAP, training budget, PDS export, employee self-service login, expiry ng training, rules-based na pag-assign, upload ng certificate, at Excel export. Nakatayo na ang pundasyon para sa lahat ng ito: ang `employees` ay PDS-ready, ang `trainings` ay may eksaktong PDS L&D fields, at ang mga report ay hiwalay nang klase na kayang gamitin ulit.
+LDI plan at budget, reports, LDI documents, calendar, PDS. Nakahanda na ang pundasyon: nasa training record na ang gastos, ang approval trail ay buo, at ang employee data ay galing na sa `hris_db`.
