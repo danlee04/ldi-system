@@ -153,16 +153,9 @@ new #[Title('Reports')] class extends Component {
     <div class="flex items-center justify-between print:hidden">
         <flux:heading size="xl">{{ __('Reports') }}</flux:heading>
 
-        <div class="flex gap-2">
-            <flux:button icon="document-text"
-                :href="route('reports.doh-ldi', ['year' => $year, 'month' => $month])" target="_blank">
-                {{ __('DOH form') }}
-            </flux:button>
-
-            <flux:button variant="primary" icon="arrow-down-tray" wire:click="download">
-                {{ __('Download CSV') }}
-            </flux:button>
-        </div>
+        <flux:button variant="primary" icon="arrow-down-tray" wire:click="download">
+            {{ __('Download CSV') }}
+        </flux:button>
     </div>
 
     <div class="print:hidden">

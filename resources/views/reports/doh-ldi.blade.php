@@ -3,6 +3,7 @@
     $monthName = $month === null
         ? 'ALL MONTHS'
         : strtoupper(now()->startOfYear()->addMonths($month - 1)->format('F'));
+    $yearLabel = $year ?? 'ALL YEARS';
 @endphp
 
 <!DOCTYPE html>
@@ -58,7 +59,7 @@
 <div class="page">
     <div class="toolbar">
         <button type="button" onclick="window.print()">Print</button>
-        <a href="{{ route('reports') }}">Back to reports</a>
+        <a href="{{ route('ldi.index') }}">Back to LDI trainings</a>
     </div>
 
     <div class="header-title">
@@ -69,7 +70,10 @@
     <div class="meta">
         <div>NAME OF OFFICE/BUREAU/HOSPITAL: <u>{{ $doh['office'] }}</u></div>
         <div>MONTH: {{ $monthName }}</div>
-        <div>YEAR: {{ $year }}</div>
+        <div>YEAR: {{ $yearLabel }}</div>
+        @if ($search)
+            <div>FILTERED BY: {{ $search }}</div>
+        @endif
     </div>
 
     <table>

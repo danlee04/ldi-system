@@ -136,6 +136,55 @@ test('hr can open the printable form', function () {
         ->assertSee('DEPARTMENT OF HEALTH');
 });
 
+test('a search narrows the form to matching plans', function () {
+    LdiTraining::factory()->create([
+        'title' => 'Self-Defense and Restraint Training',
+        'development_partner' => 'Department of Health',
+        'date_start' => '2026-03-02',
+        'date_end' => '2026-03-04',
+    ]);
+    LdiTraining::factory()->create([
+        'title' => 'Records Management Seminar',
+        'development_partner' => 'Civil Service Commission',
+        'date_start' => '2026-03-10',
+        'date_end' => '2026-03-12',
+    ]);
+
+    $report = app(DohLdiReport::class);
+
+    expect($report->handle(2026, 3, 'Self-Defense'))->toHaveCount(1)
+        ->and($report->handle(2026, 3, 'Civil Service'))->toHaveCount(1)
+        ->and($report->handle(2026, 3))->toHaveCount(2);
+});
+
+test('leaving the year out covers every plan on record', function () {
+    LdiTraining::factory()->create(['date_start' => '2025-03-02', 'date_end' => '2025-03-04']);
+    LdiTraining::factory()->create(['date_start' => '2026-03-02', 'date_end' => '2026-03-04']);
+
+    expect(app(DohLdiReport::class)->handle())->toHaveCount(2);
+});
+
+test('the form is reached from the LDI list with its filters applied', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    LdiTraining::factory()->create([
+        'title' => 'Self-Defense and Restraint Training',
+        'date_start' => '2026-03-02',
+        'date_end' => '2026-03-04',
+    ]);
+    LdiTraining::factory()->create([
+        'title' => 'Records Management Seminar',
+        'date_start' => '2026-07-02',
+        'date_end' => '2026-07-04',
+    ]);
+
+    $this->get(route('reports.doh-ldi', ['year' => 2026, 'month' => 3]))
+        ->assertOk()
+        ->assertSee('Self-Defense and Restraint Training')
+        ->assertDontSee('Records Management Seminar')
+        ->assertSee('MARCH');
+});
+
 test('a division head cannot open the doh form', function () {
     $this->actingAs(User::factory()->divisionHead()->create());
 

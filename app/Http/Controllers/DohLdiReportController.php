@@ -20,18 +20,21 @@ class DohLdiReportController extends Controller
         $validated = $request->validate([
             'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'month' => ['nullable', 'integer', 'between:1,12'],
+            'search' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $year = (int) ($validated['year'] ?? now()->year);
+        $year = isset($validated['year']) ? (int) $validated['year'] : null;
         $month = isset($validated['month']) ? (int) $validated['month'] : null;
+        $search = $validated['search'] ?? null;
 
-        $rows = $report->handle($year, $month);
+        $rows = $report->handle($year, $month, $search);
 
         return view('reports.doh-ldi', [
             'rows' => $rows,
             'totals' => $report->summarise($rows),
             'year' => $year,
             'month' => $month,
+            'search' => $search,
         ]);
     }
 }

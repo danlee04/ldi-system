@@ -29,11 +29,17 @@ class DohLdiReport
      *     unstated: int,
      * }>
      */
-    public function handle(int $year, ?int $month = null): array
+    public function handle(?int $year = null, ?int $month = null, ?string $search = null): array
     {
         $plans = LdiTraining::query()
-            ->whereYear('date_start', $year)
+            ->when($year !== null, fn ($query) => $query->whereYear('date_start', $year))
             ->when($month !== null, fn ($query) => $query->whereMonth('date_start', $month))
+            ->when($search !== null && $search !== '', function ($query) use ($search): void {
+                $term = '%'.$search.'%';
+
+                $query->where(fn ($match) => $match->where('title', 'like', $term)
+                    ->orWhere('development_partner', 'like', $term));
+            })
             ->with(['trainingRecords' => fn ($query) => $query->where('status', TrainingStatus::Approved)])
             ->orderBy('date_start')
             ->get();

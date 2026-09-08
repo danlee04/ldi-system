@@ -24,6 +24,9 @@ new #[Title('LDI trainings')] class extends Component {
     #[Url]
     public ?int $filterYear = null;
 
+    #[Url]
+    public ?int $filterMonth = null;
+
     public ?int $editingId = null;
 
     public string $title = '';
@@ -71,6 +74,11 @@ new #[Title('LDI trainings')] class extends Component {
         $this->resetPage();
     }
 
+    public function updatedFilterMonth(): void
+    {
+        $this->resetPage();
+    }
+
     /**
      * @return LengthAwarePaginator<int, LdiTraining>
      */
@@ -85,7 +93,8 @@ new #[Title('LDI trainings')] class extends Component {
                     ->orWhere('development_partner', 'like', $term)
                     ->orWhere('budget_source', 'like', $term));
             })
-            ->when($this->filterYear !== null, fn (Builder $query) => $query->whereYear('date_end', $this->filterYear))
+            ->when($this->filterYear !== null, fn (Builder $query) => $query->whereYear('date_start', $this->filterYear))
+            ->when($this->filterMonth !== null, fn (Builder $query) => $query->whereMonth('date_start', $this->filterMonth))
             ->withCount('trainingRecords')
             ->orderByDesc('date_start')
             ->paginate(15);
@@ -100,11 +109,24 @@ new #[Title('LDI trainings')] class extends Component {
     public function years(): Collection
     {
         return LdiTraining::query()
-            ->pluck('date_end')
+            ->pluck('date_start')
             ->map(fn (CarbonImmutable $date): int => (int) $date->format('Y'))
             ->unique()
             ->sortDesc()
             ->values();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function months(): array
+    {
+        return collect(range(1, 12))
+            ->mapWithKeys(fn (int $month): array => [
+                $month => now()->startOfYear()->addMonths($month - 1)->format('F'),
+            ])
+            ->all();
     }
 
     public function create(): void
@@ -242,7 +264,18 @@ new #[Title('LDI trainings')] class extends Component {
     <div class="flex items-center justify-between">
         <flux:heading size="xl">{{ __('LDI trainings') }}</flux:heading>
 
-        <flux:button variant="primary" wire:click="create">{{ __('Add LDI training') }}</flux:button>
+        <div class="flex gap-2">
+            <flux:button icon="document-text"
+                :href="route('reports.doh-ldi', [
+                    'year' => $filterYear,
+                    'month' => $filterMonth,
+                    'search' => $search ?: null,
+                ])" target="_blank">
+                {{ __('Generate report') }}
+            </flux:button>
+
+            <flux:button variant="primary" wire:click="create">{{ __('Add LDI training') }}</flux:button>
+        </div>
     </div>
 
     <flux:callout icon="information-circle">
@@ -253,10 +286,17 @@ new #[Title('LDI trainings')] class extends Component {
         <flux:input size="sm" class="lg:flex-1" wire:model.live.debounce.300ms="search"
             :placeholder="__('Search title, partner or budget source')" />
 
-        <flux:select size="sm" class="lg:w-40" wire:model.live="filterYear">
+        <flux:select size="sm" class="lg:w-32" wire:model.live="filterYear">
             <flux:select.option value="">{{ __('All years') }}</flux:select.option>
             @foreach ($this->years as $year)
                 <flux:select.option :value="$year">{{ $year }}</flux:select.option>
+            @endforeach
+        </flux:select>
+
+        <flux:select size="sm" class="lg:w-40" wire:model.live="filterMonth">
+            <flux:select.option value="">{{ __('All months') }}</flux:select.option>
+            @foreach ($this->months as $number => $name)
+                <flux:select.option :value="$number">{{ $name }}</flux:select.option>
             @endforeach
         </flux:select>
     </div>
