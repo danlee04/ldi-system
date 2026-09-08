@@ -63,7 +63,7 @@ new #[Title('Employee')] class extends Component {
         <flux:table.columns>
             <flux:table.column>{{ __('Title') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-            <flux:table.column>{{ __('Hours') }}</flux:table.column>
+            <flux:table.column class="text-right">{{ __('Hours') }}</flux:table.column>
             <flux:table.column>{{ __('Type of LD') }}</flux:table.column>
             <flux:table.column>{{ __('Conducted by') }}</flux:table.column>
             <flux:table.column>{{ __('Status') }}</flux:table.column>
@@ -73,16 +73,26 @@ new #[Title('Employee')] class extends Component {
             @forelse ($this->records as $record)
                 <flux:table.row :key="$record->id">
                     <flux:table.cell>
-                        <flux:link :href="route('trainings.show', $record)" wire:navigate>
-                            {{ $record->title }}
-                        </flux:link>
+                        <div class="w-72 truncate" title="{{ $record->title }}">
+                            <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
+                                {{ $record->title }}
+                            </flux:link>
+                        </div>
+                    </flux:table.cell>
+                    <flux:table.cell class="whitespace-nowrap">
+                        {{ $record->inclusive_dates }}
+                    </flux:table.cell>
+                    <flux:table.cell class="text-right tabular-nums">{{ $record->hours }}</flux:table.cell>
+                    <flux:table.cell>
+                        <div class="w-28 truncate" title="{{ $record->ld_type_label }}">
+                            {{ $record->ld_type_label }}
+                        </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
+                        <div class="w-48 truncate" title="{{ $record->conducted_by }}">
+                            {{ $record->conducted_by }}
+                        </div>
                     </flux:table.cell>
-                    <flux:table.cell>{{ $record->hours }}</flux:table.cell>
-                    <flux:table.cell>{{ $record->ld_type_label }}</flux:table.cell>
-                    <flux:table.cell>{{ $record->conducted_by }}</flux:table.cell>
                     <flux:table.cell><x-training-status :record="$record" /></flux:table.cell>
                 </flux:table.row>
             @empty
@@ -92,4 +102,6 @@ new #[Title('Employee')] class extends Component {
             @endforelse
         </flux:table.rows>
     </flux:table>
+
+    <livewire:pages::trainings.detail-modal />
 </div>

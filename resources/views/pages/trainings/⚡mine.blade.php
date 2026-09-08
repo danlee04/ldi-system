@@ -224,12 +224,12 @@ new #[Title('My trainings')] class extends Component {
             @forelse ($this->records as $record)
                 <flux:table.row :key="$record->id">
                     <flux:table.cell>
-                        <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                        <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                             {{ $record->title }}
                         </flux:link>
                     </flux:table.cell>
                     <flux:table.cell>
-                        {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
+                        {{ $record->inclusive_dates }}
                     </flux:table.cell>
                     <flux:table.cell>{{ $record->hours }}</flux:table.cell>
                     <flux:table.cell>{{ $record->ld_type_label }}</flux:table.cell>
@@ -252,7 +252,7 @@ new #[Title('My trainings')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="training-form" class="md:w-4xl">
+    <flux:modal name="training-form" class="md:w-7xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Record a training') : __('Edit training') }}
@@ -316,4 +316,6 @@ new #[Title('My trainings')] class extends Component {
             </div>
         </form>
     </flux:modal>
+
+    <livewire:pages::trainings.detail-modal />
 </div>

@@ -208,7 +208,7 @@ new #[Title('Sections')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="section-form" class="md:w-2xl">
+    <flux:modal name="section-form" class="md:w-5xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add section') : __('Edit section') }}

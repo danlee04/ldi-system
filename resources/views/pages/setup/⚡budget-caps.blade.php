@@ -145,7 +145,7 @@ new #[Title('Budget caps')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="budget-cap-form" class="md:w-2xl">
+    <flux:modal name="budget-cap-form" class="md:w-5xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add budget cap') : __('Edit budget cap') }}

@@ -108,7 +108,7 @@ test('my trainings lists only my own records', function () {
         ->assertDontSee('Somebody Else Seminar');
 });
 
-test('the detail page shows the approval trail', function () {
+test('the detail modal shows the approval trail', function () {
     $employee = actingAsEmployee();
     $record = TrainingRecord::factory()->for($employee)->create();
     TrainingApproval::factory()->for($record)->create([
@@ -116,9 +116,27 @@ test('the detail page shows the approval trail', function () {
         'remarks' => 'Endorsed by the section.',
     ]);
 
-    $this->get(route('trainings.show', $record))
-        ->assertOk()
+    Livewire::test('pages::trainings.detail-modal')
+        ->call('showTraining', $record->id)
+        ->assertSet('recordId', $record->id)
         ->assertSee('Endorsed by the section.');
+});
+
+test('the detail modal refuses a record outside what you may see', function () {
+    actingAsEmployee();
+    $other = TrainingRecord::factory()->create();
+
+    Livewire::test('pages::trainings.detail-modal')
+        ->call('showTraining', $other->id)
+        ->assertForbidden();
+});
+
+test('the detail modal shows nothing until a record is chosen', function () {
+    actingAsEmployee();
+
+    Livewire::test('pages::trainings.detail-modal')
+        ->assertSet('recordId', null)
+        ->assertDontSee('Approval trail');
 });
 
 test('an employee can correct a record nobody has acted on', function () {

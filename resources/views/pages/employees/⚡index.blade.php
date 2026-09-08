@@ -139,6 +139,15 @@ new #[Title('Employees')] class extends Component {
         return auth()->user()->isAdminOrHr();
     }
 
+    public function createEmployee(): void
+    {
+        $this->authorize('create', Employee::class);
+
+        $this->resetForm();
+
+        Flux::modal('employee-form')->show();
+    }
+
     public function editEmployee(int $employeeId): void
     {
         $employee = Employee::findOrFail($employeeId);
@@ -167,12 +176,14 @@ new #[Title('Employees')] class extends Component {
 
     public function saveEmployee(): void
     {
-        $employee = Employee::findOrFail($this->editingId);
+        $employee = $this->editingId === null ? new Employee : Employee::findOrFail($this->editingId);
 
-        $this->authorize('update', $employee);
+        $this->authorize($this->editingId === null ? 'create' : 'update', $this->editingId === null
+            ? Employee::class
+            : $employee);
 
         $validated = $this->validate([
-            'employee_number' => ['required', 'string', 'max:255', Rule::unique('employees', 'employee_number')->ignore($employee->getKey())],
+            'employee_number' => ['required', 'string', 'max:255', Rule::unique('employees', 'employee_number')->ignore($this->editingId)],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -187,7 +198,7 @@ new #[Title('Employees')] class extends Component {
             'is_active' => ['boolean'],
         ]);
 
-        $employee->update([
+        $employee->fill([
             'employee_number' => $validated['employee_number'],
             'first_name' => $validated['first_name'],
             'middle_name' => $validated['middle_name'] ?: null,
@@ -201,15 +212,29 @@ new #[Title('Employees')] class extends Component {
             'eligibility_detail' => $validated['eligibility_detail'] ?: null,
             'eligibility_expires_on' => $validated['eligibility_expires_on'] ?: null,
             'is_active' => $validated['is_active'],
-        ]);
+        ])->save();
 
-        $this->editingId = null;
+        $message = $this->editingId === null ? __('Employee added.') : __('Employee updated.');
+
+        $this->resetForm();
 
         unset($this->employees);
 
         Flux::modal('employee-form')->close();
 
-        Flux::toast(variant: 'success', text: __('Employee updated.'));
+        Flux::toast(variant: 'success', text: $message);
+    }
+
+    private function resetForm(): void
+    {
+        $this->reset(
+            'editingId', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix',
+            'positionId', 'employeeSectionId', 'employment_status', 'date_hired',
+            'eligibilityId', 'eligibility_detail', 'eligibility_expires_on',
+        );
+
+        $this->is_active = true;
+        $this->resetValidation();
     }
 
     public function confirmDelete(int $employeeId): void
@@ -306,7 +331,13 @@ new #[Title('Employees')] class extends Component {
 }; ?>
 
 <div class="space-y-6">
-    <flux:heading size="xl">{{ __('Employees') }}</flux:heading>
+    <div class="flex items-center justify-between">
+        <flux:heading size="xl">{{ __('Employees') }}</flux:heading>
+
+        @if ($this->canManage)
+            <flux:button variant="primary" wire:click="createEmployee">{{ __('Add employee') }}</flux:button>
+        @endif
+    </div>
 
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
         <flux:input size="sm" class="lg:flex-1" wire:model.live.debounce.300ms="search"
@@ -360,10 +391,11 @@ new #[Title('Employees')] class extends Component {
             @forelse ($this->employees as $employee)
                 <flux:table.row :key="$employee->id">
                     <flux:table.cell>
-                        <flux:link class="block w-44 truncate" :href="route('employees.show', $employee)"
-                            :title="$employee->full_name" wire:navigate>
-                            {{ $employee->full_name }}
-                        </flux:link>
+                        <div class="w-44 truncate" title="{{ $employee->full_name }}">
+                            <flux:link :href="route('employees.show', $employee)" wire:navigate>
+                                {{ $employee->full_name }}
+                            </flux:link>
+                        </div>
                     </flux:table.cell>
                     <flux:table.cell>{{ $employee->division?->code ?? '—' }}</flux:table.cell>
                     <flux:table.cell>
@@ -411,9 +443,11 @@ new #[Title('Employees')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="employee-form" class="md:w-4xl">
+    <flux:modal name="employee-form" class="md:w-7xl">
         <form wire:submit="saveEmployee" class="space-y-6">
-            <flux:heading size="lg">{{ __('Edit employee') }}</flux:heading>
+            <flux:heading size="lg">
+                {{ $editingId === null ? __('Add employee') : __('Edit employee') }}
+            </flux:heading>
 
             <div class="grid gap-4 md:grid-cols-2">
                 <flux:input wire:model="employee_number" :label="__('Employee no.')" required />
@@ -440,6 +474,7 @@ new #[Title('Employees')] class extends Component {
                 </flux:select>
 
                 <flux:select wire:model="employment_status" :label="__('Employment status')" required>
+                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach (EmploymentStatus::cases() as $status)
                         <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
                     @endforeach
@@ -475,12 +510,14 @@ new #[Title('Employees')] class extends Component {
                     <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
 
-                <flux:button type="submit" variant="primary">{{ __('Save changes') }}</flux:button>
+                <flux:button type="submit" variant="primary">
+                    {{ $editingId === null ? __('Add') : __('Save changes') }}
+                </flux:button>
             </div>
         </form>
     </flux:modal>
 
-    <flux:modal name="employee-delete" class="md:w-2xl">
+    <flux:modal name="employee-delete" class="md:w-5xl">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Remove this employee?') }}</flux:heading>
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasInclusiveDates;
 use App\Enums\LdType;
 use Carbon\CarbonImmutable;
 use Database\Factories\LdiTrainingFactory;
@@ -38,7 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class LdiTraining extends Model
 {
     /** @use HasFactory<LdiTrainingFactory> */
-    use HasFactory;
+    use HasFactory, HasInclusiveDates;
 
     protected $fillable = [
         'title',

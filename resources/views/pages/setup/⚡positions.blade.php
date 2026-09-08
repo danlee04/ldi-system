@@ -185,7 +185,7 @@ new #[Title('Positions')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="position-form" class="md:w-2xl">
+    <flux:modal name="position-form" class="md:w-5xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add position') : __('Edit position') }}

@@ -267,7 +267,7 @@ new #[Title('LDI trainings')] class extends Component {
             <flux:table.column>{{ __('Development partner') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
             <flux:table.column>{{ __('Attendees') }}</flux:table.column>
-            <flux:table.column>{{ __('Budget') }}</flux:table.column>
+            <flux:table.column class="text-right">{{ __('Budget') }}</flux:table.column>
             <flux:table.column>{{ __('Source') }}</flux:table.column>
             <flux:table.column />
         </flux:table.columns>
@@ -276,25 +276,30 @@ new #[Title('LDI trainings')] class extends Component {
             @forelse ($this->plans as $plan)
                 <flux:table.row :key="$plan->id">
                     <flux:table.cell>
-                        <flux:link class="block w-56 truncate" :href="route('ldi.show', $plan)"
-                            :title="$plan->title" wire:navigate>
-                            {{ $plan->title }}
-                        </flux:link>
+                        {{-- The width and truncation must live on a wrapper: flux:link is
+                             always `inline`, and an inline element ignores both. --}}
+                        <div class="w-72 truncate" title="{{ $plan->title }}">
+                            <flux:link :href="route('ldi.show', $plan)" wire:navigate>
+                                {{ $plan->title }}
+                            </flux:link>
+                        </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-40 truncate" title="{{ $plan->development_partner }}">
+                        <div class="w-48 truncate" title="{{ $plan->development_partner }}">
                             {{ $plan->development_partner }}
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        {{ $plan->date_start->format('d M Y') }} – {{ $plan->date_end->format('d M Y') }}
+                        {{ $plan->inclusive_dates }}
                     </flux:table.cell>
                     <flux:table.cell>
                         <x-attendee-count :actual="$plan->training_records_count" :target="$plan->target_attendees" />
                     </flux:table.cell>
-                    <flux:table.cell>{{ $plan->budget === null ? '—' : number_format((float) $plan->budget, 2) }}</flux:table.cell>
+                    <flux:table.cell class="text-right tabular-nums">
+                        {{ $plan->budget === null ? '—' : number_format((float) $plan->budget, 2) }}
+                    </flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-32 truncate" title="{{ $plan->budget_source }}">
+                        <div class="w-36 truncate" title="{{ $plan->budget_source }}">
                             {{ $plan->budget_source ?? '—' }}
                         </div>
                     </flux:table.cell>
@@ -312,7 +317,7 @@ new #[Title('LDI trainings')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="ldi-form" class="md:w-4xl">
+    <flux:modal name="ldi-form" class="md:w-7xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add LDI training') : __('Edit LDI training') }}
@@ -322,18 +327,15 @@ new #[Title('LDI trainings')] class extends Component {
                 <flux:input class="md:col-span-2" wire:model="title" :label="__('Title')" required />
 
                 <x-picklist-input wire:model="development_partner" :label="__('Development partner')"
-                    :description="__('Who finances it.')" :options="config('ldi.development_partners')"
-                    required />
+                    :options="config('ldi.development_partners')" required />
 
                 <x-picklist-input wire:model="facilitator" :label="__('Conducted or sponsored by')"
-                    :description="__('Who runs it. This is what a PDS prints.')" :options="config('ldi.facilitators')"
-                    required />
+                    :options="config('ldi.facilitators')" required />
 
                 <x-picklist-input wire:model="type_of_training" :label="__('Type of training')"
                     :options="config('ldi.training_types')" />
 
-                <flux:select wire:model="training_communication" :label="__('Training communication')"
-                    :description="__('How the training came about.')">
+                <flux:select wire:model="training_communication" :label="__('Training communication')">
                     <flux:select.option value="">{{ __('Not stated') }}</flux:select.option>
                     @foreach (config('ldi.training_communications') as $option)
                         <flux:select.option :value="$option">{{ $option }}</flux:select.option>
@@ -344,8 +346,7 @@ new #[Title('LDI trainings')] class extends Component {
                 <flux:input wire:model="date_end" :label="__('To')" type="date" required />
 
                 <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
-                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0"
-                    :description="__('Copied to each attendee.')" />
+                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0" />
 
                 <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>

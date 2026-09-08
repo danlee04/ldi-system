@@ -21,6 +21,12 @@ return [
 
     'legacy_connection' => 'legacy',
 
+    'legacy_tables' => [
+        'employees' => 'employees',
+        'trainings' => 'trainings',
+        'ldi_training' => 'ldi_training',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Picklists

@@ -253,7 +253,7 @@ new #[Title('User accounts')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="user-form" class="md:w-2xl">
+    <flux:modal name="user-form" class="md:w-5xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add account') : __('Edit account') }}

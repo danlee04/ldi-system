@@ -8,7 +8,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
     Route::livewire('trainings/mine', 'pages::trainings.mine')->name('trainings.mine');
-    Route::livewire('trainings/{record}', 'pages::trainings.show')->name('trainings.show');
 
     Route::livewire('approvals', 'pages::approvals')->name('approvals');
 

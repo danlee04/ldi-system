@@ -248,7 +248,7 @@ new #[Title('LDI training')] class extends Component {
         <div>
             <flux:text size="sm">{{ __('Inclusive dates') }}</flux:text>
             <flux:heading size="lg">
-                {{ $plan->date_start->format('d M Y') }} – {{ $plan->date_end->format('d M Y') }}
+                {{ $plan->inclusive_dates }}
             </flux:heading>
         </div>
         <div>
@@ -282,10 +282,11 @@ new #[Title('LDI training')] class extends Component {
             @forelse ($this->attendees as $record)
                 <flux:table.row :key="$record->id">
                     <flux:table.cell>
-                        <flux:link class="block w-52 truncate" :href="route('trainings.show', $record)"
-                            :title="$record->employee->full_name" wire:navigate>
-                            {{ $record->employee->full_name }}
-                        </flux:link>
+                        <div class="w-52 truncate" title="{{ $record->employee->full_name }}">
+                            <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
+                                {{ $record->employee->full_name }}
+                            </flux:link>
+                        </div>
                     </flux:table.cell>
                     <flux:table.cell>
                         <div class="w-36 truncate" title="{{ $record->employee->section?->name }}">
@@ -315,7 +316,7 @@ new #[Title('LDI training')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="add-attendees" class="md:w-2xl">
+    <flux:modal name="add-attendees" class="md:w-5xl">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Add attendees') }}</flux:heading>
 
@@ -361,7 +362,7 @@ new #[Title('LDI training')] class extends Component {
         </div>
     </flux:modal>
 
-    <flux:modal name="attendee-cost" class="md:w-2xl">
+    <flux:modal name="attendee-cost" class="md:w-5xl">
         <form wire:submit="saveCost" class="space-y-6">
             <flux:heading size="lg">{{ __('Costs for this attendee') }}</flux:heading>
 
@@ -384,7 +385,7 @@ new #[Title('LDI training')] class extends Component {
         </form>
     </flux:modal>
 
-    <flux:modal name="remove-attendee" class="md:w-2xl">
+    <flux:modal name="remove-attendee" class="md:w-5xl">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Remove this attendee?') }}</flux:heading>
 
@@ -418,4 +419,6 @@ new #[Title('LDI training')] class extends Component {
             </div>
         </div>
     </flux:modal>
+
+    <livewire:pages::trainings.detail-modal />
 </div>

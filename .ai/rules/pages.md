@@ -23,3 +23,6 @@ Keep the plain public methods (`approve($id)`, `reject($id)`) callable on their 
 Lay modal bodies out as `grid gap-4 md:grid-cols-2` rather than one stacked column, and size the modal to fit it: `md:w-2xl` for a short one, `md:w-4xl` for a full form. Fields that read badly when halved — a long title, an employee picker, a separator — take `md:col-span-2`.
 
 For a confirmation modal, put the record's details in the left column and the remarks or reason field in the right, so the approver sees what they are deciding on without leaving the modal.
+
+## Modal sizes: w-5xl for short forms, w-7xl for full ones
+Use `md:w-5xl` (64rem) for a confirmation or a short form, and `md:w-7xl` (80rem) for a full record form. Narrower squeezes the two-column grid back into one column on a laptop, which is the layout these modals exist to avoid. `w-7xl` is the widest step Tailwind offers; past it, use an explicit width.

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasInclusiveDates;
 use App\Enums\ApprovalLevel;
 use App\Enums\LdType;
 use App\Enums\TrainingStatus;
@@ -40,7 +41,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class TrainingRecord extends Model
 {
     /** @use HasFactory<TrainingRecordFactory> */
-    use HasFactory;
+    use HasFactory, HasInclusiveDates;
 
     protected $fillable = [
         'employee_id',

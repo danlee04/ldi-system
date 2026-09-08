@@ -169,12 +169,12 @@ new #[Title('Approvals')] class extends Component {
                 <flux:table.row :key="$record->id">
                     <flux:table.cell>{{ $record->employee->full_name }}</flux:table.cell>
                     <flux:table.cell>
-                        <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                        <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                             {{ $record->title }}
                         </flux:link>
                     </flux:table.cell>
                     <flux:table.cell>
-                        {{ $record->date_start->format('d M Y') }} – {{ $record->date_end->format('d M Y') }}
+                        {{ $record->inclusive_dates }}
                     </flux:table.cell>
                     <flux:table.cell>{{ $record->hours }}</flux:table.cell>
                     <flux:table.cell>
@@ -198,7 +198,7 @@ new #[Title('Approvals')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="decide" class="md:w-2xl">
+    <flux:modal name="decide" class="md:w-5xl">
         <div class="space-y-6">
             <flux:heading size="lg">
                 {{ $decisionType === 'reject' ? __('Reject this training?') : __('Approve this training?') }}
@@ -218,8 +218,7 @@ new #[Title('Approvals')] class extends Component {
                         <div>
                             <flux:text size="sm">{{ __('Inclusive dates') }}</flux:text>
                             <flux:heading>
-                                {{ $this->deciding->date_start->format('d M Y') }} –
-                                {{ $this->deciding->date_end->format('d M Y') }}
+                                {{ $this->deciding->inclusive_dates }}
                             </flux:heading>
                         </div>
                         <div>
@@ -267,7 +266,7 @@ new #[Title('Approvals')] class extends Component {
                     <flux:table.row :key="$record->id">
                         <flux:table.cell>{{ $record->employee->full_name }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:link :href="route('trainings.show', $record)" wire:navigate>
+                            <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                                 {{ $record->title }}
                             </flux:link>
                         </flux:table.cell>
@@ -277,4 +276,6 @@ new #[Title('Approvals')] class extends Component {
             </flux:table.rows>
         </flux:table>
     @endif
+
+    <livewire:pages::trainings.detail-modal />
 </div>
