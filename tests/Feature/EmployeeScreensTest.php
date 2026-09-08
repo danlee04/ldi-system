@@ -134,6 +134,91 @@ test('the profile lists the training history', function () {
         ->assertSee('Records Management Seminar');
 });
 
+test('hr can correct an employee record', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $employee = Employee::factory()->create(['last_name' => 'Bonifacio']);
+    $section = Section::factory()->create();
+
+    Livewire::test('pages::employees.index')
+        ->call('editEmployee', $employee->id)
+        ->assertSet('last_name', 'Bonifacio')
+        ->set('last_name', 'Del Pilar')
+        ->set('employeeSectionId', $section->id)
+        ->set('eligibility_expires_on', '2029-05-01')
+        ->call('saveEmployee')
+        ->assertHasNoErrors();
+
+    $employee->refresh();
+
+    expect($employee->last_name)->toBe('Del Pilar')
+        ->and($employee->section_id)->toBe($section->id)
+        ->and($employee->division_id)->toBe($section->division_id)
+        ->and($employee->eligibility_expires_on->toDateString())->toBe('2029-05-01');
+});
+
+test('an employee number cannot collide with another employee', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->create(['employee_number' => 'EMP-111']);
+    $employee = Employee::factory()->create(['employee_number' => 'EMP-222']);
+
+    Livewire::test('pages::employees.index')
+        ->call('editEmployee', $employee->id)
+        ->set('employee_number', 'EMP-111')
+        ->call('saveEmployee')
+        ->assertHasErrors('employee_number');
+});
+
+test('hr can remove an employee without losing their training', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $employee = Employee::factory()->create(['last_name' => 'Bonifacio']);
+    TrainingRecord::factory()->for($employee)->create();
+
+    Livewire::test('pages::employees.index')
+        ->call('confirmDelete', $employee->id)
+        ->assertSet('deletingId', $employee->id)
+        ->call('deleteEmployee');
+
+    expect(Employee::count())->toBe(0)
+        ->and(Employee::withTrashed()->count())->toBe(1)
+        ->and(TrainingRecord::count())->toBe(1);
+});
+
+test('a section head gets no action column at all', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+
+    $headUser = User::factory()->sectionHead()->create();
+    Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::employees.index')
+        ->assertSet('canManage', false)
+        ->assertDontSee('Delete');
+});
+
+test('a section head cannot edit or remove anybody', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+
+    $headUser = User::factory()->sectionHead()->create();
+    Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
+    $colleague = Employee::factory()->for($section)->create();
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::employees.index')
+        ->call('editEmployee', $colleague->id)
+        ->assertForbidden();
+
+    Livewire::test('pages::employees.index')
+        ->call('confirmDelete', $colleague->id)
+        ->assertForbidden();
+});
+
 test('an employee cannot open somebody elses profile', function () {
     $user = User::factory()->employee()->create();
     Employee::factory()->create(['user_id' => $user->id]);

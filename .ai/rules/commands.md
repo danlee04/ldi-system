@@ -3,12 +3,10 @@ paths:
   - 'app/Console/Commands/**'
 ---
 
-# Commands
+# Console commands
 
-## Two legacy databases, both strictly read-only
-This app owns `ldi_db` only. Two other schemas are sources and must never receive an INSERT, UPDATE, DELETE or DDL:
+## The legacy imports are gone — this app owns its employee data
+`ldi:import-employees` and `ldi:import-eligibilities` copied the 134 employees, the org tree and their civil service eligibility out of `hris_db` and `hr_training_system` once. That migration is done and both commands were deleted: employee records are now edited in this app, and re-running an import would overwrite what a user changed. Recover them from git history if a fresh copy is ever needed; do not add a scheduled sync.
 
-- `hris` connection → `hris_db`: divisions, sections, positions, employees. Matched on `employee_number`.
-- `legacy` connection → `hr_training_system`: the system this one replaces, and the only source of civil service eligibility. It has no `employee_number`, so `ldi:import-eligibilities` matches on first + last name with suffixes (JR/SR/II/III/IV) stripped from both sides — the legacy table glues them into the first name. That matches all 134 today; a mismatch is reported as a warning, never a failure.
-
-Both importers are idempotent and take their connection and table names from `config('ldi.*')` so tests can point them at fixture tables instead of a real database.
+## The two legacy schemas stay read-only
+The `hris` and `legacy` connections are still configured because Phase 2 reads the 1,002 historical training records out of `hr_training_system`. This app owns `ldi_db` only — never INSERT, UPDATE, DELETE or run DDL against either legacy schema.
