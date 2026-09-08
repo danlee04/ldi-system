@@ -20,6 +20,7 @@ test('hr can create a plan with its budget', function () {
         ->call('create')
         ->set('title', 'Self-Defense and Restraint Training')
         ->set('development_partner', 'Department of Health')
+        ->set('facilitator', 'Drug Treatment and Rehabilitation Center Caraga')
         ->set('type_of_training', 'Training')
         ->set('date_start', '2026-03-02')
         ->set('date_end', '2026-03-04')

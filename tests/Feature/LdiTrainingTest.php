@@ -12,6 +12,7 @@ test('adding attendees records approved attendance for each of them', function (
     $plan = LdiTraining::factory()->create([
         'title' => 'Self-Defense and Restraint Training',
         'development_partner' => 'Department of Health',
+        'facilitator' => 'Drug Treatment and Rehabilitation Center Caraga',
     ]);
 
     $employees = Employee::factory()->count(3)->create();
@@ -26,8 +27,30 @@ test('adding attendees records approved attendance for each of them', function (
     expect($record->status)->toBe(TrainingStatus::Approved)
         ->and($record->current_level)->toBeNull()
         ->and($record->title)->toBe('Self-Defense and Restraint Training')
-        ->and($record->conducted_by)->toBe('Department of Health')
         ->and($record->submitted_by)->toBe($hr->id);
+});
+
+test('attendance is credited to the facilitator, not to whoever paid', function () {
+    $hr = User::factory()->hr()->create();
+    $plan = LdiTraining::factory()->create([
+        'development_partner' => 'Department of Health',
+        'facilitator' => 'Drug Treatment and Rehabilitation Center Caraga',
+    ]);
+
+    app(AddLdiAttendees::class)->handle($plan, [Employee::factory()->create()->id], $hr);
+
+    // This is what a PDS prints under "Conducted/Sponsored by".
+    expect($plan->trainingRecords()->first()->conducted_by)
+        ->toBe('Drug Treatment and Rehabilitation Center Caraga');
+});
+
+test('the plan cpd units carry over to every attendee', function () {
+    $hr = User::factory()->hr()->create();
+    $plan = LdiTraining::factory()->create(['cpd_units' => 12.5]);
+
+    app(AddLdiAttendees::class)->handle($plan, [Employee::factory()->create()->id], $hr);
+
+    expect($plan->trainingRecords()->first()->cpd_units)->toBe(12.5);
 });
 
 test('somebody already on the list is not added twice', function () {

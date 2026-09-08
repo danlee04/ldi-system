@@ -23,10 +23,13 @@ class LdiTrainingFactory extends Factory
         return [
             'title' => fake()->sentence(4),
             'development_partner' => fake()->company(),
+            'facilitator' => fake()->company(),
             'type_of_training' => fake()->randomElement(['Training', 'Workshop', 'Seminar', 'Convention']),
+            'training_communication' => fake()->randomElement(['Requested Training', 'In-House Training']),
             'date_start' => $start,
             'date_end' => $start->copy()->addDays(fake()->numberBetween(0, 4)),
             'hours' => fake()->numberBetween(8, 40),
+            'cpd_units' => fake()->randomFloat(1, 0, 20),
             'ld_type' => fake()->randomElement([LdType::Technical, LdType::Supervisory, LdType::Managerial, LdType::Foundation]),
             'ld_type_other' => null,
             'location' => fake()->city(),

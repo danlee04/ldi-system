@@ -19,6 +19,10 @@ class AddLdiAttendees
      * left empty and filled in per attendee afterwards, because the fee
      * and travel expense differ per person.
      *
+     * `conducted_by` takes the facilitator, never the development partner:
+     * the partner funds the training, and it is the facilitator that a PDS
+     * prints under "Conducted/Sponsored by".
+     *
      * Somebody already on the list is skipped rather than duplicated.
      *
      * @param  array<int, int>  $employeeIds
@@ -48,8 +52,9 @@ class AddLdiAttendees
                     'hours' => $plan->hours,
                     'ld_type' => $plan->ld_type,
                     'ld_type_other' => $plan->ld_type_other,
-                    'conducted_by' => $plan->development_partner,
+                    'conducted_by' => $plan->facilitator,
                     'location' => $plan->location,
+                    'cpd_units' => $plan->cpd_units,
                     'status' => TrainingStatus::Approved,
                     'current_level' => null,
                     'submitted_by' => $addedBy->getKey(),

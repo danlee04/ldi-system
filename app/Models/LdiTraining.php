@@ -17,11 +17,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property string $title
- * @property string $development_partner
+ * @property string $development_partner who finances it
+ * @property string $facilitator who conducts it — this is what a PDS prints
  * @property string|null $type_of_training
+ * @property string|null $training_communication how the training came about
  * @property CarbonImmutable $date_start
  * @property CarbonImmutable $date_end
  * @property int $hours
+ * @property float|null $cpd_units
  * @property LdType $ld_type
  * @property string|null $ld_type_other
  * @property string|null $location
@@ -40,10 +43,13 @@ class LdiTraining extends Model
     protected $fillable = [
         'title',
         'development_partner',
+        'facilitator',
         'type_of_training',
+        'training_communication',
         'date_start',
         'date_end',
         'hours',
+        'cpd_units',
         'ld_type',
         'ld_type_other',
         'location',
@@ -62,6 +68,7 @@ class LdiTraining extends Model
             'date_start' => 'date',
             'date_end' => 'date',
             'hours' => 'integer',
+            'cpd_units' => 'float',
             'ld_type' => LdType::class,
             'target_attendees' => 'integer',
             'budget' => 'decimal:2',

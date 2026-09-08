@@ -51,6 +51,10 @@
                             {{ __('Positions') }}
                         </flux:sidebar.item>
 
+                        <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')" :current="request()->routeIs('setup.budget-caps')" wire:navigate>
+                            {{ __('Budget caps') }}
+                        </flux:sidebar.item>
+
                         @if (auth()->user()->role === App\Enums\UserRole::Admin)
                             <flux:sidebar.item icon="key" :href="route('setup.users')" :current="request()->routeIs('setup.users')" wire:navigate>
                                 {{ __('User accounts') }}

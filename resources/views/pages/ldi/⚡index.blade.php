@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\LdType;
+use App\Models\BudgetCap;
 use App\Models\LdiTraining;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -29,7 +30,13 @@ new #[Title('LDI trainings')] class extends Component {
 
     public string $development_partner = '';
 
+    public string $facilitator = '';
+
     public string $type_of_training = '';
+
+    public string $training_communication = '';
+
+    public ?float $cpd_units = null;
 
     public string $date_start = '';
 
@@ -120,7 +127,10 @@ new #[Title('LDI trainings')] class extends Component {
         $this->editingId = $plan->getKey();
         $this->title = $plan->title;
         $this->development_partner = $plan->development_partner;
+        $this->facilitator = $plan->facilitator;
         $this->type_of_training = (string) $plan->type_of_training;
+        $this->training_communication = (string) $plan->training_communication;
+        $this->cpd_units = $plan->cpd_units;
         $this->date_start = $plan->date_start->toDateString();
         $this->date_end = $plan->date_end->toDateString();
         $this->hours = $plan->hours;
@@ -143,7 +153,10 @@ new #[Title('LDI trainings')] class extends Component {
         $validated = $this->validate([
             'title' => ['required', 'string', 'max:255'],
             'development_partner' => ['required', 'string', 'max:255'],
+            'facilitator' => ['required', 'string', 'max:255'],
             'type_of_training' => ['nullable', 'string', 'max:255'],
+            'training_communication' => ['nullable', 'string', 'max:255'],
+            'cpd_units' => ['nullable', 'numeric', 'min:0'],
             'date_start' => ['required', 'date'],
             'date_end' => ['required', 'date', 'after_or_equal:date_start'],
             'hours' => ['required', 'integer', 'min:1', 'max:9999'],
@@ -158,6 +171,7 @@ new #[Title('LDI trainings')] class extends Component {
         LdiTraining::updateOrCreate(['id' => $this->editingId], [
             ...$validated,
             'type_of_training' => $validated['type_of_training'] ?: null,
+            'training_communication' => $validated['training_communication'] ?: null,
             'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
             'location' => $validated['location'] ?: null,
             'budget_source' => $validated['budget_source'] ?: null,
@@ -173,12 +187,52 @@ new #[Title('LDI trainings')] class extends Component {
         Flux::toast(variant: 'success', text: __('LDI training saved.'));
     }
 
+    /**
+     * How much of this source's yearly cap is left, once this plan's own
+     * budget is set aside. Null when no cap covers the source and year.
+     *
+     * Going over never blocks the save — the commitment was made outside
+     * this system and HR still has to record it.
+     */
+    #[Computed]
+    public function budgetHint(): ?string
+    {
+        $cap = BudgetCap::forSourceAndYear(
+            $this->budget_source ?: null,
+            $this->date_start !== '' ? (int) substr($this->date_start, 0, 4) : null,
+        );
+
+        if ($cap === null) {
+            return null;
+        }
+
+        $committedElsewhere = $cap->committed() - (float) LdiTraining::query()
+            ->whereKey($this->editingId)
+            ->sum('budget');
+
+        $left = (float) $cap->amount - $committedElsewhere - (float) $this->budget;
+
+        if ($left < 0) {
+            return __('Over the :year :source cap by :amount.', [
+                'year' => $cap->year,
+                'source' => $cap->budget_source,
+                'amount' => number_format(abs($left), 2),
+            ]);
+        }
+
+        return __(':amount left of the :year :source cap.', [
+            'amount' => number_format($left, 2),
+            'year' => $cap->year,
+            'source' => $cap->budget_source,
+        ]);
+    }
+
     public function resetForm(): void
     {
         $this->reset(
-            'editingId', 'title', 'development_partner', 'type_of_training', 'date_start',
-            'date_end', 'hours', 'ld_type', 'ld_type_other', 'location',
-            'target_attendees', 'budget', 'budget_source',
+            'editingId', 'title', 'development_partner', 'facilitator', 'type_of_training',
+            'training_communication', 'date_start', 'date_end', 'hours', 'cpd_units',
+            'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget', 'budget_source',
         );
         $this->resetValidation();
     }
@@ -267,15 +321,31 @@ new #[Title('LDI trainings')] class extends Component {
             <div class="grid gap-4 md:grid-cols-2">
                 <flux:input class="md:col-span-2" wire:model="title" :label="__('Title')" required />
 
-                <flux:input wire:model="development_partner" :label="__('Development partner')"
-                    :description="__('Who conducts or sponsors it.')" required />
-                <flux:input wire:model="type_of_training" :label="__('Type of training')"
-                    :placeholder="__('Training, Workshop, Seminar')" />
+                <x-picklist-input wire:model="development_partner" :label="__('Development partner')"
+                    :description="__('Who finances it.')" :options="config('ldi.development_partners')"
+                    required />
 
-                <flux:input wire:model="date_start" :label="__('From')" type="date" required />
+                <x-picklist-input wire:model="facilitator" :label="__('Conducted or sponsored by')"
+                    :description="__('Who runs it. This is what a PDS prints.')" :options="config('ldi.facilitators')"
+                    required />
+
+                <x-picklist-input wire:model="type_of_training" :label="__('Type of training')"
+                    :options="config('ldi.training_types')" />
+
+                <flux:select wire:model="training_communication" :label="__('Training communication')"
+                    :description="__('How the training came about.')">
+                    <flux:select.option value="">{{ __('Not stated') }}</flux:select.option>
+                    @foreach (config('ldi.training_communications') as $option)
+                        <flux:select.option :value="$option">{{ $option }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:input wire:model.live="date_start" :label="__('From')" type="date" required />
                 <flux:input wire:model="date_end" :label="__('To')" type="date" required />
 
                 <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
+                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0"
+                    :description="__('Copied to each attendee.')" />
 
                 <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
@@ -295,9 +365,20 @@ new #[Title('LDI trainings')] class extends Component {
                     <flux:separator :text="__('Budget')" />
                 </div>
 
-                <flux:input wire:model="budget" :label="__('Budget')" type="number" step="0.01" min="0" />
-                <flux:input wire:model="budget_source" :label="__('Budget source')"
-                    :placeholder="__('WFP-GAA 2026')" />
+                <flux:input wire:model.live.debounce.400ms="budget" :label="__('Budget')"
+                    type="number" step="0.01" min="0" />
+
+                <x-picklist-input wire:model.live="budget_source" :label="__('Budget source')"
+                    :options="config('ldi.budget_sources')" />
+
+                @if ($this->budgetHint)
+                    <div class="md:col-span-2">
+                        <flux:callout :variant="str_contains($this->budgetHint, __('Over')) ? 'warning' : 'secondary'"
+                            icon="banknotes">
+                            {{ $this->budgetHint }}
+                        </flux:callout>
+                    </div>
+                @endif
             </div>
 
             <div class="flex gap-2">
