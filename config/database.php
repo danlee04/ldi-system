@@ -44,6 +44,25 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
+        /*
+         * READ ONLY. The legacy HRIS database is the source of employee and org
+         * data. Nothing in this project may INSERT, UPDATE, DELETE or run DDL
+         * against this connection — it is a convention, not a MySQL grant.
+         */
+        'hris' => [
+            'driver' => 'mysql',
+            'host' => env('HRIS_DB_HOST', '127.0.0.1'),
+            'port' => env('HRIS_DB_PORT', '3306'),
+            'database' => env('HRIS_DB_DATABASE', 'hris_db'),
+            'username' => env('HRIS_DB_USERNAME', 'root'),
+            'password' => env('HRIS_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
