@@ -280,7 +280,7 @@ new #[Title('LDI training')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->attendees as $record)
-                <flux:table.row :key="$record->id">
+                <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <div class="w-52 truncate" title="{{ $record->employee->full_name }}">
                             <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">

@@ -179,7 +179,7 @@ new #[Title('Sections')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->sections as $section)
-                <flux:table.row :key="$section->id">
+                <flux:table.row :key="$section->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <div class="w-56 truncate" title="{{ $section->name }}">{{ $section->name }}</div>
                     </flux:table.cell>

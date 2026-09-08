@@ -119,7 +119,7 @@ new #[Title('Budget caps')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->caps as $cap)
-                <flux:table.row :key="$cap->id">
+                <flux:table.row :key="$cap->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>{{ $cap->year }}</flux:table.cell>
                     <flux:table.cell>{{ $cap->budget_source }}</flux:table.cell>
                     <flux:table.cell>{{ number_format((float) $cap->amount, 2) }}</flux:table.cell>

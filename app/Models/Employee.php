@@ -123,6 +123,27 @@ class Employee extends Model
     }
 
     /**
+     * Surname first, the way a roster is read: "ABAO, LLOYD B."
+     *
+     * Lists are ordered by last name, and printing the first name first
+     * makes that order look arbitrary to anybody scanning the column.
+     *
+     * @return Attribute<non-falsy-string, never>
+     */
+    protected function listingName(): Attribute
+    {
+        return Attribute::get(function (): string {
+            $rest = collect([
+                $this->first_name,
+                $this->middle_name ? mb_substr($this->middle_name, 0, 1).'.' : null,
+                $this->suffix,
+            ])->filter()->join(' ');
+
+            return $this->last_name.', '.$rest;
+        });
+    }
+
+    /**
      * @param  Builder<Employee>  $query
      */
     public function scopeActive(Builder $query): void

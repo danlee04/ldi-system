@@ -9,6 +9,43 @@ use App\Models\TrainingRecord;
 use App\Models\User;
 use Livewire\Livewire;
 
+test('the list reads surname first so its ordering is legible', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $employee = Employee::factory()->create([
+        'first_name' => 'Lloyd',
+        'middle_name' => 'Bislig',
+        'last_name' => 'Abao',
+        'suffix' => null,
+    ]);
+
+    expect($employee->listing_name)->toBe('Abao, Lloyd B.');
+
+    Livewire::test('pages::employees.index')->assertSee('Abao, Lloyd B.');
+});
+
+test('a suffix follows the initial in the listing name', function () {
+    $employee = Employee::factory()->create([
+        'first_name' => 'Carmelito',
+        'middle_name' => null,
+        'last_name' => 'Bongato',
+        'suffix' => 'Jr.',
+    ]);
+
+    expect($employee->listing_name)->toBe('Bongato, Carmelito Jr.');
+});
+
+test('employees come back ordered by surname', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->create(['first_name' => 'Andres', 'last_name' => 'Zamora']);
+    Employee::factory()->create(['first_name' => 'Zoilo', 'last_name' => 'Abad']);
+
+    $names = Livewire::test('pages::employees.index')->instance()->employees->pluck('last_name');
+
+    expect($names->all())->toBe(['Abad', 'Zamora']);
+});
+
 test('hr sees every active employee', function () {
     $this->actingAs(User::factory()->hr()->create());
 

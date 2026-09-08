@@ -389,11 +389,11 @@ new #[Title('Employees')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->employees as $employee)
-                <flux:table.row :key="$employee->id">
+                <flux:table.row :key="$employee->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
-                        <div class="w-44 truncate" title="{{ $employee->full_name }}">
+                        <div class="w-56 truncate" title="{{ $employee->full_name }}">
                             <flux:link :href="route('employees.show', $employee)" wire:navigate>
-                                {{ $employee->full_name }}
+                                {{ $employee->listing_name }}
                             </flux:link>
                         </div>
                     </flux:table.cell>

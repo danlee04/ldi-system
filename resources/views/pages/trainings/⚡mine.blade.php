@@ -222,7 +222,7 @@ new #[Title('My trainings')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->records as $record)
-                <flux:table.row :key="$record->id">
+                <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                             {{ $record->title }}

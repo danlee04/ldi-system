@@ -274,7 +274,7 @@ new #[Title('LDI trainings')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->plans as $plan)
-                <flux:table.row :key="$plan->id">
+                <flux:table.row :key="$plan->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         {{-- The width and truncation must live on a wrapper: flux:link is
                              always `inline`, and an inline element ignores both. --}}

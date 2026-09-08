@@ -219,7 +219,7 @@ new #[Title('User accounts')] class extends Component {
 
         <flux:table.rows>
             @forelse ($this->users as $user)
-                <flux:table.row :key="$user->id">
+                <flux:table.row :key="$user->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <div class="w-44 truncate" title="{{ $user->name }}">{{ $user->name }}</div>
                     </flux:table.cell>
