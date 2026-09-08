@@ -198,7 +198,7 @@ new #[Title('Approvals')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="decide" class="md:w-[28rem]">
+    <flux:modal name="decide" class="md:w-md">
         <div class="space-y-6">
             <div>
                 <flux:heading size="lg">

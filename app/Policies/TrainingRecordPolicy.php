@@ -39,6 +39,40 @@ class TrainingRecordPolicy
     }
 
     /**
+     * A record may be corrected only while nobody has acted on it.
+     *
+     * Once any level has decided, editing would silently change what was
+     * already approved, so the record locks. The owner, whoever submitted
+     * it, and HR or admin may correct it until then.
+     */
+    public function update(User $user, TrainingRecord $record): bool
+    {
+        if ($record->status !== TrainingStatus::Pending || $this->hasBeenActedOn($record)) {
+            return false;
+        }
+
+        if ($user->isAdminOrHr()) {
+            return true;
+        }
+
+        return $user->employee?->is($record->employee) === true
+            || $user->getKey() === $record->submitted_by;
+    }
+
+    /**
+     * Uses the loaded relation when the caller eager loaded it, so listing
+     * a page of records does not cost one query per row.
+     */
+    private function hasBeenActedOn(TrainingRecord $record): bool
+    {
+        if ($record->relationLoaded('approvals')) {
+            return $record->approvals->isNotEmpty();
+        }
+
+        return $record->approvals()->exists();
+    }
+
+    /**
      * Only the designated head at the record's current level may decide.
      *
      * HR and admin see everything but never decide — every record goes
