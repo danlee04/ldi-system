@@ -4,11 +4,23 @@ use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
 use App\Models\Division;
 use App\Models\Employee;
+use App\Models\EmployeeEligibility;
 use App\Models\Section;
 use App\Models\TrainingRecord;
 use App\Models\User;
 use Livewire\Livewire;
 
+/**
+ * An employee whose eligibility lapses on the given date, or never.
+ */
+function lapsingOn(string $lastName, ?DateTimeInterface $date): Employee
+{
+    $employee = Employee::factory()->create(['last_name' => $lastName]);
+
+    EmployeeEligibility::factory()->for($employee)->create(['date_of_validity' => $date]);
+
+    return $employee;
+}
 test('the list reads surname first so its ordering is legible', function () {
     $this->actingAs(User::factory()->hr()->create());
 
@@ -112,10 +124,10 @@ test('the employment status filter narrows the list', function () {
 test('the eligibility filter finds only the ones lapsing within a year', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    Employee::factory()->create(['last_name' => 'Bonifacio', 'eligibility_expires_on' => today()->addMonths(6)]);
-    Employee::factory()->create(['last_name' => 'Jacinto', 'eligibility_expires_on' => today()->addYears(3)]);
-    Employee::factory()->create(['last_name' => 'Mabini', 'eligibility_expires_on' => null]);
-    Employee::factory()->create(['last_name' => 'Luna', 'eligibility_expires_on' => today()->subDay()]);
+    lapsingOn('Bonifacio', today()->addMonths(6));
+    lapsingOn('Jacinto', today()->addYears(3));
+    lapsingOn('Mabini', null);
+    lapsingOn('Luna', today()->subDay());
 
     Livewire::test('pages::employees.index')
         ->set('eligibilityStatus', EligibilityStatus::Expiring->value)
@@ -128,8 +140,8 @@ test('the eligibility filter finds only the ones lapsing within a year', functio
 test('the eligibility filter can single out the expired ones', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    Employee::factory()->create(['last_name' => 'Bonifacio', 'eligibility_expires_on' => today()->subDay()]);
-    Employee::factory()->create(['last_name' => 'Jacinto', 'eligibility_expires_on' => today()->addMonths(6)]);
+    lapsingOn('Bonifacio', today()->subDay());
+    lapsingOn('Jacinto', today()->addMonths(6));
 
     Livewire::test('pages::employees.index')
         ->set('eligibilityStatus', EligibilityStatus::Expired->value)
@@ -244,7 +256,6 @@ test('hr can correct an employee record', function () {
         ->assertSet('last_name', 'Bonifacio')
         ->set('last_name', 'Del Pilar')
         ->set('employeeSectionId', $section->id)
-        ->set('eligibility_expires_on', '2029-05-01')
         ->call('saveEmployee')
         ->assertHasNoErrors();
 
@@ -252,8 +263,7 @@ test('hr can correct an employee record', function () {
 
     expect($employee->last_name)->toBe('Del Pilar')
         ->and($employee->section_id)->toBe($section->id)
-        ->and($employee->division_id)->toBe($section->division_id)
-        ->and($employee->eligibility_expires_on->toDateString())->toBe('2029-05-01');
+        ->and($employee->division_id)->toBe($section->division_id);
 });
 
 test('an employee number cannot collide with another employee', function () {

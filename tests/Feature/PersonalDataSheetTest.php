@@ -1,0 +1,585 @@
+<?php
+
+use App\Actions\Pds\FillPersonalDataSheet;
+use App\Enums\EducationLevel;
+use App\Models\Eligibility;
+use App\Models\Employee;
+use App\Models\EmployeeEducation;
+use App\Models\EmployeeEligibility;
+use App\Models\EmployeeWorkExperience;
+use App\Models\PersonalDataSheet;
+use App\Models\Section;
+use App\Models\User;
+use Livewire\Livewire;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
+/**
+ * Signs in an employee and hands back their record.
+ */
+function pdsEmployee(array $attributes = []): Employee
+{
+    $user = User::factory()->employee()->create();
+    $employee = Employee::factory()->create([...$attributes, 'user_id' => $user->id]);
+
+    test()->actingAs($user);
+
+    return $employee;
+}
+
+test('an employee fills in their own section I', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.date_of_birth', '1990-04-15')
+        ->set('form.place_of_birth', 'Butuan City')
+        ->set('form.civil_status', 'Married')
+        ->set('form.citizenship', 'Filipino')
+        ->set('form.blood_type', 'O+')
+        ->set('form.mobile_no', '09171234567')
+        ->set('form.email_address', 'maria@example.test')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $sheet = $employee->fresh()->personalDataSheet;
+
+    expect($sheet)->not->toBeNull()
+        ->and($sheet->date_of_birth->toDateString())->toBe('1990-04-15')
+        ->and($sheet->place_of_birth)->toBe('Butuan City')
+        ->and($sheet->civil_status)->toBe('Married');
+});
+
+test('saving twice keeps one sheet', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')->set('form.blood_type', 'A+')->call('save');
+    Livewire::test('pages::my-pds')->set('form.blood_type', 'B+')->call('save');
+
+    expect(PersonalDataSheet::count())->toBe(1)
+        ->and($employee->fresh()->personalDataSheet->blood_type)->toBe('B+');
+});
+
+test('choosing Others makes the employee say what it is', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.civil_status', 'Others')
+        ->set('form.civil_status_other', '')
+        ->call('save')
+        ->assertHasErrors('form.civil_status_other');
+});
+
+test('copying the residential address fills the permanent one', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.residential_house_block_lot', '12')
+        ->set('form.residential_barangay', 'Ampayon')
+        ->set('form.residential_city', 'Butuan City')
+        ->call('copyResidentialToPermanent')
+        ->assertSet('form.permanent_house_block_lot', '12')
+        ->assertSet('form.permanent_barangay', 'Ampayon')
+        ->assertSet('form.permanent_city', 'Butuan City');
+});
+
+test('an account with no employee record cannot open the page', function () {
+    $this->actingAs(User::factory()->employee()->create());
+
+    $this->get(route('my-pds'))->assertForbidden();
+});
+
+test('completeness reports how much of section I is filled', function () {
+    $employee = pdsEmployee();
+
+    expect(Livewire::test('pages::my-pds')->instance()->completeness)->toBe(0);
+
+    PersonalDataSheet::factory()->create(['employee_id' => $employee->id]);
+
+    expect($employee->fresh()->personalDataSheet->completeness())->toBeGreaterThan(80);
+});
+
+test('the download is the CSC workbook with section I written into it', function () {
+    $employee = pdsEmployee([
+        'first_name' => 'Maria',
+        'middle_name' => 'Santos',
+        'last_name' => 'Cruz',
+        'suffix' => null,
+        'gender' => 'Female',
+    ]);
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'date_of_birth' => '1990-04-15',
+        'place_of_birth' => 'Butuan City',
+        'civil_status' => 'Married',
+        'citizenship' => 'Filipino',
+        'blood_type' => 'O+',
+        'residential_city' => 'Butuan City',
+        'mobile_no' => '09171234567',
+    ]);
+
+    $book = app(FillPersonalDataSheet::class)->handle($employee->fresh());
+    $sheet = $book->getSheetByName('C1');
+
+    expect($sheet->getCell('D10')->getValue())->toBe('Cruz')
+        ->and($sheet->getCell('D11')->getValue())->toBe('Maria')
+        ->and($sheet->getCell('D12')->getValue())->toBe('Santos')
+        ->and($sheet->getCell('D13')->getValue())->toBe('15/04/1990')
+        ->and($sheet->getCell('D15')->getValue())->toBe('Butuan City')
+        ->and($sheet->getCell('E16')->getValue())->toBe('Female')
+        ->and($sheet->getCell('E17')->getValue())->toBe('Married')
+        ->and($sheet->getCell('K13')->getValue())->toBe('Filipino')
+        ->and($sheet->getCell('D25')->getValue())->toBe('O+')
+        ->and($sheet->getCell('I22')->getValue())->toBe('Butuan City')
+        ->and($sheet->getCell('I33')->getValue())->toBe('09171234567');
+});
+
+test('the template itself is never written to', function () {
+    $employee = pdsEmployee();
+    $path = app(FillPersonalDataSheet::class)->templatePath();
+    $before = md5_file($path);
+
+    PersonalDataSheet::factory()->create(['employee_id' => $employee->id]);
+    app(FillPersonalDataSheet::class)->handle($employee->fresh());
+
+    expect(md5_file($path))->toBe($before);
+});
+
+test('an employee downloads their own filled workbook', function () {
+    $employee = pdsEmployee(['first_name' => 'Maria', 'middle_name' => null, 'last_name' => 'Cruz']);
+
+    PersonalDataSheet::factory()->create(['employee_id' => $employee->id]);
+
+    $this->get(route('my-pds.download'))
+        ->assertOk()
+        ->assertDownload('cruz-maria-pds.xlsx');
+});
+
+test('a section head cannot download the PDS of somebody outside their section', function () {
+    $section = Section::factory()->create();
+    $headUser = User::factory()->sectionHead()->create();
+    $head = Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
+    $section->update(['section_head_employee_id' => $head->id]);
+
+    $this->actingAs($headUser);
+
+    $this->get(route('employees.pds', Employee::factory()->create()))->assertForbidden();
+    $this->get(route('employees.pds', $head))->assertOk();
+});
+
+test('an unfilled sheet still produces a usable blank form', function () {
+    $employee = pdsEmployee(['first_name' => 'Jose', 'middle_name' => null, 'last_name' => 'Rizal']);
+
+    $book = app(FillPersonalDataSheet::class)->handle($employee);
+    $sheet = $book->getSheetByName('C1');
+
+    expect($sheet->getCell('D10')->getValue())->toBe('Rizal')
+        ->and($sheet->getCell('D13')->getValue())->toBeEmpty();
+});
+
+test('the workbook is not readable by the wrong person through a guessed URL', function () {
+    $user = User::factory()->employee()->create();
+    Employee::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user);
+
+    $this->get(route('employees.pds', Employee::factory()->create()))->assertForbidden();
+});
+
+test('the filled workbook still opens as a spreadsheet', function () {
+    $employee = pdsEmployee();
+    PersonalDataSheet::factory()->create(['employee_id' => $employee->id]);
+
+    $path = tempnam(sys_get_temp_dir(), 'pds').'.xlsx';
+    $book = app(FillPersonalDataSheet::class)->handle($employee->fresh());
+    (new Xlsx($book))->save($path);
+
+    $reopened = IOFactory::createReader('Xlsx')->load($path);
+
+    expect($reopened->getSheetByName('C1'))->not->toBeNull()
+        ->and($reopened->getSheetCount())->toBe(11);
+
+    unlink($path);
+});
+
+test('an employee records their education level by level', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('education.college.school_name', 'Caraga State University')
+        ->set('education.college.degree_course', 'BS Information Technology')
+        ->set('education.college.period_from', 2010)
+        ->set('education.college.period_to', 2014)
+        ->set('education.college.year_graduated', 2014)
+        ->set('education.college.honors', 'Cum Laude')
+        ->call('saveEducation')
+        ->assertHasNoErrors();
+
+    $college = $employee->fresh()->educations->firstWhere('level', EducationLevel::College);
+
+    expect($college)->not->toBeNull()
+        ->and($college->school_name)->toBe('Caraga State University')
+        ->and($college->year_graduated)->toBe(2014)
+        ->and($college->honors)->toBe('Cum Laude');
+});
+
+test('a level left blank leaves no row behind', function () {
+    $employee = pdsEmployee();
+
+    EmployeeEducation::factory()->create([
+        'employee_id' => $employee->id,
+        'level' => EducationLevel::Graduate,
+        'school_name' => 'Entered By Mistake',
+    ]);
+
+    Livewire::test('pages::my-pds')
+        ->set('education.graduate.school_name', '')
+        ->set('education.graduate.degree_course', '')
+        ->set('education.graduate.period_from', '')
+        ->set('education.graduate.period_to', '')
+        ->set('education.graduate.highest_level_units', '')
+        ->set('education.graduate.year_graduated', '')
+        ->set('education.graduate.honors', '')
+        ->call('saveEducation');
+
+    expect($employee->fresh()->educations()->where('level', EducationLevel::Graduate)->exists())->toBeFalse();
+});
+
+test('the period cannot end before it starts', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('education.college.school_name', 'Caraga State University')
+        ->set('education.college.period_from', 2014)
+        ->set('education.college.period_to', 2010)
+        ->call('saveEducation')
+        ->assertHasErrors('education.college.period_to');
+});
+
+test('saving education twice keeps one row per level', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')->set('education.college.school_name', 'First')->call('saveEducation');
+    Livewire::test('pages::my-pds')->set('education.college.school_name', 'Second')->call('saveEducation');
+
+    expect($employee->fresh()->educations)->toHaveCount(1)
+        ->and($employee->fresh()->educations->first()->school_name)->toBe('Second');
+});
+
+test('education lands on the right line of the workbook', function () {
+    $employee = pdsEmployee();
+
+    EmployeeEducation::factory()->create([
+        'employee_id' => $employee->id,
+        'level' => EducationLevel::Elementary,
+        'school_name' => 'Ampayon Elementary School',
+        'degree_course' => null,
+        'period_from' => 1996,
+        'period_to' => 2002,
+        'year_graduated' => 2002,
+        'honors' => null,
+    ]);
+
+    EmployeeEducation::factory()->create([
+        'employee_id' => $employee->id,
+        'level' => EducationLevel::College,
+        'school_name' => 'Caraga State University',
+        'degree_course' => 'BS Information Technology',
+        'period_from' => 2010,
+        'period_to' => 2014,
+        'year_graduated' => 2014,
+        'honors' => 'Cum Laude',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C1');
+
+    // Row 55 is the elementary line, row 58 the college line.
+    expect($sheet->getCell('D55')->getValue())->toBe('Ampayon Elementary School')
+        ->and($sheet->getCell('J55')->getValue())->toEqual(1996)
+        ->and($sheet->getCell('M55')->getValue())->toEqual(2002)
+        ->and($sheet->getCell('D58')->getValue())->toBe('Caraga State University')
+        ->and($sheet->getCell('G58')->getValue())->toBe('BS Information Technology')
+        ->and($sheet->getCell('N58')->getValue())->toBe('Cum Laude')
+        ->and($sheet->getCell('D56')->getValue())->toBeEmpty();
+});
+
+test('an employee records a civil service eligibility', function () {
+    $employee = pdsEmployee();
+    $eligibility = Eligibility::factory()->create(['name' => 'CSP - Career Service Professional']);
+
+    Livewire::test('pages::my-pds')
+        ->set('eligibilities.0.eligibility_id', $eligibility->id)
+        ->set('eligibilities.0.rating', '86.45')
+        ->set('eligibilities.0.date_of_examination', '2015-03-15')
+        ->set('eligibilities.0.place_of_examination', 'Butuan City')
+        ->call('saveEligibilities')
+        ->assertHasNoErrors();
+
+    $line = $employee->fresh()->eligibilities->first();
+
+    expect($line)->not->toBeNull()
+        ->and($line->eligibility_id)->toBe($eligibility->id)
+        ->and($line->name())->toBe('CSP - Career Service Professional')
+        ->and($line->rating)->toBe('86.45')
+        ->and($line->date_of_examination->toDateString())->toBe('2015-03-15');
+});
+
+test('an eligibility not on the list can be written in full', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('eligibilities.0.detail', 'Registered Nurse, PRC')
+        ->set('eligibilities.0.license_number', '0123456')
+        ->set('eligibilities.0.date_of_validity', today()->addYears(2)->toDateString())
+        ->call('saveEligibilities')
+        ->assertHasNoErrors();
+
+    expect($employee->fresh()->eligibilities->first()->name())->toBe('Registered Nurse, PRC');
+});
+
+test('a nameless line is not saved', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('eligibilities.0.rating', '80')
+        ->call('saveEligibilities')
+        ->assertHasNoErrors();
+
+    expect($employee->fresh()->eligibilities)->toBeEmpty();
+});
+
+test('an eligibility cannot lapse before it was taken', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('eligibilities.0.detail', 'Registered Nurse, PRC')
+        ->set('eligibilities.0.date_of_examination', '2020-06-01')
+        ->set('eligibilities.0.date_of_validity', '2019-06-01')
+        ->call('saveEligibilities')
+        ->assertHasErrors('eligibilities.0.date_of_validity');
+});
+
+test('removing a line and saving takes it off the record', function () {
+    $employee = pdsEmployee();
+
+    EmployeeEligibility::factory()->for($employee)->create(['detail' => 'Entered By Mistake']);
+
+    Livewire::test('pages::my-pds')
+        ->call('removeEligibility', 0)
+        ->call('saveEligibilities');
+
+    expect($employee->fresh()->eligibilities)->toBeEmpty();
+});
+
+test('saving twice edits the same line rather than adding another', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('eligibilities.0.detail', 'First')
+        ->call('saveEligibilities')
+        ->set('eligibilities.0.detail', 'Second')
+        ->call('saveEligibilities');
+
+    expect($employee->fresh()->eligibilities)->toHaveCount(1)
+        ->and($employee->fresh()->eligibilities->first()->detail)->toBe('Second');
+});
+
+test('an employee cannot edit somebody elses eligibility line', function () {
+    $employee = pdsEmployee();
+    $stranger = EmployeeEligibility::factory()->create(['detail' => 'Not Yours']);
+
+    Livewire::test('pages::my-pds')
+        ->set('eligibilities.0.id', $stranger->id)
+        ->set('eligibilities.0.detail', 'Stolen')
+        ->call('saveEligibilities');
+
+    expect($stranger->fresh()->detail)->toBe('Not Yours')
+        ->and($employee->fresh()->eligibilities->first()->detail)->toBe('Stolen');
+});
+
+test('eligibility lands on the right lines of the workbook', function () {
+    $employee = pdsEmployee();
+
+    EmployeeEligibility::factory()->for($employee)->create([
+        'eligibility_id' => null,
+        'detail' => 'CSP - Career Service Professional',
+        'rating' => '86.45',
+        'date_of_examination' => '2015-03-15',
+        'place_of_examination' => 'Butuan City',
+        'license_number' => null,
+        'date_of_validity' => null,
+    ]);
+
+    EmployeeEligibility::factory()->for($employee)->create([
+        'eligibility_id' => null,
+        'detail' => 'Registered Nurse, PRC',
+        'rating' => '81.20',
+        'date_of_examination' => '2018-11-20',
+        'place_of_examination' => 'Cagayan de Oro City',
+        'license_number' => '0123456',
+        'date_of_validity' => '2027-11-20',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C2');
+
+    // Rows 5 to 11 are the seven printed lines, oldest examination first.
+    expect($sheet->getCell('A5')->getValue())->toBe('CSP - Career Service Professional')
+        ->and($sheet->getCell('F5')->getValue())->toEqual('86.45')
+        ->and($sheet->getCell('G5')->getValue())->toBe('15/03/2015')
+        ->and($sheet->getCell('I5')->getValue())->toBe('Butuan City')
+        ->and($sheet->getCell('M5')->getValue())->toBeEmpty()
+        ->and($sheet->getCell('A6')->getValue())->toBe('Registered Nurse, PRC')
+        ->and($sheet->getCell('L6')->getValue())->toEqual('0123456')
+        ->and($sheet->getCell('M6')->getValue())->toBe('20/11/2027')
+        ->and($sheet->getCell('A7')->getValue())->toBeEmpty();
+});
+
+test('an employee records a posting', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('work.0.position_title', 'Administrative Assistant II')
+        ->set('work.0.agency_name', 'Department of Health')
+        ->set('work.0.from_date', '2018-06-01')
+        ->set('work.0.to_date', '2022-05-31')
+        ->set('work.0.monthly_salary', '24500')
+        ->set('work.0.salary_grade', '11-1')
+        ->set('work.0.appointment_status', 'Permanent')
+        ->set('work.0.is_government', true)
+        ->call('saveWork')
+        ->assertHasNoErrors();
+
+    $posting = $employee->fresh()->workExperiences->first();
+
+    expect($posting)->not->toBeNull()
+        ->and($posting->position_title)->toBe('Administrative Assistant II')
+        ->and($posting->from_date->toDateString())->toBe('2018-06-01')
+        ->and($posting->is_government)->toBeTrue()
+        ->and($posting->endsOn())->toBe('31/05/2022');
+});
+
+test('the post they still hold prints as Present', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('work.0.position_title', 'Nurse II')
+        ->set('work.0.agency_name', 'DOH Treatment and Rehabilitation Center Caraga')
+        ->set('work.0.from_date', '2022-06-01')
+        ->set('work.0.to_date', '')
+        ->call('saveWork')
+        ->assertHasNoErrors();
+
+    expect($employee->fresh()->workExperiences->first()->endsOn())->toBe('Present');
+});
+
+test('a half-typed posting is refused rather than dropped', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('work.0.position_title', 'Nurse II')
+        ->call('saveWork')
+        ->assertHasErrors(['work.0.from_date', 'work.0.agency_name']);
+
+    expect($employee->fresh()->workExperiences)->toBeEmpty();
+});
+
+test('an untouched line saves nothing and raises nothing', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->call('saveWork')
+        ->assertHasNoErrors();
+
+    expect($employee->fresh()->workExperiences)->toBeEmpty();
+});
+
+test('a posting cannot end before it started', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('work.0.position_title', 'Nurse II')
+        ->set('work.0.agency_name', 'Department of Health')
+        ->set('work.0.from_date', '2022-06-01')
+        ->set('work.0.to_date', '2021-06-01')
+        ->call('saveWork')
+        ->assertHasErrors('work.0.to_date');
+});
+
+test('removing a posting and saving takes it off the record', function () {
+    $employee = pdsEmployee();
+
+    EmployeeWorkExperience::factory()->for($employee)->create(['position_title' => 'Entered By Mistake']);
+
+    Livewire::test('pages::my-pds')
+        ->call('removeWork', 0)
+        ->call('saveWork');
+
+    expect($employee->fresh()->workExperiences)->toBeEmpty();
+});
+
+test('an employee cannot edit somebody elses posting', function () {
+    $employee = pdsEmployee();
+    $stranger = EmployeeWorkExperience::factory()->create(['position_title' => 'Not Yours']);
+
+    Livewire::test('pages::my-pds')
+        ->set('work.0.id', $stranger->id)
+        ->set('work.0.position_title', 'Stolen')
+        ->set('work.0.agency_name', 'Department of Health')
+        ->set('work.0.from_date', '2020-01-01')
+        ->call('saveWork');
+
+    expect($stranger->fresh()->position_title)->toBe('Not Yours')
+        ->and($employee->fresh()->workExperiences->first()->position_title)->toBe('Stolen');
+});
+
+test('work experience lands on the right lines of the workbook, most recent first', function () {
+    $employee = pdsEmployee();
+
+    EmployeeWorkExperience::factory()->for($employee)->create([
+        'from_date' => '2015-03-02',
+        'to_date' => '2022-05-31',
+        'position_title' => 'Administrative Assistant II',
+        'agency_name' => 'Department of Health',
+        'monthly_salary' => '24500',
+        'salary_grade' => '11-1',
+        'appointment_status' => 'Permanent',
+        'is_government' => true,
+    ]);
+
+    EmployeeWorkExperience::factory()->for($employee)->current()->create([
+        'from_date' => '2022-06-01',
+        'position_title' => 'Nurse II',
+        'agency_name' => 'DOH TRC Caraga',
+        'monthly_salary' => '39000',
+        'salary_grade' => '15-2',
+        'appointment_status' => 'Permanent',
+        'is_government' => true,
+    ]);
+
+    EmployeeWorkExperience::factory()->for($employee)->create([
+        'from_date' => '2012-01-05',
+        'to_date' => '2015-02-27',
+        'position_title' => 'Encoder',
+        'agency_name' => 'Caraga Data Services',
+        'monthly_salary' => '12000',
+        'salary_grade' => null,
+        'appointment_status' => 'Contract of Service',
+        'is_government' => false,
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C2');
+
+    // Rows 18 onwards, newest posting first.
+    expect($sheet->getCell('D18')->getValue())->toBe('Nurse II')
+        ->and($sheet->getCell('A18')->getValue())->toBe('01/06/2022')
+        ->and($sheet->getCell('C18')->getValue())->toBe('Present')
+        ->and($sheet->getCell('M18')->getValue())->toBe('Y')
+        ->and($sheet->getCell('D19')->getValue())->toBe('Administrative Assistant II')
+        ->and($sheet->getCell('C19')->getValue())->toBe('31/05/2022')
+        ->and($sheet->getCell('G19')->getValue())->toBe('Department of Health')
+        ->and($sheet->getCell('K19')->getValue())->toEqual('11-1')
+        ->and($sheet->getCell('L19')->getValue())->toBe('Permanent')
+        ->and($sheet->getCell('D20')->getValue())->toBe('Encoder')
+        ->and($sheet->getCell('M20')->getValue())->toBe('N')
+        ->and($sheet->getCell('D21')->getValue())->toBeEmpty();
+});

@@ -23,6 +23,10 @@
                             </flux:sidebar.item>
                         @endif
 
+                        <flux:sidebar.item icon="identification" :href="route('my-pds')" :current="request()->routeIs('my-pds')" wire:navigate>
+                            {{ __('My PDS') }}
+                        </flux:sidebar.item>
+
                         @if (auth()->user()->decidesOnTrainings())
                             <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
                                 {{ __('Approvals') }}

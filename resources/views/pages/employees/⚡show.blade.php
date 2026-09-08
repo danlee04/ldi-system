@@ -37,14 +37,20 @@ new #[Title('Employee')] class extends Component {
             {{ __('Employees') }}
         </flux:button>
 
-        <div>
-            <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
-            <flux:text>
-                {{ $employee->position?->title ?? '—' }}
-                @if ($employee->section)
-                    — {{ $employee->section->name }}
-                @endif
-            </flux:text>
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
+                <flux:text>
+                    {{ $employee->position?->title ?? '—' }}
+                    @if ($employee->section)
+                        — {{ $employee->section->name }}
+                    @endif
+                </flux:text>
+            </div>
+
+            <flux:button icon="arrow-down-tray" :href="route('employees.pds', $employee)">
+                {{ __('Download PDS') }}
+            </flux:button>
         </div>
     </div>
 

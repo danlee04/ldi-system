@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\UserRole;
+use Carbon\CarbonImmutable;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
@@ -28,9 +30,6 @@ class Employee extends Model
         'suffix',
         'gender',
         'position_id',
-        'eligibility_id',
-        'eligibility_detail',
-        'eligibility_expires_on',
         'section_id',
         'division_id',
         'date_hired',
@@ -46,7 +45,6 @@ class Employee extends Model
         return [
             'employment_status' => EmploymentStatus::class,
             'date_hired' => 'date',
-            'eligibility_expires_on' => 'date',
             'is_active' => 'boolean',
         ];
     }
@@ -87,11 +85,14 @@ class Employee extends Model
     }
 
     /**
-     * @return BelongsTo<Eligibility, $this>
+     * Section IV of their PDS. The form allows several lines, so this is
+     * the only place eligibility lives.
+     *
+     * @return HasMany<EmployeeEligibility, $this>
      */
-    public function eligibility(): BelongsTo
+    public function eligibilities(): HasMany
     {
-        return $this->belongsTo(Eligibility::class);
+        return $this->hasMany(EmployeeEligibility::class);
     }
 
     /**
@@ -100,6 +101,37 @@ class Employee extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Section I of their PDS. Absent until they start filling it in.
+     *
+     * @return HasOne<PersonalDataSheet, $this>
+     */
+    public function personalDataSheet(): HasOne
+    {
+        return $this->hasOne(PersonalDataSheet::class);
+    }
+
+    /**
+     * Section III of their PDS, one row per level.
+     *
+     * @return HasMany<EmployeeEducation, $this>
+     */
+    public function educations(): HasMany
+    {
+        return $this->hasMany(EmployeeEducation::class);
+    }
+
+    /**
+     * Section V of their PDS, most recent posting first — the order the
+     * form asks for.
+     *
+     * @return HasMany<EmployeeWorkExperience, $this>
+     */
+    public function workExperiences(): HasMany
+    {
+        return $this->hasMany(EmployeeWorkExperience::class)->orderByDesc('from_date');
     }
 
     /**
@@ -145,6 +177,44 @@ class Employee extends Model
     }
 
     /**
+     * Section IV in one line: the first eligibility, plus a count of the
+     * rest. A roster column has no room for four of them.
+     */
+    public function eligibilitySummary(): string
+    {
+        $names = $this->eligibilities
+            ->map(fn (EmployeeEligibility $eligibility): string => $eligibility->name())
+            ->filter()
+            ->values();
+
+        if ($names->isEmpty()) {
+            return '—';
+        }
+
+        return $names->count() > 1
+            ? $names->first().' +'.($names->count() - 1)
+            : (string) $names->first();
+    }
+
+    /**
+     * The soonest date any of their eligibilities lapses, if one does.
+     */
+    public function eligibilityExpiresOn(): ?CarbonImmutable
+    {
+        $soonest = null;
+
+        foreach ($this->eligibilities as $eligibility) {
+            $date = $eligibility->date_of_validity;
+
+            if ($date !== null && ($soonest === null || $date->lessThan($soonest))) {
+                $soonest = $date;
+            }
+        }
+
+        return $soonest;
+    }
+
+    /**
      * @param  Builder<Employee>  $query
      */
     public function scopeActive(Builder $query): void
@@ -162,14 +232,20 @@ class Employee extends Model
      */
     public function scopeEligibilityStatus(Builder $query, EligibilityStatus $status): void
     {
+        $lapsing = fn (Builder $eligibility) => $eligibility->whereNotNull('date_of_validity');
+
         match ($status) {
-            EligibilityStatus::Expiring => $query
-                ->whereNotNull('eligibility_expires_on')
-                ->whereBetween('eligibility_expires_on', [today(), today()->addYear()]),
-            EligibilityStatus::Expired => $query
-                ->whereNotNull('eligibility_expires_on')
-                ->where('eligibility_expires_on', '<', today()),
-            EligibilityStatus::NoExpiry => $query->whereNull('eligibility_expires_on'),
+            EligibilityStatus::Expiring => $query->whereHas(
+                'eligibilities',
+                fn (Builder $e) => $lapsing($e)->whereBetween('date_of_validity', [today(), today()->addYear()]),
+            ),
+            EligibilityStatus::Expired => $query->whereHas(
+                'eligibilities',
+                fn (Builder $e) => $lapsing($e)->where('date_of_validity', '<', today()),
+            ),
+            // Nothing on record that lapses: either no eligibility at all,
+            // or only ones that never expire.
+            EligibilityStatus::NoExpiry => $query->whereDoesntHave('eligibilities', $lapsing),
         };
     }
 

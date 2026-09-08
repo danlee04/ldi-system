@@ -79,6 +79,10 @@ return [
     |
     */
 
+    'pds' => [
+        'template' => 'CS Form No. 212 Revised 2026 Personal Data Sheet PDS.xlsx',
+    ],
+
     'doh' => [
         'office' => 'DRUG TREATMENT AND REHABILITATION CENTER CARAGA',
 

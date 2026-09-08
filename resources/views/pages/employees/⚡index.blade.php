@@ -4,7 +4,6 @@ use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\TrainingStatus;
 use App\Models\Division;
-use App\Models\Eligibility;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Section;
@@ -60,12 +59,6 @@ new #[Title('Employees')] class extends Component {
     public string $employment_status = '';
 
     public string $date_hired = '';
-
-    public ?int $eligibilityId = null;
-
-    public string $eligibility_detail = '';
-
-    public string $eligibility_expires_on = '';
 
     public bool $is_active = true;
 
@@ -125,7 +118,7 @@ new #[Title('Employees')] class extends Component {
                     ->whereYear('date_end', $this->year)],
                 'cpd_units',
             )
-            ->with(['section', 'division', 'position', 'eligibility'])
+            ->with(['section', 'division', 'position', 'eligibilities.eligibility'])
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->paginate(25);
@@ -169,9 +162,6 @@ new #[Title('Employees')] class extends Component {
         $this->employeeSectionId = $employee->section_id;
         $this->employment_status = $employee->employment_status->value;
         $this->date_hired = $employee->date_hired?->toDateString() ?? '';
-        $this->eligibilityId = $employee->eligibility_id;
-        $this->eligibility_detail = (string) $employee->eligibility_detail;
-        $this->eligibility_expires_on = $employee->eligibility_expires_on?->toDateString() ?? '';
         $this->is_active = $employee->is_active;
 
         Flux::modal('employee-form')->show();
@@ -196,9 +186,6 @@ new #[Title('Employees')] class extends Component {
             'employeeSectionId' => ['nullable', 'exists:sections,id'],
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
             'date_hired' => ['nullable', 'date'],
-            'eligibilityId' => ['nullable', 'exists:eligibilities,id'],
-            'eligibility_detail' => ['nullable', 'string', 'max:255'],
-            'eligibility_expires_on' => ['nullable', 'date'],
             'is_active' => ['boolean'],
         ]);
 
@@ -213,9 +200,6 @@ new #[Title('Employees')] class extends Component {
             'section_id' => $validated['employeeSectionId'],
             'employment_status' => $validated['employment_status'],
             'date_hired' => $validated['date_hired'] ?: null,
-            'eligibility_id' => $validated['eligibilityId'],
-            'eligibility_detail' => $validated['eligibility_detail'] ?: null,
-            'eligibility_expires_on' => $validated['eligibility_expires_on'] ?: null,
             'is_active' => $validated['is_active'],
         ])->save();
 
@@ -235,7 +219,6 @@ new #[Title('Employees')] class extends Component {
         $this->reset(
             'editingId', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'gender',
             'positionId', 'employeeSectionId', 'employment_status', 'date_hired',
-            'eligibilityId', 'eligibility_detail', 'eligibility_expires_on',
         );
 
         $this->is_active = true;
@@ -297,15 +280,6 @@ new #[Title('Employees')] class extends Component {
     public function positions(): Collection
     {
         return Position::query()->orderBy('title')->get();
-    }
-
-    /**
-     * @return Collection<int, Eligibility>
-     */
-    #[Computed]
-    public function eligibilities(): Collection
-    {
-        return Eligibility::query()->orderBy('name')->get();
     }
 
     /**
@@ -416,12 +390,12 @@ new #[Title('Employees')] class extends Component {
                     <flux:table.cell>{{ $employee->employment_status->label() }}</flux:table.cell>
                     <flux:table.cell>{{ $employee->cpd_units_for_year ?? 0 }}</flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-28 truncate" title="{{ $employee->eligibility_detail ?: $employee->eligibility?->name }}">
-                            {{ $employee->eligibility_detail ?: ($employee->eligibility?->name ?? '—') }}
+                        <div class="w-28 truncate" title="{{ $employee->eligibilities->map->name()->join(', ') }}">
+                            {{ $employee->eligibilitySummary() }}
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <x-eligibility-expiry :date="$employee->eligibility_expires_on" />
+                        <x-eligibility-expiry :date="$employee->eligibilityExpiresOn()" />
                     </flux:table.cell>
                     @if ($this->canManage)
                         <flux:table.cell>
@@ -495,23 +469,6 @@ new #[Title('Employees')] class extends Component {
                     <flux:switch wire:model="is_active" />
                     <flux:label>{{ __('Active') }}</flux:label>
                 </flux:field>
-
-                <div class="md:col-span-2">
-                    <flux:separator :text="__('Civil service eligibility')" />
-                </div>
-
-                <flux:select wire:model="eligibilityId" :label="__('Eligibility')">
-                    <flux:select.option value="">{{ __('None') }}</flux:select.option>
-                    @foreach ($this->eligibilities as $eligibility)
-                        <flux:select.option :value="$eligibility->id">{{ $eligibility->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-
-                <flux:input wire:model="eligibility_detail" :label="__('Detail')"
-                    :placeholder="__('PRC License')" />
-
-                <flux:input wire:model="eligibility_expires_on" :label="__('Expiry date')" type="date"
-                    :description="__('Leave empty when the eligibility never lapses.')" />
             </div>
 
             <div class="flex gap-2">

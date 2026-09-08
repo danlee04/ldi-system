@@ -15,10 +15,12 @@ class Eligibility extends Model
     protected $fillable = ['name'];
 
     /**
-     * @return HasMany<Employee, $this>
+     * The lines of Section IV that named this eligibility.
+     *
+     * @return HasMany<EmployeeEligibility, $this>
      */
-    public function employees(): HasMany
+    public function employeeEligibilities(): HasMany
     {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(EmployeeEligibility::class);
     }
 }
