@@ -99,6 +99,20 @@ test('an unroutable record cannot be decided', function () {
         ->toThrow(InvalidArgumentException::class);
 });
 
+test('an hr officer who is also the designated head still decides', function () {
+    $division = Division::factory()->create();
+    $section = Section::factory()->for($division)->create();
+
+    $hrUser = User::factory()->hr()->create();
+    $head = Employee::factory()->for($section)->create(['user_id' => $hrUser->id]);
+    $section->update(['section_head_employee_id' => $head->id]);
+
+    $employee = Employee::factory()->for($section)->create();
+    $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
+
+    expect($hrUser->can('decide', $record))->toBeTrue();
+});
+
 test('only the designated head at the current level may decide', function () {
     ['employee' => $employee, 'sectionHead' => $sectionHead, 'divisionHead' => $divisionHead] = staffedSection();
     $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);

@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('setup/divisions', 'pages::setup.divisions')->name('setup.divisions');
     Route::livewire('setup/sections', 'pages::setup.sections')->name('setup.sections');
     Route::livewire('setup/positions', 'pages::setup.positions')->name('setup.positions');
+    Route::livewire('setup/users', 'pages::setup.users')->name('setup.users');
 });
 
 require __DIR__.'/settings.php';

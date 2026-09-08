@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -38,6 +40,21 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        /*
+         * A deactivated account keeps its history but cannot sign in. The
+         * check lives here rather than in middleware so it also covers a
+         * remembered session being re-authenticated.
+         */
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $user = User::query()->where('email', $request->input(Fortify::username()))->first();
+
+            if ($user === null || ! $user->is_active) {
+                return null;
+            }
+
+            return Hash::check((string) $request->input('password'), $user->password) ? $user : null;
+        });
     }
 
     /**

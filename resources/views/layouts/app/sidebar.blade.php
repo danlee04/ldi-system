@@ -44,6 +44,12 @@
                         <flux:sidebar.item icon="identification" :href="route('setup.positions')" :current="request()->routeIs('setup.positions')" wire:navigate>
                             {{ __('Positions') }}
                         </flux:sidebar.item>
+
+                        @if (auth()->user()->role === App\Enums\UserRole::Admin)
+                            <flux:sidebar.item icon="key" :href="route('setup.users')" :current="request()->routeIs('setup.users')" wire:navigate>
+                                {{ __('User accounts') }}
+                            </flux:sidebar.item>
+                        @endif
                     </flux:sidebar.group>
                 @endif
             </flux:sidebar.nav>
