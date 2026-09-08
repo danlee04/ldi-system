@@ -18,7 +18,7 @@ class SectionFactory extends Factory
     {
         return [
             'division_id' => Division::factory(),
-            'name' => fake()->unique()->words(2, true).' Section',
+            'name' => fake()->unique()->company().' Section',
             'code' => strtoupper(fake()->unique()->lexify('????')),
             'section_head_employee_id' => null,
             'is_active' => true,
