@@ -12,6 +12,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('approvals', 'pages::approvals')->name('approvals');
 
+    Route::livewire('ldi', 'pages::ldi.index')->name('ldi.index');
+    Route::livewire('ldi/{plan}', 'pages::ldi.show')->name('ldi.show');
+
     Route::livewire('employees', 'pages::employees.index')->name('employees.index');
     Route::livewire('employees/{employee}', 'pages::employees.show')->name('employees.show');
 

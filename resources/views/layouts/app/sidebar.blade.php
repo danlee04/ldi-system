@@ -24,6 +24,12 @@
                         {{ __('Approvals') }}
                     </flux:sidebar.item>
 
+                    @if (auth()->user()->isAdminOrHr())
+                        <flux:sidebar.item icon="banknotes" :href="route('ldi.index')" :current="request()->routeIs('ldi.*')" wire:navigate>
+                            {{ __('LDI trainings') }}
+                        </flux:sidebar.item>
+                    @endif
+
                     @if (auth()->user()->role !== App\Enums\UserRole::Employee)
                         <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
                             {{ __('Employees') }}

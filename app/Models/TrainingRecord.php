@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ApprovalLevel;
 use App\Enums\LdType;
 use App\Enums\TrainingStatus;
+use Carbon\CarbonImmutable;
 use Database\Factories\TrainingRecordFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -12,14 +13,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property int $employee_id
+ * @property int|null $ldi_training_id
  * @property string $title
- * @property Carbon $date_start
- * @property Carbon $date_end
+ * @property CarbonImmutable $date_start
+ * @property CarbonImmutable $date_end
  * @property int $hours
  * @property LdType $ld_type
  * @property string|null $ld_type_other
@@ -33,8 +34,8 @@ use Illuminate\Support\Carbon;
  * @property ApprovalLevel|null $current_level
  * @property int $submitted_by
  * @property string|null $rejection_reason
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 class TrainingRecord extends Model
 {
@@ -43,6 +44,7 @@ class TrainingRecord extends Model
 
     protected $fillable = [
         'employee_id',
+        'ldi_training_id',
         'title',
         'date_start',
         'date_end',
@@ -86,6 +88,17 @@ class TrainingRecord extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * The agency plan this attendance belongs to, if it is not a training
+     * the employee found and submitted on their own.
+     *
+     * @return BelongsTo<LdiTraining, $this>
+     */
+    public function ldiTraining(): BelongsTo
+    {
+        return $this->belongsTo(LdiTraining::class);
     }
 
     /**
