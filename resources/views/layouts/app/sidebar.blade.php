@@ -15,6 +15,14 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')" :current="request()->routeIs('trainings.mine')" wire:navigate>
+                        {{ __('My trainings') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
+                        {{ __('Approvals') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 
