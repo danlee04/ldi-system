@@ -30,6 +30,22 @@
                         </flux:sidebar.item>
                     @endif
                 </flux:sidebar.group>
+
+                @if (auth()->user()->isAdminOrHr())
+                    <flux:sidebar.group :heading="__('Setup')" class="grid">
+                        <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')" :current="request()->routeIs('setup.divisions')" wire:navigate>
+                            {{ __('Divisions') }}
+                        </flux:sidebar.item>
+
+                        <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')" :current="request()->routeIs('setup.sections')" wire:navigate>
+                            {{ __('Sections') }}
+                        </flux:sidebar.item>
+
+                        <flux:sidebar.item icon="identification" :href="route('setup.positions')" :current="request()->routeIs('setup.positions')" wire:navigate>
+                            {{ __('Positions') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endif
             </flux:sidebar.nav>
 
             <flux:spacer />
