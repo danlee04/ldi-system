@@ -252,32 +252,32 @@ new #[Title('My trainings')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="training-form" class="md:w-2xl">
+    <flux:modal name="training-form" class="md:w-4xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Record a training') : __('Edit training') }}
             </flux:heading>
 
-            @if ($this->canChooseEmployee)
-                <flux:select wire:model="employeeId" :label="__('Employee')" required>
-                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                    @foreach ($this->employees as $employee)
-                        <flux:select.option :value="$employee->id">
-                            {{ $employee->full_name }} — {{ $employee->employee_number }}
-                        </flux:select.option>
-                    @endforeach
-                </flux:select>
-            @endif
+            <div class="grid gap-4 md:grid-cols-2">
+                @if ($this->canChooseEmployee)
+                    <flux:select class="md:col-span-2" wire:model="employeeId" :label="__('Employee')" required>
+                        <flux:select.option value="">{{ __('Select') }}</flux:select.option>
+                        @foreach ($this->employees as $employee)
+                            <flux:select.option :value="$employee->id">
+                                {{ $employee->full_name }} — {{ $employee->employee_number }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                @endif
 
-            <flux:input wire:model="title" :label="__('Title of learning and development intervention')" required />
+                <flux:input class="md:col-span-2" wire:model="title"
+                    :label="__('Title of learning and development intervention')" required />
 
-            <div class="grid gap-4 md:grid-cols-3">
                 <flux:input wire:model="date_start" :label="__('From')" type="date" required />
                 <flux:input wire:model="date_end" :label="__('To')" type="date" required />
-                <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
-            </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
+                <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
+
                 <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach (App\Enums\LdType::cases() as $type)
@@ -286,19 +286,17 @@ new #[Title('My trainings')] class extends Component {
                 </flux:select>
 
                 @if ($ld_type === App\Enums\LdType::Other->value)
-                    <flux:input wire:model="ld_type_other" :label="__('Specify the type')"
+                    <flux:input class="md:col-span-2" wire:model="ld_type_other" :label="__('Specify the type')"
                         :placeholder="__('Soft Skill, Workshop, Convention')" required />
                 @endif
-            </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
                 <flux:input wire:model="conducted_by" :label="__('Conducted or sponsored by')" required />
                 <flux:input wire:model="location" :label="__('Location')" />
-            </div>
 
-            <flux:separator :text="__('Costs')" />
+                <div class="md:col-span-2">
+                    <flux:separator :text="__('Costs')" />
+                </div>
 
-            <div class="grid gap-4 md:grid-cols-4">
                 <flux:input wire:model="registration_fee" :label="__('Registration fee')" type="number" step="0.01" min="0" />
                 <flux:input wire:model="tev" :label="__('Travel expenses')" type="number" step="0.01" min="0" />
                 <flux:input wire:model="expenses" :label="__('Other expenses')" type="number" step="0.01" min="0" />

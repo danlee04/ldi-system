@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\UserRole;
 use Database\Factories\EmployeeFactory;
@@ -26,6 +27,9 @@ class Employee extends Model
         'last_name',
         'suffix',
         'position_id',
+        'eligibility_id',
+        'eligibility_detail',
+        'eligibility_expires_on',
         'section_id',
         'division_id',
         'date_hired',
@@ -41,6 +45,7 @@ class Employee extends Model
         return [
             'employment_status' => EmploymentStatus::class,
             'date_hired' => 'date',
+            'eligibility_expires_on' => 'date',
             'is_active' => 'boolean',
         ];
     }
@@ -81,6 +86,14 @@ class Employee extends Model
     }
 
     /**
+     * @return BelongsTo<Eligibility, $this>
+     */
+    public function eligibility(): BelongsTo
+    {
+        return $this->belongsTo(Eligibility::class);
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
@@ -115,6 +128,27 @@ class Employee extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * Narrow to a state of civil service eligibility.
+     *
+     * An employee with no expiry date is not overdue — most eligibilities
+     * (CSP, CSSP, career service) never lapse. Only a licence carries one.
+     *
+     * @param  Builder<Employee>  $query
+     */
+    public function scopeEligibilityStatus(Builder $query, EligibilityStatus $status): void
+    {
+        match ($status) {
+            EligibilityStatus::Expiring => $query
+                ->whereNotNull('eligibility_expires_on')
+                ->whereBetween('eligibility_expires_on', [today(), today()->addYear()]),
+            EligibilityStatus::Expired => $query
+                ->whereNotNull('eligibility_expires_on')
+                ->where('eligibility_expires_on', '<', today()),
+            EligibilityStatus::NoExpiry => $query->whereNull('eligibility_expires_on'),
+        };
     }
 
     /**

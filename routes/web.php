@@ -11,6 +11,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('trainings/{record}', 'pages::trainings.show')->name('trainings.show');
 
     Route::livewire('approvals', 'pages::approvals')->name('approvals');
+
+    Route::livewire('employees', 'pages::employees.index')->name('employees.index');
+    Route::livewire('employees/{employee}', 'pages::employees.show')->name('employees.show');
 });
 
 require __DIR__.'/settings.php';

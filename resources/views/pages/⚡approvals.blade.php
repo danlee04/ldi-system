@@ -198,24 +198,42 @@ new #[Title('Approvals')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="decide" class="md:w-md">
+    <flux:modal name="decide" class="md:w-2xl">
         <div class="space-y-6">
-            <div>
-                <flux:heading size="lg">
-                    {{ $decisionType === 'reject' ? __('Reject this training?') : __('Approve this training?') }}
-                </flux:heading>
+            <flux:heading size="lg">
+                {{ $decisionType === 'reject' ? __('Reject this training?') : __('Approve this training?') }}
+            </flux:heading>
 
-                @if ($this->deciding)
-                    <flux:text class="mt-2">
-                        {{ $this->deciding->title }} — {{ $this->deciding->employee->full_name }}
-                    </flux:text>
-                @endif
+            <div class="grid gap-6 md:grid-cols-2">
+                <div class="space-y-3">
+                    @if ($this->deciding)
+                        <div>
+                            <flux:text size="sm">{{ __('Training') }}</flux:text>
+                            <flux:heading>{{ $this->deciding->title }}</flux:heading>
+                        </div>
+                        <div>
+                            <flux:text size="sm">{{ __('Employee') }}</flux:text>
+                            <flux:heading>{{ $this->deciding->employee->full_name }}</flux:heading>
+                        </div>
+                        <div>
+                            <flux:text size="sm">{{ __('Inclusive dates') }}</flux:text>
+                            <flux:heading>
+                                {{ $this->deciding->date_start->format('d M Y') }} –
+                                {{ $this->deciding->date_end->format('d M Y') }}
+                            </flux:heading>
+                        </div>
+                        <div>
+                            <flux:text size="sm">{{ __('Hours') }}</flux:text>
+                            <flux:heading>{{ $this->deciding->hours }}</flux:heading>
+                        </div>
+                    @endif
+                </div>
+
+                <flux:textarea wire:model="remarks" :label="__('Remarks')" rows="8"
+                    :description="$decisionType === 'reject'
+                        ? __('Required. The employee sees this reason.')
+                        : __('Optional.')" />
             </div>
-
-            <flux:textarea wire:model="remarks" :label="__('Remarks')" rows="3"
-                :description="$decisionType === 'reject'
-                    ? __('Required. The employee sees this reason.')
-                    : __('Optional.')" />
 
             <div class="flex gap-2">
                 <flux:spacer />

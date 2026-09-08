@@ -23,6 +23,12 @@
                     <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
                         {{ __('Approvals') }}
                     </flux:sidebar.item>
+
+                    @if (auth()->user()->role !== App\Enums\UserRole::Employee)
+                        <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
+                            {{ __('Employees') }}
+                        </flux:sidebar.item>
+                    @endif
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

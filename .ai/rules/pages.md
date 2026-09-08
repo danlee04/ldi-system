@@ -18,3 +18,8 @@ Any action that changes or destroys data — approve, reject, delete, designate 
 Open with `Flux::modal('name')->show()` and close with `->close()` only after the action succeeds, so a validation error leaves the modal open with the user's input intact. Reset stale field state when opening, or the previous attempt's remarks leak into the next one.
 
 Keep the plain public methods (`approve($id)`, `reject($id)`) callable on their own — the modal is UI on top of them, and tests drive the methods directly.
+
+## Modals are two columns and wide, not a narrow stack
+Lay modal bodies out as `grid gap-4 md:grid-cols-2` rather than one stacked column, and size the modal to fit it: `md:w-2xl` for a short one, `md:w-4xl` for a full form. Fields that read badly when halved — a long title, an employee picker, a separator — take `md:col-span-2`.
+
+For a confirmation modal, put the record's details in the left column and the remarks or reason field in the right, so the approver sees what they are deciding on without leaving the modal.
