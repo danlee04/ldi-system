@@ -224,9 +224,9 @@ new #[Title('My trainings')] class extends Component {
             @forelse ($this->records as $record)
                 <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
-                        <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
+                        <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                             {{ $record->title }}
-                        </flux:link>
+                        </button>
                     </flux:table.cell>
                     <flux:table.cell>
                         {{ $record->inclusive_dates }}

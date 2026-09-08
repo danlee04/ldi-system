@@ -191,18 +191,25 @@ new #[Title('LDI training')] class extends Component {
 }; ?>
 
 <div class="space-y-6">
-    <div class="flex items-start justify-between">
-        <div>
-            <flux:heading size="xl">{{ $plan->title }}</flux:heading>
-            <flux:text>
-                {{ $plan->development_partner }}
-                @if ($plan->type_of_training)
-                    · {{ $plan->type_of_training }}
-                @endif
-            </flux:text>
-        </div>
+    <div class="space-y-3">
+        <flux:button size="sm" variant="ghost" icon="chevron-left"
+            :href="route('ldi.index')" wire:navigate>
+            {{ __('LDI trainings') }}
+        </flux:button>
 
-        <flux:button variant="primary" wire:click="openAttendees">{{ __('Add attendees') }}</flux:button>
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <flux:heading size="xl">{{ $plan->title }}</flux:heading>
+                <flux:text>
+                    {{ $plan->development_partner }}
+                    @if ($plan->type_of_training)
+                        — {{ $plan->type_of_training }}
+                    @endif
+                </flux:text>
+            </div>
+
+            <flux:button variant="primary" wire:click="openAttendees">{{ __('Add attendees') }}</flux:button>
+        </div>
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
@@ -283,9 +290,9 @@ new #[Title('LDI training')] class extends Component {
                 <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <div class="w-52 truncate" title="{{ $record->employee->full_name }}">
-                            <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
+                            <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                                 {{ $record->employee->full_name }}
-                            </flux:link>
+                            </button>
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>

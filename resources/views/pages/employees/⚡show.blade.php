@@ -31,11 +31,21 @@ new #[Title('Employee')] class extends Component {
 }; ?>
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
-        <flux:text>
-            {{ $employee->position?->title ?? '—' }} · {{ $employee->section?->name ?? '—' }}
-        </flux:text>
+    <div class="space-y-3">
+        <flux:button size="sm" variant="ghost" icon="chevron-left"
+            :href="route('employees.index')" wire:navigate>
+            {{ __('Employees') }}
+        </flux:button>
+
+        <div>
+            <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
+            <flux:text>
+                {{ $employee->position?->title ?? '—' }}
+                @if ($employee->section)
+                    — {{ $employee->section->name }}
+                @endif
+            </flux:text>
+        </div>
     </div>
 
     <flux:card class="grid gap-4 md:grid-cols-4">
@@ -74,9 +84,9 @@ new #[Title('Employee')] class extends Component {
                 <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <div class="w-72 truncate" title="{{ $record->title }}">
-                            <flux:link as="button" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
+                            <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                                 {{ $record->title }}
-                            </flux:link>
+                            </button>
                         </div>
                     </flux:table.cell>
                     <flux:table.cell class="whitespace-nowrap">
