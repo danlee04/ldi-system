@@ -51,6 +51,8 @@ new #[Title('Employees')] class extends Component {
 
     public string $suffix = '';
 
+    public string $gender = '';
+
     public ?int $positionId = null;
 
     public ?int $employeeSectionId = null;
@@ -162,6 +164,7 @@ new #[Title('Employees')] class extends Component {
         $this->middle_name = (string) $employee->middle_name;
         $this->last_name = $employee->last_name;
         $this->suffix = (string) $employee->suffix;
+        $this->gender = (string) $employee->gender;
         $this->positionId = $employee->position_id;
         $this->employeeSectionId = $employee->section_id;
         $this->employment_status = $employee->employment_status->value;
@@ -188,6 +191,7 @@ new #[Title('Employees')] class extends Component {
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'suffix' => ['nullable', 'string', 'max:20'],
+            'gender' => ['nullable', 'in:Male,Female'],
             'positionId' => ['nullable', 'exists:positions,id'],
             'employeeSectionId' => ['nullable', 'exists:sections,id'],
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
@@ -204,6 +208,7 @@ new #[Title('Employees')] class extends Component {
             'middle_name' => $validated['middle_name'] ?: null,
             'last_name' => $validated['last_name'],
             'suffix' => $validated['suffix'] ?: null,
+            'gender' => $validated['gender'] ?: null,
             'position_id' => $validated['positionId'],
             'section_id' => $validated['employeeSectionId'],
             'employment_status' => $validated['employment_status'],
@@ -228,7 +233,7 @@ new #[Title('Employees')] class extends Component {
     private function resetForm(): void
     {
         $this->reset(
-            'editingId', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix',
+            'editingId', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'gender',
             'positionId', 'employeeSectionId', 'employment_status', 'date_hired',
             'eligibilityId', 'eligibility_detail', 'eligibility_expires_on',
         );
@@ -458,6 +463,12 @@ new #[Title('Employees')] class extends Component {
 
                 <flux:input wire:model="last_name" :label="__('Last name')" required />
                 <flux:input wire:model="suffix" :label="__('Suffix')" :placeholder="__('Jr., Sr., III')" />
+
+                <flux:select wire:model="gender" :label="__('Sex')">
+                    <flux:select.option value="">{{ __('Not stated') }}</flux:select.option>
+                    <flux:select.option value="Female">{{ __('Female') }}</flux:select.option>
+                    <flux:select.option value="Male">{{ __('Male') }}</flux:select.option>
+                </flux:select>
 
                 <flux:select wire:model="employeeSectionId" :label="__('Section')">
                     <flux:select.option value="">{{ __('None') }}</flux:select.option>

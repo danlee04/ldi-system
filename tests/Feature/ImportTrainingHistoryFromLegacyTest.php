@@ -18,6 +18,7 @@ beforeEach(function () {
         $table->id('employee_id');
         $table->string('firstname');
         $table->string('lastname');
+        $table->string('gender')->nullable();
     });
 
     Schema::create('legacy_trainings', function ($table) {
@@ -81,6 +82,49 @@ test('it imports attendance and links it to the local employee', function () {
         ->and($record->ld_type)->toBe(LdType::Technical)
         ->and($record->conducted_by)->toBe('Civil Service Commission')
         ->and((float) $record->registration_fee)->toBe(1500.0);
+});
+
+test('it brings sex across, because the DOH form counts by it', function () {
+    $employee = Employee::factory()->create(['first_name' => 'Maria', 'last_name' => 'Cruz', 'gender' => null]);
+    User::factory()->hr()->create();
+
+    DB::table('legacy_employees')->insert([
+        'employee_id' => 7, 'firstname' => 'Maria', 'lastname' => 'Cruz', 'gender' => 'Female',
+    ]);
+
+    $this->artisan('ldi:import-training-history')->assertSuccessful();
+
+    expect($employee->refresh()->gender)->toBe('Female');
+});
+
+test('it links attendance to the plan that shares its title', function () {
+    Employee::factory()->create(['first_name' => 'Maria', 'last_name' => 'Cruz']);
+    User::factory()->hr()->create();
+
+    DB::table('legacy_employees')->insert(['employee_id' => 7, 'firstname' => 'Maria', 'lastname' => 'Cruz']);
+
+    DB::table('legacy_trainings')->insert([
+        ['training_id' => 99, 'employee_id' => null, 'training_title' => 'Self-Defense Training',
+            'date_start' => '2026-05-02', 'date_end' => '2026-05-04', 'training_hours' => 16,
+            'type_of_ld' => 'Technical', 'facilitator' => 'DTRC', 'status' => 'approved'],
+        ['training_id' => 100, 'employee_id' => 7, 'training_title' => 'Self-Defense Training',
+            'date_start' => '2026-05-02', 'date_end' => '2026-05-04', 'training_hours' => 16,
+            'type_of_ld' => 'Technical', 'facilitator' => 'DTRC', 'status' => 'approved'],
+        ['training_id' => 101, 'employee_id' => 7, 'training_title' => 'Something She Found Herself',
+            'date_start' => '2026-06-02', 'date_end' => '2026-06-04', 'training_hours' => 8,
+            'type_of_ld' => 'Technical', 'facilitator' => 'CSC', 'status' => 'approved'],
+    ]);
+    DB::table('legacy_ldi_training')->insert([
+        'ldi_id' => 1, 'training_id' => 99, 'training_title' => 'Self-Defense Training',
+        'development_partner' => 'DOH', 'budget' => 54000,
+    ]);
+
+    $this->artisan('ldi:import-training-history')->assertSuccessful();
+
+    $plan = LdiTraining::first();
+
+    expect($plan->trainingRecords()->count())->toBe(1)
+        ->and(TrainingRecord::where('title', 'Something She Found Herself')->value('ldi_training_id'))->toBeNull();
 });
 
 test('a type of LD outside the four PDS ones becomes Other with its own words', function () {

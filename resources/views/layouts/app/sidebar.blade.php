@@ -4,7 +4,7 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        <flux:sidebar sticky collapsible="mobile" class="print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
@@ -40,6 +40,10 @@
                         @if (auth()->user()->isAdminOrHr())
                             <flux:sidebar.item icon="presentation-chart-bar" :href="route('ldi.index')" :current="request()->routeIs('ldi.*')" wire:navigate>
                                 {{ __('LDI trainings') }}
+                            </flux:sidebar.item>
+
+                            <flux:sidebar.item icon="chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" wire:navigate>
+                                {{ __('Reports') }}
                             </flux:sidebar.item>
                         @endif
                     </flux:sidebar.group>
@@ -78,7 +82,7 @@
         </flux:sidebar>
 
         <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden">
+        <flux:header class="lg:hidden print:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
             <flux:spacer />

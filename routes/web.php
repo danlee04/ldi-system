@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DohLdiReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -10,6 +11,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('trainings/mine', 'pages::trainings.mine')->name('trainings.mine');
 
     Route::livewire('approvals', 'pages::approvals')->name('approvals');
+
+    Route::livewire('reports', 'pages::reports')->name('reports');
+    Route::get('reports/doh-ldi', DohLdiReportController::class)->name('reports.doh-ldi');
 
     Route::livewire('ldi', 'pages::ldi.index')->name('ldi.index');
     Route::livewire('ldi/{plan}', 'pages::ldi.show')->name('ldi.show');

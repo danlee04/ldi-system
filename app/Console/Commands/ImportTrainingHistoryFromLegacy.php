@@ -41,9 +41,15 @@ class ImportTrainingHistoryFromLegacy extends Command
         $employees = $this->localEmployeesByLegacyId();
 
         $plans = $this->importPlans();
+        $gendered = $this->backfillGender($employees);
         [$attendance, $skipped, $withoutLdType] = $this->importAttendance($employees, $router);
 
-        $this->info(sprintf('Imported %d planned trainings and %d attendance records.', $plans, $attendance));
+        $this->info(sprintf(
+            'Imported %d planned trainings and %d attendance records, and set sex on %d employees.',
+            $plans,
+            $attendance,
+            $gendered,
+        ));
 
         if ($withoutLdType > 0) {
             $this->warn(sprintf('%d records had no usable type of LD and need one set by hand.', $withoutLdType));
@@ -87,6 +93,32 @@ class ImportTrainingHistoryFromLegacy extends Command
                 $row->employee_id => $local->get($this->matchKey($row->firstname, $row->lastname)),
             ])
             ->filter();
+    }
+
+    /**
+     * Sex comes across with the history because the DOH training report
+     * counts participants by it, and no other source carries it.
+     *
+     * @param  Collection<int, Employee>  $employees
+     */
+    private function backfillGender(Collection $employees): int
+    {
+        $set = 0;
+
+        foreach ($this->legacy('employees')->get() as $row) {
+            $employee = $employees->get($row->employee_id);
+
+            $gender = $row->gender ?? null;
+
+            if ($employee === null || ! in_array($gender, ['Male', 'Female'], true)) {
+                continue;
+            }
+
+            $employee->update(['gender' => $gender]);
+            $set++;
+        }
+
+        return $set;
     }
 
     /**
@@ -151,6 +183,11 @@ class ImportTrainingHistoryFromLegacy extends Command
         $skipped = [];
         $withoutLdType = 0;
 
+        // The legacy tied attendance to a plan by matching the title, which
+        // is how its own reports counted participants. That match is made
+        // once here so the link is a real foreign key from now on.
+        $plansByTitle = LdiTraining::query()->get()->keyBy('title');
+
         foreach ($this->legacy('trainings')->whereNotNull('employee_id')->get() as $row) {
             $employee = $employees->get($row->employee_id);
 
@@ -176,6 +213,7 @@ class ImportTrainingHistoryFromLegacy extends Command
 
             $record->fill([
                 'employee_id' => $employee->getKey(),
+                'ldi_training_id' => $plansByTitle->get($row->training_title)?->getKey(),
                 'title' => $row->training_title,
                 'date_start' => $row->date_start,
                 'date_end' => $row->date_end,

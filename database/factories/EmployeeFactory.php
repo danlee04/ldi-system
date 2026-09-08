@@ -25,6 +25,7 @@ class EmployeeFactory extends Factory
             'middle_name' => fake()->lastName(),
             'last_name' => fake()->lastName(),
             'suffix' => null,
+            'gender' => fake()->randomElement(['Male', 'Female']),
             'position_id' => Position::factory(),
             'section_id' => Section::factory(),
             'division_id' => null,

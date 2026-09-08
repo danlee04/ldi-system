@@ -26,6 +26,7 @@ class Employee extends Model
         'middle_name',
         'last_name',
         'suffix',
+        'gender',
         'position_id',
         'eligibility_id',
         'eligibility_detail',
