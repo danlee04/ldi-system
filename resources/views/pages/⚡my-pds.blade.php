@@ -1,13 +1,18 @@
 <?php
 
 use App\Enums\EducationLevel;
+use App\Enums\OtherInformationType;
 use App\Models\Eligibility;
 use App\Models\Employee;
+use App\Models\EmployeeChild;
 use App\Models\EmployeeEducation;
 use App\Models\EmployeeEligibility;
+use App\Models\EmployeeOtherInformation;
+use App\Models\EmployeeVoluntaryWork;
 use App\Models\EmployeeWorkExperience;
 use App\Models\PersonalDataSheet;
 use Flux\Flux;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -15,6 +20,10 @@ use Livewire\Component;
 /**
  * The employee's own copy of CS Form No. 212. They fill it in themselves —
  * nobody else knows their blood type or their PhilSys number.
+ *
+ * Section VI is missing from this page on purpose: their learning and
+ * development lines come from the training records this system already
+ * approves, so filling them in twice would be asking for two answers.
  */
 new #[Title('My PDS')] class extends Component {
     /** @var array<string, mixed> */
@@ -26,18 +35,82 @@ new #[Title('My PDS')] class extends Component {
     /** @var list<array<string, mixed>> */
     public array $eligibilities = [];
 
-    /**
-     * The form prints seven lines of Section IV and no more.
-     */
-    public const MAX_ELIGIBILITIES = 7;
-
     /** @var list<array<string, mixed>> */
     public array $work = [];
 
+    /** @var list<array<string, mixed>> */
+    public array $children = [];
+
+    /** @var list<array<string, mixed>> */
+    public array $voluntary = [];
+
+    /** @var array<string, list<string>> */
+    public array $other = [];
+
     /**
-     * Rows 18 to 41 of the second sheet: twenty-four postings.
+     * Every repeating section: how many lines the form prints, and the
+     * blank line a new one starts from. The cap is the form's, not ours —
+     * a line past the last printed row would never reach CSC.
+     *
+     * @var array<string, array{relation: string, max: int, blank: array<string, mixed>}>
      */
-    public const MAX_WORK = 24;
+    private const REPEATERS = [
+        'eligibilities' => [
+            'relation' => 'eligibilities',
+            'max' => 7,
+            'blank' => [
+                'id' => null,
+                'eligibility_id' => '',
+                'detail' => '',
+                'rating' => '',
+                'date_of_examination' => '',
+                'place_of_examination' => '',
+                'license_number' => '',
+                'date_of_validity' => '',
+            ],
+        ],
+        'work' => [
+            'relation' => 'workExperiences',
+            'max' => 24,
+            'blank' => [
+                'id' => null,
+                'from_date' => '',
+                'to_date' => '',
+                'position_title' => '',
+                'agency_name' => '',
+                'monthly_salary' => '',
+                'salary_grade' => '',
+                'appointment_status' => '',
+                'is_government' => false,
+            ],
+        ],
+        'children' => [
+            'relation' => 'children',
+            'max' => 13,
+            'blank' => [
+                'id' => null,
+                'full_name' => '',
+                'date_of_birth' => '',
+            ],
+        ],
+        'voluntary' => [
+            'relation' => 'voluntaryWorks',
+            'max' => 9,
+            'blank' => [
+                'id' => null,
+                'organization' => '',
+                'from_date' => '',
+                'to_date' => '',
+                'hours' => '',
+                'position' => '',
+            ],
+        ],
+    ];
+
+    /**
+     * Section VIII prints seven lines in each of its three columns.
+     */
+    public const OTHER_LINES = 7;
 
     public function mount(): void
     {
@@ -81,10 +154,6 @@ new #[Title('My PDS')] class extends Component {
             ])
             ->all();
 
-        if ($this->eligibilities === []) {
-            $this->addEligibility();
-        }
-
         $this->work = $this->employee->workExperiences
             ->map(fn (EmployeeWorkExperience $row): array => [
                 'id' => $row->getKey(),
@@ -99,48 +168,135 @@ new #[Title('My PDS')] class extends Component {
             ])
             ->all();
 
-        if ($this->work === []) {
-            $this->addWork();
-        }
-    }
+        $this->children = $this->employee->children
+            ->map(fn (EmployeeChild $row): array => [
+                'id' => $row->getKey(),
+                'full_name' => $row->full_name,
+                'date_of_birth' => $row->date_of_birth?->toDateString() ?? '',
+            ])
+            ->all();
 
-    public function addEligibility(): void
-    {
-        if (count($this->eligibilities) >= self::MAX_ELIGIBILITIES) {
-            return;
+        $this->voluntary = $this->employee->voluntaryWorks
+            ->map(fn (EmployeeVoluntaryWork $row): array => [
+                'id' => $row->getKey(),
+                'organization' => $row->organization,
+                'from_date' => $row->from_date->toDateString(),
+                'to_date' => $row->to_date?->toDateString() ?? '',
+                'hours' => (string) ($row->hours ?? ''),
+                'position' => (string) ($row->position ?? ''),
+            ])
+            ->all();
+
+        foreach (array_keys(self::REPEATERS) as $list) {
+            if ($this->{$list} === []) {
+                $this->addRow($list);
+            }
         }
 
-        $this->eligibilities[] = [
-            'id' => null,
-            'eligibility_id' => '',
-            'detail' => '',
-            'rating' => '',
-            'date_of_examination' => '',
-            'place_of_examination' => '',
-            'license_number' => '',
-            'date_of_validity' => '',
-        ];
+        $lines = $this->employee->otherInformation->groupBy(
+            fn (EmployeeOtherInformation $row): string => $row->type->value,
+        );
+
+        foreach (OtherInformationType::cases() as $type) {
+            $filled = $lines->get($type->value, collect())
+                ->pluck('description')
+                ->take(self::OTHER_LINES)
+                ->values()
+                ->all();
+
+            // Always the seven printed lines, so the page looks like the form.
+            $this->other[$type->value] = array_pad($filled, self::OTHER_LINES, '');
+        }
     }
 
     /**
-     * Takes the line off the form. Nothing leaves the database until they
+     * Adds a blank line to one of the repeating sections.
+     *
+     * The list name arrives from the browser, so it is checked against the
+     * map rather than trusted — otherwise this would write to any public
+     * property the component has.
+     */
+    public function addRow(string $list): void
+    {
+        $repeater = $this->repeater($list);
+
+        if (count($this->{$list}) >= $repeater['max']) {
+            return;
+        }
+
+        $this->{$list}[] = $repeater['blank'];
+    }
+
+    /**
+     * Takes a line off the form. Nothing leaves the database until they
      * save, so a mis-click costs them a reload and no more.
      */
-    public function removeEligibility(int $index): void
+    public function removeRow(string $list, int $index): void
     {
-        unset($this->eligibilities[$index]);
+        $this->repeater($list);
 
-        $this->eligibilities = array_values($this->eligibilities);
+        unset($this->{$list}[$index]);
 
-        if ($this->eligibilities === []) {
-            $this->addEligibility();
+        $this->{$list} = array_values($this->{$list});
+
+        if ($this->{$list} === []) {
+            $this->addRow($list);
         }
+    }
+
+    /**
+     * Whether this section still has room for another line.
+     */
+    public function roomIn(string $list): bool
+    {
+        return count($this->{$list}) < $this->repeater($list)['max'];
+    }
+
+    /**
+     * @return array{relation: string, max: int, blank: array<string, mixed>}
+     */
+    private function repeater(string $list): array
+    {
+        abort_unless(array_key_exists($list, self::REPEATERS), 404);
+
+        return self::REPEATERS[$list];
+    }
+
+    /**
+     * Writes the given lines into their relation and drops the ones that
+     * are no longer on the form.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows  keyed by their index in $list
+     */
+    private function syncRows(string $list, Collection $rows): void
+    {
+        $relation = $this->repeater($list)['relation'];
+        $kept = [];
+
+        foreach ($rows as $index => $row) {
+            $values = collect($row)
+                ->map(fn (mixed $value): mixed => $value === '' ? null : $value)
+                ->except('id')
+                ->all();
+
+            // Scoped to their own lines, so a tampered id finds nothing and
+            // starts a new one instead of editing somebody else's.
+            $record = $this->employee->{$relation}()->findOrNew($this->{$list}[$index]['id'] ?? 0);
+
+            $record->fill($values)->save();
+
+            $kept[] = $record->getKey();
+            $this->{$list}[$index]['id'] = $record->getKey();
+        }
+
+        $this->employee->{$relation}()->reorder()->whereNotIn('id', $kept)->delete();
+        $this->employee->unsetRelation($relation);
     }
 
     public function saveEligibilities(): void
     {
         $validated = $this->validate([
-            'eligibilities' => ['array', 'max:'.self::MAX_ELIGIBILITIES],
+            'eligibilities' => ['array', 'max:'.self::REPEATERS['eligibilities']['max']],
             'eligibilities.*.eligibility_id' => ['nullable', 'integer', 'exists:eligibilities,id'],
             'eligibilities.*.detail' => ['nullable', 'string', 'max:255'],
             'eligibilities.*.rating' => ['nullable', 'string', 'max:40'],
@@ -154,82 +310,26 @@ new #[Title('My PDS')] class extends Component {
             'eligibilities.*.date_of_examination' => __('date of examination'),
         ]);
 
-        $kept = [];
-
-        foreach ($validated['eligibilities'] as $index => $row) {
-            $values = collect($row)->map(fn (mixed $v): mixed => $v === '' ? null : $v)->all();
-
-            // A line with nothing on it is not an eligibility.
-            if ($values['eligibility_id'] === null && $values['detail'] === null) {
-                continue;
-            }
-
-            unset($values['id']);
-
-            // Scoped to their own rows, so a tampered id finds nothing and
-            // starts a new line instead of editing somebody else's.
-            $record = $this->employee->eligibilities()
-                ->findOrNew($this->eligibilities[$index]['id'] ?? 0);
-
-            $record->fill($values)->save();
-
-            $kept[] = $record->getKey();
-            $this->eligibilities[$index]['id'] = $record->getKey();
-        }
-
-        EmployeeEligibility::query()
-            ->where('employee_id', $this->employee->getKey())
-            ->whereNotIn('id', $kept)
-            ->delete();
-
-        $this->employee->unsetRelation('eligibilities');
+        // A line with nothing on it is not an eligibility.
+        $this->syncRows('eligibilities', collect($validated['eligibilities'])
+            ->filter(fn (array $row): bool => filled($row['eligibility_id']) || filled($row['detail'])));
 
         Flux::toast(variant: 'success', text: __('Eligibility saved.'));
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Eligibility>
+     * @return Collection<int, Eligibility>
      */
     #[Computed(persist: true)]
-    public function eligibilityList(): \Illuminate\Support\Collection
+    public function eligibilityList(): Collection
     {
         return Eligibility::query()->orderBy('name')->get();
-    }
-
-    public function addWork(): void
-    {
-        if (count($this->work) >= self::MAX_WORK) {
-            return;
-        }
-
-        $this->work[] = [
-            'id' => null,
-            'from_date' => '',
-            'to_date' => '',
-            'position_title' => '',
-            'agency_name' => '',
-            'monthly_salary' => '',
-            'salary_grade' => '',
-            'appointment_status' => '',
-            'is_government' => false,
-        ];
-    }
-
-    public function removeWork(int $index): void
-    {
-        unset($this->work[$index]);
-
-        $this->work = array_values($this->work);
-
-        if ($this->work === []) {
-            $this->addWork();
-        }
     }
 
     public function saveWork(): void
     {
         $validated = $this->validate([
-            'work' => ['array', 'max:'.self::MAX_WORK],
+            'work' => ['array', 'max:'.self::REPEATERS['work']['max']],
             // A posting is only printable with all three. Naming the other
             // two makes any one of them compulsory, so a half-typed line
             // is caught here instead of vanishing on save.
@@ -249,39 +349,95 @@ new #[Title('My PDS')] class extends Component {
             'work.*.monthly_salary' => __('monthly salary'),
         ]);
 
-        $filled = collect($validated['work'])
-            ->filter(fn (array $row): bool => filled($row['from_date']));
-
-        $kept = [];
-
-        foreach ($filled as $index => $row) {
-            $values = collect($row)
-                ->map(fn (mixed $value): mixed => $value === '' ? null : $value)
-                ->except('id')
-                ->all();
-
-            $record = $this->employee->workExperiences()->findOrNew($this->work[$index]['id'] ?? 0);
-
-            $record->fill($values)->save();
-
-            $kept[] = $record->getKey();
-            $this->work[$index]['id'] = $record->getKey();
-        }
-
-        EmployeeWorkExperience::query()
-            ->where('employee_id', $this->employee->getKey())
-            ->whereNotIn('id', $kept)
-            ->delete();
-
-        $this->employee->unsetRelation('workExperiences');
+        $this->syncRows('work', collect($validated['work'])
+            ->filter(fn (array $row): bool => filled($row['from_date'])));
 
         Flux::toast(variant: 'success', text: __('Work experience saved.'));
     }
 
-    #[Computed]
-    public function maxWork(): int
+    public function saveFamily(): void
     {
-        return self::MAX_WORK;
+        $validated = $this->validate([
+            'form.spouse_last_name' => ['nullable', 'string', 'max:255'],
+            'form.spouse_first_name' => ['nullable', 'string', 'max:255'],
+            'form.spouse_middle_name' => ['nullable', 'string', 'max:255'],
+            'form.spouse_suffix' => ['nullable', 'string', 'max:20'],
+            'form.spouse_occupation' => ['nullable', 'string', 'max:255'],
+            'form.spouse_employer' => ['nullable', 'string', 'max:255'],
+            'form.spouse_business_address' => ['nullable', 'string', 'max:255'],
+            'form.spouse_telephone_no' => ['nullable', 'string', 'max:40'],
+            'form.father_last_name' => ['nullable', 'string', 'max:255'],
+            'form.father_first_name' => ['nullable', 'string', 'max:255'],
+            'form.father_middle_name' => ['nullable', 'string', 'max:255'],
+            'form.father_suffix' => ['nullable', 'string', 'max:20'],
+            'form.mother_last_name' => ['nullable', 'string', 'max:255'],
+            'form.mother_first_name' => ['nullable', 'string', 'max:255'],
+            'form.mother_middle_name' => ['nullable', 'string', 'max:255'],
+            'children' => ['array', 'max:'.self::REPEATERS['children']['max']],
+            'children.*.full_name' => ['nullable', 'string', 'max:255', 'required_with:children.*.date_of_birth'],
+            'children.*.date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
+        ], attributes: [
+            'children.*.full_name' => __('name of child'),
+            'children.*.date_of_birth' => __('date of birth'),
+        ]);
+
+        $this->writeSheet($validated['form']);
+
+        $this->syncRows('children', collect($validated['children'])
+            ->filter(fn (array $row): bool => filled($row['full_name'])));
+
+        Flux::toast(variant: 'success', text: __('Family background saved.'));
+    }
+
+    public function saveVoluntary(): void
+    {
+        $validated = $this->validate([
+            'voluntary' => ['array', 'max:'.self::REPEATERS['voluntary']['max']],
+            'voluntary.*.organization' => ['nullable', 'string', 'max:255', 'required_with:voluntary.*.from_date'],
+            'voluntary.*.from_date' => ['nullable', 'date', 'before_or_equal:today', 'required_with:voluntary.*.organization'],
+            'voluntary.*.to_date' => ['nullable', 'date', 'after_or_equal:voluntary.*.from_date'],
+            'voluntary.*.hours' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'voluntary.*.position' => ['nullable', 'string', 'max:255'],
+        ], attributes: [
+            'voluntary.*.organization' => __('organisation'),
+            'voluntary.*.from_date' => __('date from'),
+            'voluntary.*.to_date' => __('date to'),
+        ]);
+
+        $this->syncRows('voluntary', collect($validated['voluntary'])
+            ->filter(fn (array $row): bool => filled($row['organization'])));
+
+        Flux::toast(variant: 'success', text: __('Voluntary work saved.'));
+    }
+
+    public function saveOther(): void
+    {
+        $validated = $this->validate([
+            'other' => ['array'],
+            'other.*' => ['array', 'max:'.self::OTHER_LINES],
+            'other.*.*' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        // Three plain lists with nothing to key them by, so they are
+        // rewritten whole rather than matched line by line.
+        $this->employee->otherInformation()->delete();
+
+        foreach (OtherInformationType::cases() as $type) {
+            foreach ($validated['other'][$type->value] ?? [] as $description) {
+                if (blank($description)) {
+                    continue;
+                }
+
+                $this->employee->otherInformation()->create([
+                    'type' => $type,
+                    'description' => $description,
+                ]);
+            }
+        }
+
+        $this->employee->unsetRelation('otherInformation');
+
+        Flux::toast(variant: 'success', text: __('Other information saved.'));
     }
 
     public function saveEducation(): void
@@ -324,12 +480,6 @@ new #[Title('My PDS')] class extends Component {
     public function employee(): ?Employee
     {
         return auth()->user()->employee;
-    }
-
-    #[Computed]
-    public function maxEligibilities(): int
-    {
-        return self::MAX_ELIGIBILITIES;
     }
 
     #[Computed]
@@ -383,16 +533,30 @@ new #[Title('My PDS')] class extends Component {
             'form.email_address' => ['nullable', 'email', 'max:255'],
         ]);
 
-        $attributes = collect($validated['form'])
-            ->map(fn (mixed $value): mixed => $value === '' ? null : $value)
-            ->except('employee_id')
-            ->all();
-
-        PersonalDataSheet::updateOrCreate(['employee_id' => $this->employee->getKey()], $attributes);
+        $this->writeSheet($validated['form']);
 
         unset($this->completeness);
 
         Flux::toast(variant: 'success', text: __('Saved. Nobody else can edit this but you.'));
+    }
+
+    /**
+     * Writes part of Section I or II, leaving the rest of the row alone —
+     * each form on this page saves only the fields it shows.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function writeSheet(array $attributes): void
+    {
+        PersonalDataSheet::updateOrCreate(
+            ['employee_id' => $this->employee->getKey()],
+            collect($attributes)
+                ->except('employee_id')
+                ->map(fn (mixed $value): mixed => $value === '' ? null : $value)
+                ->all(),
+        );
+
+        $this->employee->unsetRelation('personalDataSheet');
     }
 
     /**
@@ -513,6 +677,76 @@ new #[Title('My PDS')] class extends Component {
         </div>
     </form>
 
+    <form wire:submit="saveFamily" class="space-y-4">
+        <flux:separator :text="__('II. Family background')" />
+
+        <flux:text size="sm">{{ __('Spouse') }}</flux:text>
+
+        <div class="grid gap-4 md:grid-cols-4">
+            <flux:input wire:model="form.spouse_last_name" :label="__('Surname')" />
+            <flux:input wire:model="form.spouse_first_name" :label="__('First name')" />
+            <flux:input wire:model="form.spouse_middle_name" :label="__('Middle name')" />
+            <flux:input wire:model="form.spouse_suffix" :label="__('Name extension')" :placeholder="__('Jr., Sr.')" />
+
+            <flux:input wire:model="form.spouse_occupation" :label="__('Occupation')" />
+            <flux:input wire:model="form.spouse_employer" :label="__('Employer or business name')" />
+            <flux:input wire:model="form.spouse_business_address" :label="__('Business address')" />
+            <flux:input wire:model="form.spouse_telephone_no" :label="__('Telephone no.')" />
+        </div>
+
+        <flux:text size="sm">{{ __('Father') }}</flux:text>
+
+        <div class="grid gap-4 md:grid-cols-4">
+            <flux:input wire:model="form.father_last_name" :label="__('Surname')" />
+            <flux:input wire:model="form.father_first_name" :label="__('First name')" />
+            <flux:input wire:model="form.father_middle_name" :label="__('Middle name')" />
+            <flux:input wire:model="form.father_suffix" :label="__('Name extension')" :placeholder="__('Jr., Sr.')" />
+        </div>
+
+        <flux:text size="sm">{{ __("Mother's maiden name") }}</flux:text>
+
+        <div class="grid gap-4 md:grid-cols-4">
+            <flux:input wire:model="form.mother_last_name" :label="__('Surname')" />
+            <flux:input wire:model="form.mother_first_name" :label="__('First name')" />
+            <flux:input wire:model="form.mother_middle_name" :label="__('Middle name')" />
+        </div>
+
+        <flux:text size="sm">{{ __('Children — list all of them, oldest first.') }}</flux:text>
+
+        <div class="space-y-3">
+            @foreach ($children as $index => $row)
+                <div wire:key="child-{{ $index }}" class="grid items-end gap-4 md:grid-cols-4">
+                    <flux:input class="md:col-span-2" wire:model="children.{{ $index }}.full_name"
+                        :label="$index === 0 ? __('Full name') : null" />
+
+                    <flux:input wire:model="children.{{ $index }}.date_of_birth" type="date"
+                        :label="$index === 0 ? __('Date of birth') : null" />
+
+                    <div class="flex justify-start">
+                        <flux:button size="sm" variant="subtle" icon="trash" type="button"
+                            wire:click="removeRow('children', {{ $index }})">
+                            {{ __('Remove') }}
+                        </flux:button>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        <div class="flex items-center gap-2">
+            @if ($this->roomIn('children'))
+                <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addRow('children')">
+                    {{ __('Add child') }}
+                </flux:button>
+            @else
+                <flux:text size="sm">{{ __('The form has room for thirteen.') }}</flux:text>
+            @endif
+
+            <flux:spacer />
+
+            <flux:button type="submit" variant="primary">{{ __('Save family background') }}</flux:button>
+        </div>
+    </form>
+
     <form wire:submit="saveEducation" class="space-y-4">
         <flux:separator :text="__('III. Educational background')" />
 
@@ -609,7 +843,7 @@ new #[Title('My PDS')] class extends Component {
 
                         <div class="flex items-end justify-end">
                             <flux:button size="sm" variant="subtle" icon="trash" type="button"
-                                wire:click="removeEligibility({{ $index }})">
+                                wire:click="removeRow('eligibilities', {{ $index }})">
                                 {{ __('Remove') }}
                             </flux:button>
                         </div>
@@ -619,8 +853,8 @@ new #[Title('My PDS')] class extends Component {
         </div>
 
         <div class="flex items-center gap-2">
-            @if (count($eligibilities) < $this->maxEligibilities)
-                <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addEligibility">
+            @if ($this->roomIn('eligibilities'))
+                <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addRow('eligibilities')">
                     {{ __('Add eligibility') }}
                 </flux:button>
             @else
@@ -677,7 +911,7 @@ new #[Title('My PDS')] class extends Component {
 
                         <div class="flex items-end justify-end">
                             <flux:button size="sm" variant="subtle" icon="trash" type="button"
-                                wire:click="removeWork({{ $index }})">
+                                wire:click="removeRow('work', {{ $index }})">
                                 {{ __('Remove') }}
                             </flux:button>
                         </div>
@@ -687,8 +921,8 @@ new #[Title('My PDS')] class extends Component {
         </div>
 
         <div class="flex items-center gap-2">
-            @if (count($work) < $this->maxWork)
-                <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addWork">
+            @if ($this->roomIn('work'))
+                <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addRow('work')">
                     {{ __('Add work experience') }}
                 </flux:button>
             @else
@@ -698,6 +932,81 @@ new #[Title('My PDS')] class extends Component {
             <flux:spacer />
 
             <flux:button type="submit" variant="primary">{{ __('Save work experience') }}</flux:button>
+        </div>
+    </form>
+
+    <form wire:submit="saveVoluntary" class="space-y-4">
+        <flux:separator :text="__('VII. Voluntary work')" />
+
+        <flux:text size="sm">
+            {{ __('Voluntary work or involvement in civic or non-government organisations.') }}
+        </flux:text>
+
+        <div class="space-y-4">
+            @foreach ($voluntary as $index => $row)
+                <div wire:key="voluntary-{{ $index }}"
+                    class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                    <div class="grid gap-4 md:grid-cols-4">
+                        <flux:input class="md:col-span-2" wire:model="voluntary.{{ $index }}.organization"
+                            :label="__('Name and address of organisation')" />
+
+                        <flux:input class="md:col-span-2" wire:model="voluntary.{{ $index }}.position"
+                            :label="__('Position or nature of work')" />
+
+                        <flux:input wire:model="voluntary.{{ $index }}.from_date" :label="__('From')" type="date" />
+                        <flux:input wire:model="voluntary.{{ $index }}.to_date" :label="__('To')" type="date"
+                            :description="__('Blank if ongoing')" />
+
+                        <flux:input wire:model="voluntary.{{ $index }}.hours" :label="__('Number of hours')"
+                            type="number" />
+
+                        <div class="flex items-end justify-end">
+                            <flux:button size="sm" variant="subtle" icon="trash" type="button"
+                                wire:click="removeRow('voluntary', {{ $index }})">
+                                {{ __('Remove') }}
+                            </flux:button>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        <div class="flex items-center gap-2">
+            @if ($this->roomIn('voluntary'))
+                <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addRow('voluntary')">
+                    {{ __('Add voluntary work') }}
+                </flux:button>
+            @else
+                <flux:text size="sm">{{ __('The form has room for nine.') }}</flux:text>
+            @endif
+
+            <flux:spacer />
+
+            <flux:button type="submit" variant="primary">{{ __('Save voluntary work') }}</flux:button>
+        </div>
+    </form>
+
+    <form wire:submit="saveOther" class="space-y-4">
+        <flux:separator :text="__('VIII. Other information')" />
+
+        <flux:text size="sm">{{ __('Seven lines each, the way the form prints them.') }}</flux:text>
+
+        <div class="grid gap-6 md:grid-cols-3">
+            @foreach (App\Enums\OtherInformationType::cases() as $type)
+                <div class="space-y-2">
+                    <flux:text size="sm" class="font-medium">{{ $type->label() }}</flux:text>
+
+                    @foreach ($other[$type->value] as $line => $description)
+                        <flux:input size="sm" wire:key="other-{{ $type->value }}-{{ $line }}"
+                            wire:model="other.{{ $type->value }}.{{ $line }}" />
+                    @endforeach
+                </div>
+            @endforeach
+        </div>
+
+        <div class="flex">
+            <flux:spacer />
+            <flux:button type="submit" variant="primary">{{ __('Save other information') }}</flux:button>
         </div>
     </form>
 </div>

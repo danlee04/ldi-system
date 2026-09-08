@@ -3,6 +3,7 @@
 namespace App\Actions\Pds;
 
 use App\Models\Employee;
+use App\Models\EmployeeOtherInformation;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
@@ -131,6 +132,86 @@ class FillPersonalDataSheet
         'L' => 'appointment_status',
     ];
 
+    /**
+     * Section II. The spouse and the two parents, whose captions run down
+     * column B with the answers beside them in D.
+     *
+     * @var array<string, string>
+     */
+    private const FAMILY = [
+        'D36' => 'spouse_last_name',
+        'D37' => 'spouse_first_name',
+        'H37' => 'spouse_suffix',
+        'D38' => 'spouse_middle_name',
+        'D39' => 'spouse_occupation',
+        'D40' => 'spouse_employer',
+        'D41' => 'spouse_business_address',
+        'D42' => 'spouse_telephone_no',
+        'D44' => 'father_last_name',
+        'D45' => 'father_first_name',
+        'H45' => 'father_suffix',
+        'D46' => 'father_middle_name',
+        'D48' => 'mother_last_name',
+        'D49' => 'mother_first_name',
+        'D50' => 'mother_middle_name',
+    ];
+
+    /**
+     * Question 23, down the right of page 1: name in I, birthday in M.
+     *
+     * @var list<int>
+     */
+    private const CHILDREN_ROWS = [37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49];
+
+    /**
+     * Section VI, on the third sheet: rows 5 to 21.
+     *
+     * @var list<int>
+     */
+    private const TRAINING_ROWS = [
+        5, 6, 7, 8, 9, 10, 11, 12, 13,
+        14, 15, 16, 17, 18, 19, 20, 21,
+    ];
+
+    /**
+     * Where Section VI carries on when page 3 runs out.
+     */
+    private const TRAINING_CONTINUATION_SHEET = 'C5_L&D cont.';
+
+    /**
+     * Rows 6 to 49 of that sheet.
+     *
+     * @var list<int>
+     */
+    private const TRAINING_CONTINUATION_ROWS = [
+        6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+        23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
+        39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+    ];
+
+    /**
+     * Section VII, on the third sheet: rows 27 to 35.
+     *
+     * @var list<int>
+     */
+    private const VOLUNTARY_ROWS = [27, 28, 29, 30, 31, 32, 33, 34, 35];
+
+    /**
+     * Section VIII, on the third sheet: three columns of seven lines.
+     *
+     * @var array<string, string>
+     */
+    private const OTHER_COLUMNS = [
+        'skill' => 'A',
+        'distinction' => 'C',
+        'membership' => 'I',
+    ];
+
+    /**
+     * @var list<int>
+     */
+    private const OTHER_ROWS = [39, 40, 41, 42, 43, 44, 45];
+
     public function handle(Employee $employee): Spreadsheet
     {
         $book = IOFactory::createReader('Xlsx')->load($this->templatePath());
@@ -139,6 +220,10 @@ class FillPersonalDataSheet
         $this->fillEducation($book, $employee);
         $this->fillEligibility($book, $employee);
         $this->fillWorkExperience($book, $employee);
+        $this->fillFamily($book, $employee);
+        $this->fillLearningDevelopment($book, $employee);
+        $this->fillVoluntaryWork($book, $employee);
+        $this->fillOtherInformation($book, $employee);
 
         $book->setActiveSheetIndexByName('C1');
 
@@ -253,6 +338,113 @@ class FillPersonalDataSheet
 
             foreach (self::WORK_COLUMNS as $column => $field) {
                 $this->write($sheet, $column.$row, $posting->{$field});
+            }
+        }
+    }
+
+    private function fillFamily(Spreadsheet $book, Employee $employee): void
+    {
+        $sheet = $book->getSheetByName('C1');
+
+        if ($sheet === null) {
+            return;
+        }
+
+        $pds = $employee->personalDataSheet;
+
+        if ($pds !== null) {
+            foreach (self::FAMILY as $cell => $field) {
+                $this->write($sheet, $cell, $pds->{$field});
+            }
+        }
+
+        $children = $employee->children->take(count(self::CHILDREN_ROWS));
+
+        foreach ($children->values() as $index => $child) {
+            $row = self::CHILDREN_ROWS[$index];
+
+            $this->write($sheet, 'I'.$row, $child->full_name);
+            $this->write($sheet, 'M'.$row, $child->date_of_birth?->format('d/m/Y'));
+        }
+    }
+
+    /**
+     * Section VI comes from the training records this system approves, not
+     * from anything the employee retypes. A pending or rejected record is
+     * not something the agency will certify, so only approved ones print.
+     *
+     * Seventeen lines fit on page 3 and the rest go to the continuation
+     * sheet the form provides — people here have more than seventeen.
+     */
+    private function fillLearningDevelopment(Spreadsheet $book, Employee $employee): void
+    {
+        $lines = collect(self::TRAINING_ROWS)
+            ->map(fn (int $row): array => ['C3', $row])
+            ->concat(collect(self::TRAINING_CONTINUATION_ROWS)
+                ->map(fn (int $row): array => [self::TRAINING_CONTINUATION_SHEET, $row]));
+
+        $records = $employee->trainingRecords()
+            ->approved()
+            ->orderByDesc('date_start')
+            ->limit($lines->count())
+            ->get();
+
+        foreach ($records->values() as $index => $record) {
+            [$sheetName, $row] = $lines[$index];
+
+            $sheet = $book->getSheetByName($sheetName);
+
+            if ($sheet === null) {
+                continue;
+            }
+
+            $this->write($sheet, 'A'.$row, $record->title);
+            $this->write($sheet, 'E'.$row, $record->date_start->format('d/m/Y'));
+            $this->write($sheet, 'F'.$row, $record->date_end->format('d/m/Y'));
+            $this->write($sheet, 'G'.$row, $record->hours);
+            $this->write($sheet, 'H'.$row, $record->ld_type_label);
+            $this->write($sheet, 'I'.$row, $record->conducted_by);
+        }
+    }
+
+    private function fillVoluntaryWork(Spreadsheet $book, Employee $employee): void
+    {
+        $sheet = $book->getSheetByName('C3');
+
+        if ($sheet === null) {
+            return;
+        }
+
+        $entries = $employee->voluntaryWorks->take(count(self::VOLUNTARY_ROWS));
+
+        foreach ($entries->values() as $index => $entry) {
+            $row = self::VOLUNTARY_ROWS[$index];
+
+            $this->write($sheet, 'A'.$row, $entry->organization);
+            $this->write($sheet, 'E'.$row, $entry->from_date->format('d/m/Y'));
+            $this->write($sheet, 'F'.$row, $entry->to_date?->format('d/m/Y'));
+            $this->write($sheet, 'G'.$row, $entry->hours);
+            $this->write($sheet, 'H'.$row, $entry->position);
+        }
+    }
+
+    private function fillOtherInformation(Spreadsheet $book, Employee $employee): void
+    {
+        $sheet = $book->getSheetByName('C3');
+
+        if ($sheet === null) {
+            return;
+        }
+
+        $lines = $employee->otherInformation->groupBy(
+            fn (EmployeeOtherInformation $row): string => $row->type->value,
+        );
+
+        foreach (self::OTHER_COLUMNS as $type => $column) {
+            $entries = $lines->get($type, collect())->take(count(self::OTHER_ROWS));
+
+            foreach ($entries->values() as $index => $entry) {
+                $this->write($sheet, $column.self::OTHER_ROWS[$index], $entry->description);
             }
         }
     }

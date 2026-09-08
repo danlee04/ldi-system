@@ -124,6 +124,36 @@ class Employee extends Model
     }
 
     /**
+     * Question 23 of Section II, oldest child first.
+     *
+     * @return HasMany<EmployeeChild, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(EmployeeChild::class)->orderBy('date_of_birth');
+    }
+
+    /**
+     * Section VII of their PDS, most recent first.
+     *
+     * @return HasMany<EmployeeVoluntaryWork, $this>
+     */
+    public function voluntaryWorks(): HasMany
+    {
+        return $this->hasMany(EmployeeVoluntaryWork::class)->orderByDesc('from_date');
+    }
+
+    /**
+     * Section VIII of their PDS: three lists kept in one relation.
+     *
+     * @return HasMany<EmployeeOtherInformation, $this>
+     */
+    public function otherInformation(): HasMany
+    {
+        return $this->hasMany(EmployeeOtherInformation::class);
+    }
+
+    /**
      * Section V of their PDS, most recent posting first — the order the
      * form asks for.
      *

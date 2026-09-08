@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Section I of CS Form No. 212 — what only the employee can tell us.
+ * Sections I and II of CS Form No. 212 — what only the employee can
+ * tell us, and their immediate family.
  *
  * @property int $id
  * @property int $employee_id
@@ -45,6 +46,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $telephone_no
  * @property string|null $mobile_no
  * @property string|null $email_address
+ * @property string|null $spouse_last_name
+ * @property string|null $spouse_first_name
+ * @property string|null $spouse_middle_name
+ * @property string|null $spouse_suffix
+ * @property string|null $spouse_occupation
+ * @property string|null $spouse_employer
+ * @property string|null $spouse_business_address
+ * @property string|null $spouse_telephone_no
+ * @property string|null $father_last_name
+ * @property string|null $father_first_name
+ * @property string|null $father_middle_name
+ * @property string|null $father_suffix
+ * @property string|null $mother_last_name
+ * @property string|null $mother_first_name
+ * @property string|null $mother_middle_name
  */
 class PersonalDataSheet extends Model
 {
@@ -90,6 +106,23 @@ class PersonalDataSheet extends Model
         'telephone_no',
         'mobile_no',
         'email_address',
+
+        // Section II, which is one to a person just as Section I is.
+        'spouse_last_name',
+        'spouse_first_name',
+        'spouse_middle_name',
+        'spouse_suffix',
+        'spouse_occupation',
+        'spouse_employer',
+        'spouse_business_address',
+        'spouse_telephone_no',
+        'father_last_name',
+        'father_first_name',
+        'father_middle_name',
+        'father_suffix',
+        'mother_last_name',
+        'mother_first_name',
+        'mother_middle_name',
     ];
 
     /**

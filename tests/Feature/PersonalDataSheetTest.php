@@ -2,13 +2,20 @@
 
 use App\Actions\Pds\FillPersonalDataSheet;
 use App\Enums\EducationLevel;
+use App\Enums\LdType;
+use App\Enums\OtherInformationType;
+use App\Enums\TrainingStatus;
 use App\Models\Eligibility;
 use App\Models\Employee;
+use App\Models\EmployeeChild;
 use App\Models\EmployeeEducation;
 use App\Models\EmployeeEligibility;
+use App\Models\EmployeeOtherInformation;
+use App\Models\EmployeeVoluntaryWork;
 use App\Models\EmployeeWorkExperience;
 use App\Models\PersonalDataSheet;
 use App\Models\Section;
+use App\Models\TrainingRecord;
 use App\Models\User;
 use Livewire\Livewire;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -365,7 +372,7 @@ test('removing a line and saving takes it off the record', function () {
     EmployeeEligibility::factory()->for($employee)->create(['detail' => 'Entered By Mistake']);
 
     Livewire::test('pages::my-pds')
-        ->call('removeEligibility', 0)
+        ->call('removeRow', 'eligibilities', 0)
         ->call('saveEligibilities');
 
     expect($employee->fresh()->eligibilities)->toBeEmpty();
@@ -511,7 +518,7 @@ test('removing a posting and saving takes it off the record', function () {
     EmployeeWorkExperience::factory()->for($employee)->create(['position_title' => 'Entered By Mistake']);
 
     Livewire::test('pages::my-pds')
-        ->call('removeWork', 0)
+        ->call('removeRow', 'work', 0)
         ->call('saveWork');
 
     expect($employee->fresh()->workExperiences)->toBeEmpty();
@@ -582,4 +589,276 @@ test('work experience lands on the right lines of the workbook, most recent firs
         ->and($sheet->getCell('D20')->getValue())->toBe('Encoder')
         ->and($sheet->getCell('M20')->getValue())->toBe('N')
         ->and($sheet->getCell('D21')->getValue())->toBeEmpty();
+});
+
+test('an employee fills in their family background', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.spouse_last_name', 'Cruz')
+        ->set('form.spouse_first_name', 'Jose')
+        ->set('form.spouse_occupation', 'Teacher')
+        ->set('form.father_last_name', 'Santos')
+        ->set('form.father_first_name', 'Pedro')
+        ->set('form.mother_last_name', 'Reyes')
+        ->set('form.mother_first_name', 'Ana')
+        ->call('saveFamily')
+        ->assertHasNoErrors();
+
+    $sheet = $employee->fresh()->personalDataSheet;
+
+    expect($sheet->spouse_last_name)->toBe('Cruz')
+        ->and($sheet->father_first_name)->toBe('Pedro')
+        ->and($sheet->mother_last_name)->toBe('Reyes');
+});
+
+test('saving the family background leaves section I alone', function () {
+    $employee = pdsEmployee();
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'blood_type' => 'O+',
+    ]);
+
+    Livewire::test('pages::my-pds')
+        ->set('form.father_last_name', 'Santos')
+        ->call('saveFamily');
+
+    expect($employee->fresh()->personalDataSheet->blood_type)->toBe('O+');
+});
+
+test('an employee lists their children', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('children.0.full_name', 'Maria Clara S. Cruz')
+        ->set('children.0.date_of_birth', '2015-08-09')
+        ->call('saveFamily')
+        ->assertHasNoErrors();
+
+    $child = $employee->fresh()->children->first();
+
+    expect($child->full_name)->toBe('Maria Clara S. Cruz')
+        ->and($child->date_of_birth->toDateString())->toBe('2015-08-09');
+});
+
+test('a birthday with no name behind it is refused', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('children.0.date_of_birth', '2015-08-09')
+        ->call('saveFamily')
+        ->assertHasErrors('children.0.full_name');
+});
+
+test('family background lands on the right cells of the workbook', function () {
+    $employee = pdsEmployee();
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'spouse_last_name' => 'Cruz',
+        'spouse_first_name' => 'Jose',
+        'spouse_middle_name' => 'Rizal',
+        'spouse_suffix' => 'Jr.',
+        'spouse_occupation' => 'Teacher',
+        'father_last_name' => 'Santos',
+        'father_first_name' => 'Pedro',
+        'mother_last_name' => 'Reyes',
+        'mother_first_name' => 'Ana',
+    ]);
+
+    EmployeeChild::factory()->for($employee)->create([
+        'full_name' => 'Maria Clara S. Cruz',
+        'date_of_birth' => '2015-08-09',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C1');
+
+    expect($sheet->getCell('D36')->getValue())->toBe('Cruz')
+        ->and($sheet->getCell('D37')->getValue())->toBe('Jose')
+        ->and($sheet->getCell('H37')->getValue())->toBe('Jr.')
+        ->and($sheet->getCell('D38')->getValue())->toBe('Rizal')
+        ->and($sheet->getCell('D39')->getValue())->toBe('Teacher')
+        ->and($sheet->getCell('D44')->getValue())->toBe('Santos')
+        ->and($sheet->getCell('D48')->getValue())->toBe('Reyes')
+        ->and($sheet->getCell('I37')->getValue())->toBe('Maria Clara S. Cruz')
+        ->and($sheet->getCell('M37')->getValue())->toBe('09/08/2015');
+});
+
+test('an employee records voluntary work', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('voluntary.0.organization', 'Philippine Red Cross, Butuan City Chapter')
+        ->set('voluntary.0.from_date', '2019-01-05')
+        ->set('voluntary.0.to_date', '2019-12-20')
+        ->set('voluntary.0.hours', '120')
+        ->set('voluntary.0.position', 'Volunteer')
+        ->call('saveVoluntary')
+        ->assertHasNoErrors();
+
+    $entry = $employee->fresh()->voluntaryWorks->first();
+
+    expect($entry->organization)->toBe('Philippine Red Cross, Butuan City Chapter')
+        ->and($entry->hours)->toBe(120);
+});
+
+test('voluntary work without an organisation is refused', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('voluntary.0.from_date', '2019-01-05')
+        ->call('saveVoluntary')
+        ->assertHasErrors('voluntary.0.organization');
+});
+
+test('voluntary work lands on the right lines of the workbook', function () {
+    $employee = pdsEmployee();
+
+    EmployeeVoluntaryWork::factory()->for($employee)->create([
+        'organization' => 'Philippine Red Cross, Butuan City Chapter',
+        'from_date' => '2019-01-05',
+        'to_date' => '2019-12-20',
+        'hours' => 120,
+        'position' => 'Volunteer',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C3');
+
+    expect($sheet->getCell('A27')->getValue())->toBe('Philippine Red Cross, Butuan City Chapter')
+        ->and($sheet->getCell('E27')->getValue())->toBe('05/01/2019')
+        ->and($sheet->getCell('F27')->getValue())->toBe('20/12/2019')
+        ->and($sheet->getCell('G27')->getValue())->toEqual(120)
+        ->and($sheet->getCell('H27')->getValue())->toBe('Volunteer')
+        ->and($sheet->getCell('A28')->getValue())->toBeEmpty();
+});
+
+test('an employee fills the three lists of section VIII', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('other.skill.0', 'Photography')
+        ->set('other.skill.1', 'Public speaking')
+        ->set('other.distinction.0', 'Outstanding Employee 2024')
+        ->set('other.membership.0', 'Philippine Nurses Association')
+        ->call('saveOther')
+        ->assertHasNoErrors();
+
+    $lines = $employee->fresh()->otherInformation;
+
+    expect($lines)->toHaveCount(4)
+        ->and($lines->where('type', OtherInformationType::Skill)->pluck('description')->all())
+        ->toBe(['Photography', 'Public speaking']);
+});
+
+test('clearing a line of section VIII removes it', function () {
+    $employee = pdsEmployee();
+
+    EmployeeOtherInformation::factory()->for($employee)->create(['description' => 'Entered By Mistake']);
+
+    Livewire::test('pages::my-pds')
+        ->set('other.skill.0', '')
+        ->call('saveOther');
+
+    expect($employee->fresh()->otherInformation)->toBeEmpty();
+});
+
+test('other information lands in the right three columns of the workbook', function () {
+    $employee = pdsEmployee();
+
+    EmployeeOtherInformation::factory()->for($employee)->create([
+        'type' => OtherInformationType::Skill,
+        'description' => 'Photography',
+    ]);
+
+    EmployeeOtherInformation::factory()->for($employee)->create([
+        'type' => OtherInformationType::Distinction,
+        'description' => 'Outstanding Employee 2024',
+    ]);
+
+    EmployeeOtherInformation::factory()->for($employee)->create([
+        'type' => OtherInformationType::Membership,
+        'description' => 'Philippine Nurses Association',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C3');
+
+    expect($sheet->getCell('A39')->getValue())->toBe('Photography')
+        ->and($sheet->getCell('C39')->getValue())->toBe('Outstanding Employee 2024')
+        ->and($sheet->getCell('I39')->getValue())->toBe('Philippine Nurses Association');
+});
+
+test('approved training fills section VI, newest first', function () {
+    $employee = pdsEmployee();
+
+    TrainingRecord::factory()->for($employee)->approved()->create([
+        'title' => 'Gender and Development Orientation',
+        'date_start' => '2024-03-04',
+        'date_end' => '2024-03-06',
+        'hours' => 24,
+        'ld_type' => LdType::Foundation,
+        'conducted_by' => 'Civil Service Commission',
+    ]);
+
+    TrainingRecord::factory()->for($employee)->approved()->create([
+        'title' => 'Basic Life Support Training',
+        'date_start' => '2025-07-14',
+        'date_end' => '2025-07-15',
+        'hours' => 16,
+        'ld_type' => LdType::Technical,
+        'conducted_by' => 'Philippine Red Cross',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C3');
+
+    expect($sheet->getCell('A5')->getValue())->toBe('Basic Life Support Training')
+        ->and($sheet->getCell('E5')->getValue())->toBe('14/07/2025')
+        ->and($sheet->getCell('F5')->getValue())->toBe('15/07/2025')
+        ->and($sheet->getCell('G5')->getValue())->toEqual(16)
+        ->and($sheet->getCell('H5')->getValue())->toBe('Technical')
+        ->and($sheet->getCell('I5')->getValue())->toBe('Philippine Red Cross')
+        ->and($sheet->getCell('A6')->getValue())->toBe('Gender and Development Orientation')
+        ->and($sheet->getCell('A7')->getValue())->toBeEmpty();
+});
+
+test('training still waiting on a decision stays off the form', function () {
+    $employee = pdsEmployee();
+
+    TrainingRecord::factory()->for($employee)->create([
+        'title' => 'Not Approved Yet',
+        'status' => TrainingStatus::Pending,
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C3');
+
+    expect($sheet->getCell('A5')->getValue())->toBeEmpty();
+});
+
+test('a repeater name from the browser cannot reach another property', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->call('addRow', 'form')
+        ->assertNotFound();
+});
+
+test('training past the seventeenth line carries on to the continuation sheet', function () {
+    $employee = pdsEmployee();
+
+    // Newest first, so the eighteenth line is the oldest of the nineteen.
+    foreach (range(1, 19) as $offset) {
+        TrainingRecord::factory()->for($employee)->approved()->create([
+            'title' => 'Training '.$offset,
+            'date_start' => today()->subMonths($offset),
+            'date_end' => today()->subMonths($offset),
+        ]);
+    }
+
+    $book = app(FillPersonalDataSheet::class)->handle($employee->fresh());
+
+    expect($book->getSheetByName('C3')->getCell('A5')->getValue())->toBe('Training 1')
+        ->and($book->getSheetByName('C3')->getCell('A21')->getValue())->toBe('Training 17')
+        ->and($book->getSheetByName('C5_L&D cont.')->getCell('A6')->getValue())->toBe('Training 18')
+        ->and($book->getSheetByName('C5_L&D cont.')->getCell('A7')->getValue())->toBe('Training 19')
+        ->and($book->getSheetByName('C5_L&D cont.')->getCell('A8')->getValue())->toBeEmpty();
 });

@@ -8,4 +8,5 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Enums/** | .ai/rules/enums.md |
 | ** | .ai/rules/general.md |
 | resources/views/pages/** | .ai/rules/pages.md |
+| app/Actions/Pds/** | .ai/rules/pds.md |
 | resources/views/** | .ai/rules/views.md |
