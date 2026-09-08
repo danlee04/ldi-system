@@ -68,6 +68,39 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * Admin is a system account rather than somebody who attends training,
+     * and an account with no employee record has nothing of its own to show.
+     */
+    public function hasOwnTrainings(): bool
+    {
+        return $this->role !== UserRole::Admin && $this->employee !== null;
+    }
+
+    /**
+     * Whoever is actually designated a head, plus HR and admin, who watch
+     * the records nobody can approve.
+     *
+     * This reads the designation rather than the role, exactly as
+     * ApprovalRouter does. A role left stale after a head changes would
+     * otherwise hide the link from somebody with a queue waiting.
+     */
+    public function decidesOnTrainings(): bool
+    {
+        if ($this->isAdminOrHr()) {
+            return true;
+        }
+
+        $employee = $this->employee;
+
+        if ($employee === null) {
+            return false;
+        }
+
+        return Section::query()->where('section_head_employee_id', $employee->getKey())->exists()
+            || Division::query()->where('division_head_employee_id', $employee->getKey())->exists();
+    }
+
+    /**
      * Get the user's initials
      */
     public function initials(): string

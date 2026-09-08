@@ -11,31 +11,39 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Training')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
-                    </flux:sidebar.item>
+                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                    {{ __('Dashboard') }}
+                </flux:sidebar.item>
 
-                    <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')" :current="request()->routeIs('trainings.*')" wire:navigate>
-                        {{ __('My trainings') }}
-                    </flux:sidebar.item>
+                @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
+                    <flux:sidebar.group :heading="__('My work')" class="grid">
+                        @if (auth()->user()->hasOwnTrainings())
+                            <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')" :current="request()->routeIs('trainings.*')" wire:navigate>
+                                {{ __('My trainings') }}
+                            </flux:sidebar.item>
+                        @endif
 
-                    <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
-                        {{ __('Approvals') }}
-                    </flux:sidebar.item>
+                        @if (auth()->user()->decidesOnTrainings())
+                            <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
+                                {{ __('Approvals') }}
+                            </flux:sidebar.item>
+                        @endif
+                    </flux:sidebar.group>
+                @endif
 
-                    @if (auth()->user()->isAdminOrHr())
-                        <flux:sidebar.item icon="banknotes" :href="route('ldi.index')" :current="request()->routeIs('ldi.*')" wire:navigate>
-                            {{ __('LDI trainings') }}
-                        </flux:sidebar.item>
-                    @endif
-
-                    @if (auth()->user()->role !== App\Enums\UserRole::Employee)
+                @if (auth()->user()->role !== App\Enums\UserRole::Employee)
+                    <flux:sidebar.group :heading="__('Organization')" class="grid">
                         <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
                             {{ __('Employees') }}
                         </flux:sidebar.item>
-                    @endif
-                </flux:sidebar.group>
+
+                        @if (auth()->user()->isAdminOrHr())
+                            <flux:sidebar.item icon="presentation-chart-bar" :href="route('ldi.index')" :current="request()->routeIs('ldi.*')" wire:navigate>
+                                {{ __('LDI trainings') }}
+                            </flux:sidebar.item>
+                        @endif
+                    </flux:sidebar.group>
+                @endif
 
                 @if (auth()->user()->isAdminOrHr())
                     <flux:sidebar.group :heading="__('Setup')" class="grid">
