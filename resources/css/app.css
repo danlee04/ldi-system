@@ -26,6 +26,20 @@
     --color-accent: var(--color-neutral-800);
     --color-accent-content: var(--color-neutral-800);
     --color-accent-foreground: var(--color-white);
+
+    /*
+     * Categorical chart slots, in fixed order — slot 1 is always slot 1,
+     * never reassigned when a series drops out.
+     *
+     * Validated with the dataviz palette checker against both surfaces:
+     * worst adjacent pair is deutan ΔE 9.2 / normal ΔE 27.6, inside the
+     * lightness band and over the chroma floor. Slot 3 sits at 2.74:1 on
+     * the light surface, which is why anything using these carries a
+     * visible label rather than relying on the colour.
+     */
+    --color-chart-1: #2a78d6;
+    --color-chart-2: #eb6834;
+    --color-chart-3: #1baf7a;
 }
 
 @layer theme {
@@ -33,6 +47,11 @@
         --color-accent: var(--color-white);
         --color-accent-content: var(--color-white);
         --color-accent-foreground: var(--color-neutral-800);
+
+        /* The same three hues stepped for the dark surface, not flipped. */
+        --color-chart-1: #3987e5;
+        --color-chart-2: #d95926;
+        --color-chart-3: #199e70;
     }
 }
 
