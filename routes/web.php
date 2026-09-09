@@ -11,6 +11,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('trainings/mine', 'pages::trainings.mine')->name('trainings.mine');
 
+    Route::livewire('my-profile', 'pages::my-profile')->name('my-profile');
+
     Route::livewire('my-pds', 'pages::my-pds')->name('my-pds');
     Route::get('my-pds.xlsx', [PersonalDataSheetController::class, 'mine'])->name('my-pds.download');
 

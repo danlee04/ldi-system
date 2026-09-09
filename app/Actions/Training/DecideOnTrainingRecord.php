@@ -3,6 +3,7 @@
 namespace App\Actions\Training;
 
 use App\Enums\ApprovalDecision;
+use App\Enums\ApprovalLevel;
 use App\Enums\TrainingStatus;
 use App\Models\TrainingRecord;
 use App\Models\User;
@@ -35,11 +36,7 @@ class DecideOnTrainingRecord
             throw new InvalidArgumentException('Only a pending record can be decided on.');
         }
 
-        $level = $record->current_level;
-
-        if ($level === null) {
-            throw new InvalidArgumentException('This record has no approver assigned.');
-        }
+        $level = $record->current_level ?? $this->overrideLevelFor($approver);
 
         DB::transaction(function () use ($record, $approver, $decision, $remarks, $level): void {
             $record->approvals()->create([
@@ -73,6 +70,23 @@ class DecideOnTrainingRecord
         $this->tell($record, $decision);
 
         return $record;
+    }
+
+    /**
+     * The level a decision on an unroutable record is recorded at.
+     *
+     * Only HR and admin may make one. Recording it against HR rather than
+     * against a head keeps the trail honest: no head ever saw it.
+     *
+     * @throws InvalidArgumentException when anybody else tries
+     */
+    private function overrideLevelFor(User $approver): ApprovalLevel
+    {
+        if (! $approver->isAdminOrHr()) {
+            throw new InvalidArgumentException('This record has no approver assigned.');
+        }
+
+        return ApprovalLevel::Hr;
     }
 
     /**

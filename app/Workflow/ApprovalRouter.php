@@ -36,7 +36,7 @@ class ApprovalRouter
      */
     public function levelAfter(ApprovalLevel $level, Employee $employee): ?ApprovalLevel
     {
-        if ($level === ApprovalLevel::DivisionHead) {
+        if ($level === ApprovalLevel::DivisionHead || $level === ApprovalLevel::Hr) {
             return null;
         }
 
@@ -55,6 +55,8 @@ class ApprovalRouter
         $headId = match ($level) {
             ApprovalLevel::SectionHead => $employee->section?->section_head_employee_id,
             ApprovalLevel::DivisionHead => $employee->division?->division_head_employee_id,
+            // Nobody is designated HR for a particular employee.
+            ApprovalLevel::Hr => null,
         };
 
         if ($headId === null || $headId === $employee->getKey()) {

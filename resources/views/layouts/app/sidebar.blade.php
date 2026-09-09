@@ -18,15 +18,26 @@
 
                 @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
                     <flux:sidebar.group :heading="__('My work')" class="grid">
+                        {{-- Both of these need an employee record behind them,
+                             so an administrative account is not offered a
+                             profile or a PDS it would only be refused. --}}
+                        @if (auth()->user()->employee !== null)
+                            <flux:sidebar.item icon="user" :href="route('my-profile')" :current="request()->routeIs('my-profile')" wire:navigate>
+                                {{ __('My profile') }}
+                            </flux:sidebar.item>
+                        @endif
+
                         @if (auth()->user()->hasOwnTrainings())
                             <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')" :current="request()->routeIs('trainings.*')" wire:navigate>
                                 {{ __('My trainings') }}
                             </flux:sidebar.item>
                         @endif
 
-                        <flux:sidebar.item icon="identification" :href="route('my-pds')" :current="request()->routeIs('my-pds')" wire:navigate>
-                            {{ __('My PDS') }}
-                        </flux:sidebar.item>
+                        @if (auth()->user()->employee !== null)
+                            <flux:sidebar.item icon="identification" :href="route('my-pds')" :current="request()->routeIs('my-pds')" wire:navigate>
+                                {{ __('My PDS') }}
+                            </flux:sidebar.item>
+                        @endif
 
                         @if (auth()->user()->decidesOnTrainings())
                             <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>

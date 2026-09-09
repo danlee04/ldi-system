@@ -97,16 +97,36 @@ test('rejecting without a reason is refused', function () {
     expect($record->fresh()->status)->toBe(TrainingStatus::Pending);
 });
 
-test('somebody who is not the current approver cannot decide', function () {
+test('the head of another section cannot decide', function () {
     ['employee' => $employee] = sectionWithHead();
     $record = TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
 
-    $this->actingAs(User::factory()->hr()->create());
+    // A head, but not this record's head.
+    ['sectionHeadUser' => $stranger] = sectionWithHead();
+
+    $this->actingAs($stranger);
 
     Livewire::test('pages::approvals')
         ->set('remarks', 'Approving anyway.')
         ->call('approve', $record->id)
         ->assertForbidden();
+});
+
+test('hr decides on a record that is sitting with a head', function () {
+    ['employee' => $employee] = sectionWithHead();
+    $record = TrainingRecord::factory()->for($employee)->create([
+        'title' => 'Waiting On Somebody Else',
+        'current_level' => ApprovalLevel::SectionHead,
+    ]);
+
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::approvals')
+        ->assertSee('Waiting On Somebody Else')
+        ->call('approve', $record->id)
+        ->assertHasNoErrors();
+
+    expect($record->fresh()->approvals)->toHaveCount(1);
 });
 
 test('hr sees the records that have no approver at all', function () {
@@ -149,4 +169,65 @@ test('confirming the modal applies the chosen decision', function () {
         ->assertHasNoErrors();
 
     expect($record->fresh()->status)->toBe(TrainingStatus::Rejected);
+});
+
+test('hr sees every record awaiting a decision, whoever holds it', function () {
+    ['employee' => $mine] = sectionWithHead();
+    ['employee' => $theirs] = sectionWithHead();
+
+    TrainingRecord::factory()->for($mine)->create([
+        'title' => 'With A Section Head',
+        'current_level' => ApprovalLevel::SectionHead,
+    ]);
+
+    TrainingRecord::factory()->for($theirs)->create([
+        'title' => 'With A Division Head',
+        'current_level' => ApprovalLevel::DivisionHead,
+    ]);
+
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::approvals')
+        ->assertSee('With A Section Head')
+        ->assertSee('With A Division Head')
+        ->assertSee('Waiting on');
+});
+
+test('a head still sees only what is waiting on them', function () {
+    ['employee' => $mine, 'sectionHeadUser' => $headUser] = sectionWithHead();
+    ['employee' => $theirs] = sectionWithHead();
+
+    TrainingRecord::factory()->for($mine)->create([
+        'title' => 'Mine To Decide',
+        'current_level' => ApprovalLevel::SectionHead,
+    ]);
+
+    TrainingRecord::factory()->for($theirs)->create([
+        'title' => 'Somebody Elses',
+        'current_level' => ApprovalLevel::SectionHead,
+    ]);
+
+    $this->actingAs($headUser);
+
+    Livewire::test('pages::approvals')
+        ->assertSee('Mine To Decide')
+        ->assertDontSee('Somebody Elses')
+        ->assertDontSee('Waiting on');
+});
+
+test('hr decides on a record nobody could approve, from the screen', function () {
+    $section = Section::factory()->create(['section_head_employee_id' => null]);
+    $employee = Employee::factory()->for($section)->create();
+    $record = TrainingRecord::factory()->for($employee)->create([
+        'title' => 'Stuck Seminar',
+        'current_level' => null,
+    ]);
+
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::approvals')
+        ->call('approve', $record->id)
+        ->assertHasNoErrors();
+
+    expect($record->fresh()->status)->toBe(TrainingStatus::Approved);
 });

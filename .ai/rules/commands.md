@@ -11,7 +11,7 @@ paths:
 ## `ldi:import-user-accounts` — sign-ins from the HRIS
 Creates a sign-in for every employee from their `hris_db.users` row, copying the bcrypt hash so people keep the password they already use, matched through `employee_number`. Idempotent: an existing email is relinked and its role corrected, never duplicated.
 
-Roles are derived, not copied: `is_hr_officer` wins, then division head, then section head, then plain employee. HR outranks a head designation on purpose — `TrainingRecordPolicy::decide` grants approval from being the *designated head*, not from the role, so an HR officer who also heads a section still decides on that section. There is a test for that in `DecideOnTrainingRecordTest`.
+Roles are derived, not copied: `is_hr_officer` wins, then division head, then section head, then plain employee. HR outranks a head designation on purpose. Being the *designated head* is what puts a record in your queue, so an HR officer who also heads a section still decides on that section. HR and admin may additionally decide on anything (see `TrainingRecordPolicy::decide`), which is what clears records no head can reach. There are tests for both in `DecideOnTrainingRecordTest`.
 
 New accounts after this point are made on the Admin screen at `setup/users`, not by re-importing.
 

@@ -30,6 +30,18 @@ new #[Title('Approvals')] class extends Component {
     #[Computed]
     public function queue(): Collection
     {
+        $records = TrainingRecord::query()
+            ->pending()
+            ->whereNotNull('current_level')
+            ->with(['employee.section.division'])
+            ->orderBy('created_at')
+            ->get();
+
+        // HR and admin decide on anything, so nothing is filtered out.
+        if ($this->decidesForEveryone) {
+            return $records;
+        }
+
         $employee = auth()->user()->employee;
 
         if ($employee === null) {
@@ -38,18 +50,23 @@ new #[Title('Approvals')] class extends Component {
 
         $router = app(ApprovalRouter::class);
 
-        return TrainingRecord::query()
-            ->pending()
-            ->whereNotNull('current_level')
-            ->with(['employee.section.division'])
-            ->orderBy('created_at')
-            ->get()
+        return $records
             ->filter(function (TrainingRecord $record) use ($router, $employee): bool {
                 $approver = $router->approverFor($record->current_level, $record->employee);
 
                 return $approver instanceof Employee && $approver->is($employee);
             })
             ->values();
+    }
+
+    /**
+     * Whether this account decides on every record rather than only the
+     * ones it is the designated head for.
+     */
+    #[Computed]
+    public function decidesForEveryone(): bool
+    {
+        return auth()->user()->isAdminOrHr();
     }
 
     /**
@@ -161,6 +178,9 @@ new #[Title('Approvals')] class extends Component {
             <flux:table.column>{{ __('Training') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
             <flux:table.column>{{ __('Hours') }}</flux:table.column>
+            @if ($this->decidesForEveryone)
+                <flux:table.column>{{ __('Waiting on') }}</flux:table.column>
+            @endif
             <flux:table.column />
         </flux:table.columns>
 
@@ -177,6 +197,11 @@ new #[Title('Approvals')] class extends Component {
                         {{ $record->inclusive_dates }}
                     </flux:table.cell>
                     <flux:table.cell>{{ $record->hours }}</flux:table.cell>
+                    @if ($this->decidesForEveryone)
+                        <flux:table.cell>
+                            <flux:badge color="amber">{{ $record->current_level->label() }}</flux:badge>
+                        </flux:table.cell>
+                    @endif
                     <flux:table.cell>
                         <div class="flex gap-2">
                             <flux:button size="sm" variant="primary"
@@ -192,7 +217,11 @@ new #[Title('Approvals')] class extends Component {
                 </flux:table.row>
             @empty
                 <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('Nothing is waiting for you.') }}</flux:table.cell>
+                    <flux:table.cell :colspan="$this->decidesForEveryone ? 6 : 5">
+                        {{ $this->decidesForEveryone
+                            ? __('Nothing is waiting for a decision.')
+                            : __('Nothing is waiting for you.') }}
+                    </flux:table.cell>
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
@@ -251,7 +280,7 @@ new #[Title('Approvals')] class extends Component {
 
     @if ($this->unroutable->isNotEmpty())
         <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('No approver assigned')">
-            {{ __('These records cannot move because neither the section nor the division has a head designated. Set a head under Setup.') }}
+            {{ __('Neither the section nor the division has a head designated, so nobody in the chain can move these. Deciding here records the decision against HR. Setting a head under Setup is the lasting fix.') }}
         </flux:callout>
 
         <flux:table>
@@ -259,6 +288,7 @@ new #[Title('Approvals')] class extends Component {
                 <flux:table.column>{{ __('Employee') }}</flux:table.column>
                 <flux:table.column>{{ __('Training') }}</flux:table.column>
                 <flux:table.column>{{ __('Section') }}</flux:table.column>
+                <flux:table.column />
             </flux:table.columns>
 
             <flux:table.rows>
@@ -271,6 +301,18 @@ new #[Title('Approvals')] class extends Component {
                             </button>
                         </flux:table.cell>
                         <flux:table.cell>{{ $record->employee->section?->name ?? '—' }}</flux:table.cell>
+                        <flux:table.cell>
+                            <div class="flex gap-2">
+                                <flux:button size="sm" variant="primary"
+                                    wire:click="startDecision({{ $record->id }}, 'approve')">
+                                    {{ __('Approve') }}
+                                </flux:button>
+                                <flux:button size="sm" variant="danger"
+                                    wire:click="startDecision({{ $record->id }}, 'reject')">
+                                    {{ __('Reject') }}
+                                </flux:button>
+                            </div>
+                        </flux:table.cell>
                     </flux:table.row>
                 @endforeach
             </flux:table.rows>

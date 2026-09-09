@@ -29,3 +29,10 @@ Seen twice: `flux:link` always adds `inline`, so `class="block w-44 truncate"` n
 When you need a different behaviour, use a plain element you fully control rather than an override. Modal triggers in tables are a plain `<button type="button">` styled with `text-[var(--color-accent-content)]` for the accent, `cursor-pointer` because a button does not get one, and `block w-full truncate text-left`.
 
 Keep `flux:link` for real navigation — a link that changes the page keeps its underline, a button that opens a modal does not.
+
+## A flux:button slot adds a span that shifts an icon-only button off centre
+flux:button renders `<span>{{ $slot }}</span>` whenever it has an icon and a non-empty slot, and that span stays in the button's flex row with its `gap-2`. On a square icon-only button (h-8 w-8, a 20px icon) the extra gap pushes the icon about 4px off centre — even when the slot's own content is absolutely positioned, because the wrapper is not.
+
+So do not put a notification count, dot or badge inside such a button. Leave the slot empty, wrap the whole trigger in `<div class="relative inline-flex">`, and layer the count over the corner as a sibling. The wrapper must be inline-flex so it shrink-wraps the button rather than the sidebar's width.
+
+Also: flux:badge is a rounded-md pill with px-2 py-1, far too large for a 32px button. A plain span with `flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none` is the shape wanted. resources/views/components/⚡notifications.blade.php is the worked example.

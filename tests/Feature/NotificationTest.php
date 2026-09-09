@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\TrainingAwaitsDecision;
 use App\Notifications\TrainingDecided;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 /**
@@ -195,4 +196,43 @@ test('one person cannot open another person notification', function () {
     Livewire::test('notifications')->call('open', $id);
 
     expect($headUser->fresh()->unreadNotifications()->count())->toBe(1);
+});
+
+test('the count is layered over the bell rather than sitting inside it', function () {
+    [$employee, , $headUser] = underASectionHead();
+
+    $this->actingAs($headUser);
+
+    app(SubmitTrainingRecord::class)->handle(
+        $employee,
+        TrainingRecord::factory()->raw(['employee_id' => null, 'submitted_by' => null]),
+        $employee->user,
+    );
+
+    $html = Livewire::test('notifications')->html();
+    $opens = strpos($html, '<button');
+    $button = substr($html, $opens, strpos($html, '</button>') - $opens);
+
+    // Flux wraps slot content in a span that stays in the button's flex
+    // row, which knocked the bell off centre. The button holds the icon
+    // and nothing else; the count is layered over it from outside.
+    expect($button)->not->toContain('<span')
+        ->and($button)->toContain('<svg')
+        ->and($html)->toContain('rounded-full');
+});
+
+test('a very large count is shortened rather than stretching the bell', function () {
+    [$employee, , $headUser] = underASectionHead();
+
+    $this->actingAs($headUser);
+
+    foreach (range(1, 100) as $ignored) {
+        $headUser->notifications()->create([
+            'id' => (string) Str::uuid(),
+            'type' => TrainingAwaitsDecision::class,
+            'data' => ['title' => 'Sample', 'kind' => 'awaiting', 'route' => 'approvals'],
+        ]);
+    }
+
+    Livewire::test('notifications')->assertSee('99+');
 });

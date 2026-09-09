@@ -73,14 +73,25 @@ class TrainingRecordPolicy
     }
 
     /**
-     * Only the designated head at the record's current level may decide.
+     * The designated head at the record's current level may decide, and so
+     * may HR and admin, on anything.
      *
-     * HR and admin see everything but never decide — every record goes
-     * through both steps.
+     * The agency asked for that: with most sections lacking a designated
+     * head, records were sitting with nobody, and HR had no way to clear
+     * them. A decision HR makes is recorded against HR, not against the
+     * head who never saw it.
      */
     public function decide(User $user, TrainingRecord $record): bool
     {
-        if ($record->status !== TrainingStatus::Pending || $record->current_level === null) {
+        if ($record->status !== TrainingStatus::Pending) {
+            return false;
+        }
+
+        if ($user->isAdminOrHr()) {
+            return true;
+        }
+
+        if ($record->current_level === null) {
             return false;
         }
 

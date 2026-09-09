@@ -59,65 +59,74 @@ new class extends Component {
     }
 }; ?>
 
-<flux:dropdown position="bottom" align="end" wire:poll.60s>
-    {{-- The badge is positioned out of flow, so the button stays square. --}}
-    <flux:button variant="subtle" size="sm" icon="bell" square class="relative">
-        @if ($this->count > 0)
-            <flux:badge color="red" size="sm" class="absolute -end-1 -top-1">
-                {{ $this->count > 99 ? '99+' : $this->count }}
-            </flux:badge>
-        @endif
-    </flux:button>
+{{--
+    The count sits outside the button on purpose. Flux wraps whatever a
+    button's slot holds in a span of its own, and that span stays in the
+    button's flex row — gap and all — even when its contents are
+    positioned away. It pushed the bell off centre. An empty slot keeps
+    the icon centred, and the count is layered over the corner instead.
+--}}
+<div class="relative inline-flex" wire:poll.60s>
+    <flux:dropdown position="bottom" align="end">
+        <flux:button variant="subtle" size="sm" icon="bell" square />
 
-    <flux:menu class="w-80">
-        <div class="flex items-center justify-between px-2 py-1.5">
-            <flux:heading size="sm">{{ __('Notifications') }}</flux:heading>
+        <flux:menu class="w-80">
+            <div class="flex items-center justify-between px-2 py-1.5">
+                <flux:heading size="sm">{{ __('Notifications') }}</flux:heading>
 
-            @if ($this->count > 0)
-                <button type="button" wire:click="markAllRead"
-                    class="cursor-pointer text-xs text-[var(--color-accent-content)] hover:opacity-70">
-                    {{ __('Mark all read') }}
-                </button>
-            @endif
-        </div>
-
-        <flux:menu.separator />
-
-        @forelse ($this->unread as $notification)
-            <button type="button" wire:key="notification-{{ $notification->id }}"
-                wire:click="open('{{ $notification->id }}')"
-                class="block w-full cursor-pointer px-2 py-2 text-left hover:bg-zinc-100 dark:hover:bg-white/5">
-                <div class="truncate text-sm font-medium">
-                    @if (($notification->data['kind'] ?? '') === 'awaiting')
-                        {{ __('Awaiting your decision') }}
-                    @elseif (($notification->data['decision'] ?? '') === 'rejected')
-                        {{ __('Your training was rejected') }}
-                    @else
-                        {{ __('Your training was approved') }}
-                    @endif
-                </div>
-
-                <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ $notification->data['title'] ?? '' }}
-                    @if (filled($notification->data['employee'] ?? ''))
-                        — {{ $notification->data['employee'] }}
-                    @endif
-                </div>
-
-                @if (filled($notification->data['reason'] ?? ''))
-                    <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                        {{ $notification->data['reason'] }}
-                    </div>
+                @if ($this->count > 0)
+                    <button type="button" wire:click="markAllRead"
+                        class="cursor-pointer text-xs text-[var(--color-accent-content)] hover:opacity-70">
+                        {{ __('Mark all read') }}
+                    </button>
                 @endif
-
-                <div class="text-xs text-zinc-400 dark:text-zinc-500">
-                    {{ $notification->created_at->diffForHumans() }}
-                </div>
-            </button>
-        @empty
-            <div class="px-2 py-6 text-center">
-                <flux:text size="sm">{{ __('Nothing new.') }}</flux:text>
             </div>
-        @endforelse
-    </flux:menu>
-</flux:dropdown>
+
+            <flux:menu.separator />
+
+            @forelse ($this->unread as $notification)
+                <button type="button" wire:key="notification-{{ $notification->id }}"
+                    wire:click="open('{{ $notification->id }}')"
+                    class="block w-full cursor-pointer px-2 py-2 text-left hover:bg-zinc-100 dark:hover:bg-white/5">
+                    <div class="truncate text-sm font-medium">
+                        @if (($notification->data['kind'] ?? '') === 'awaiting')
+                            {{ __('Awaiting your decision') }}
+                        @elseif (($notification->data['decision'] ?? '') === 'rejected')
+                            {{ __('Your training was rejected') }}
+                        @else
+                            {{ __('Your training was approved') }}
+                        @endif
+                    </div>
+
+                    <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ $notification->data['title'] ?? '' }}
+                        @if (filled($notification->data['employee'] ?? ''))
+                            — {{ $notification->data['employee'] }}
+                        @endif
+                    </div>
+
+                    @if (filled($notification->data['reason'] ?? ''))
+                        <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ $notification->data['reason'] }}
+                        </div>
+                    @endif
+
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500">
+                        {{ $notification->created_at->diffForHumans() }}
+                    </div>
+                </button>
+            @empty
+                <div class="px-2 py-6 text-center">
+                    <flux:text size="sm">{{ __('Nothing new.') }}</flux:text>
+                </div>
+            @endforelse
+        </flux:menu>
+    </flux:dropdown>
+
+    @if ($this->count > 0)
+        <span
+            class="pointer-events-none absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+            {{ $this->count > 99 ? '99+' : $this->count }}
+        </span>
+    @endif
+</div>
