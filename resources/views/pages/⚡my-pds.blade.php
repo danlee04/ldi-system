@@ -840,7 +840,14 @@ new #[Title('My PDS')] class extends Component {
             {{ __('Leave a level blank if you did not attend it — it will print as an empty line.') }}
         </flux:text>
 
-        <div class="overflow-x-auto">
+        {{--
+            The table is wider than a phone, so it scrolls on its own rather
+            than dragging the page sideways. A scrolling region has to be
+            reachable by keyboard to count under WCAG 1.4.10, which is what
+            the tabindex and the name are for.
+        --}}
+        <div class="overflow-x-auto overscroll-x-contain" tabindex="0" role="region"
+            aria-label="{{ __('Educational background') }}">
             <table class="w-full min-w-[64rem] border-separate border-spacing-y-3">
                 <thead>
                     <tr class="text-left text-xs text-zinc-500 dark:text-zinc-400">

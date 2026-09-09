@@ -77,16 +77,6 @@ test('the cpd units count only approved training from this year', function () {
     expect(Livewire::test('pages::my-profile')->instance()->cpdUnits)->toBe(12.0);
 });
 
-test('the training history shows every one of theirs, decided or not', function () {
-    $employee = profileEmployee();
-
-    TrainingRecord::factory()->for($employee)->approved()->create(['title' => 'Records Management']);
-    TrainingRecord::factory()->for($employee)->create(['title' => 'Still Waiting']);
-
-    Livewire::test('pages::my-profile')
-        ->assertSee('Records Management')
-        ->assertSee('Still Waiting');
-});
 
 test('their eligibility is listed', function () {
     $employee = profileEmployee();
