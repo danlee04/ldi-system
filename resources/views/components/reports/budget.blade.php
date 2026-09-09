@@ -1,6 +1,6 @@
 @props(['rows'])
 
-<flux:table>
+<flux:table :paginate="$rows" pagination:class="print:hidden">
     <flux:table.columns>
         <flux:table.column>{{ __('Budget source') }}</flux:table.column>
         <flux:table.column class="text-right">{{ __('Plans') }}</flux:table.column>

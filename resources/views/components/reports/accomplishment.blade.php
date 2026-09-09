@@ -20,7 +20,7 @@
         </flux:card>
     </div>
 
-    <flux:table>
+    <flux:table :paginate="$rows" pagination:class="print:hidden">
         <flux:table.columns>
             <flux:table.column>{{ __('Title') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>

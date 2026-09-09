@@ -20,7 +20,7 @@
         </flux:card>
     </div>
 
-    <flux:table>
+    <flux:table :paginate="$rows" pagination:class="print:hidden">
         <flux:table.columns>
             <flux:table.column>{{ __('Provider') }}</flux:table.column>
             <flux:table.column class="text-right">{{ __('Attendances') }}</flux:table.column>

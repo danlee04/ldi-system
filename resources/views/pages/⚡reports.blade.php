@@ -12,14 +12,19 @@ use App\Actions\Reports\RepeatAttendanceReport;
 use App\Models\Division;
 use App\Models\Section;
 use App\Models\TrainingRecord;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Reports')] class extends Component {
+    use WithPagination;
+
     #[Url]
     public string $report = 'activity';
 
@@ -39,6 +44,11 @@ new #[Title('Reports')] class extends Component {
     public string $sectionId = '';
 
     /**
+     * Rows to a page.
+     */
+    private const PER_PAGE = 25;
+
+    /**
      * Every report this page offers, and what it is called on screen.
      *
      * @var array<string, string>
@@ -54,6 +64,39 @@ new #[Title('Reports')] class extends Component {
         'providers' => 'Cost per participant',
         'aging' => 'Approvals aging',
     ];
+
+    /**
+     * A page of a report that has already been worked out in full.
+     *
+     * The reports total and export themselves from every row, so
+     * this slices for the screen only — the CSV and the figures
+     * above each table still come from all of them.
+     *
+     * @param  Collection<int, mixed>|array<int, mixed>  $rows
+     * @return LengthAwarePaginator<int, mixed>
+     */
+    public function paginated(Collection|array $rows): LengthAwarePaginator
+    {
+        $rows = collect($rows);
+        $page = $this->getPage();
+
+        return new LengthAwarePaginator(
+            $rows->forPage($page, self::PER_PAGE)->values(),
+            $rows->count(),
+            self::PER_PAGE,
+            $page,
+            ['path' => Paginator::resolveCurrentPath()],
+        );
+    }
+
+    /**
+     * Changing what is being read starts it from the top, or the
+     * table would open on a page that no longer exists.
+     */
+    public function updated(): void
+    {
+        $this->resetPage();
+    }
 
     public function mount(): void
     {
@@ -416,6 +459,7 @@ new #[Title('Reports')] class extends Component {
             </flux:select>
         @endif
 
+
         @if ($report !== 'aging')
             <flux:select size="sm" class="lg:w-32" wire:model.live="year">
                 @foreach ($this->years as $option)
@@ -439,38 +483,38 @@ new #[Title('Reports')] class extends Component {
 
     @switch ($report)
         @case('without')
-            <x-reports.without :rows="$this->without" :totals="$this->withoutTotals" :year="$year" />
+            <x-reports.without :rows="$this->paginated($this->without)" :totals="$this->withoutTotals" :year="$year" />
             @break
 
         @case('coverage')
-            <x-reports.coverage :rows="$this->coverage" :totals="$this->coverageTotals" />
+            <x-reports.coverage :rows="$this->paginated($this->coverage)" :totals="$this->coverageTotals" />
             @break
 
         @case('repeat')
-            <x-reports.repeat :rows="$this->repeat" :totals="$this->repeatTotals" />
+            <x-reports.repeat :rows="$this->paginated($this->repeat)" :totals="$this->repeatTotals" />
             @break
 
         @case('accomplishment')
-            <x-reports.accomplishment :rows="$this->accomplishment" :totals="$this->accomplishmentTotals" />
+            <x-reports.accomplishment :rows="$this->paginated($this->accomplishment)" :totals="$this->accomplishmentTotals" />
             @break
 
         @case('budget')
-            <x-reports.budget :rows="$this->budget" />
+            <x-reports.budget :rows="$this->paginated($this->budget)" />
             @break
 
         @case('funds')
-            <x-reports.funds :rows="$this->funds" />
+            <x-reports.funds :rows="$this->paginated($this->funds)" />
             @break
 
         @case('providers')
-            <x-reports.providers :rows="$this->providers" :totals="$this->providerTotals" />
+            <x-reports.providers :rows="$this->paginated($this->providers)" :totals="$this->providerTotals" />
             @break
 
         @case('aging')
-            <x-reports.aging :records="$this->aging" :totals="$this->agingTotals" />
+            <x-reports.aging :records="$this->paginated($this->aging)" :totals="$this->agingTotals" />
             @break
 
         @default
-            <x-reports.activity :records="$this->activity" :totals="$this->activityTotals" />
+            <x-reports.activity :records="$this->paginated($this->activity)" :totals="$this->activityTotals" />
     @endswitch
 </div>

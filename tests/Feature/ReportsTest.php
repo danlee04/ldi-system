@@ -481,3 +481,89 @@ test('every report on the page renders', function () {
             ->assertOk();
     }
 });
+
+test('a long report is served a page at a time', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->count(30)->create();
+
+    $component = Livewire::test('pages::reports')
+        ->set('report', 'without')
+        ->set('year', 2026);
+
+    $page = $component->instance()->paginated($component->instance()->without);
+
+    expect($page->total())->toBe(30)
+        ->and($page->count())->toBe(25)
+        ->and($page->lastPage())->toBe(2);
+});
+
+test('a report that fits on one page shows no pager', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->count(3)->create();
+
+    $component = Livewire::test('pages::reports')
+        ->set('report', 'without')
+        ->set('year', 2026);
+
+    $page = $component->instance()->paginated($component->instance()->without);
+
+    expect($page->count())->toBe(3)
+        ->and($page->hasPages())->toBeFalse();
+});
+
+test('an empty report does not divide by zero', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $component = Livewire::test('pages::reports')
+        ->set('report', 'without')
+        ->set('year', 2026);
+
+    expect($component->instance()->paginated([])->total())->toBe(0);
+});
+
+test('the csv carries every row, not just the page on screen', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->count(30)->create();
+
+    $component = Livewire::test('pages::reports')
+        ->set('report', 'without')
+        ->set('year', 2026);
+
+    $rows = app(EmployeesWithoutTrainingReport::class)->toRows($component->instance()->without);
+
+    // The header and all thirty of them, while the screen shows twenty-five.
+    expect($rows)->toHaveCount(31);
+
+    $component->call('download')->assertFileDownloaded('employees-without-training-2026.csv');
+});
+
+test('the totals above a table count every row, not the page', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->count(30)->create();
+
+    $component = Livewire::test('pages::reports')
+        ->set('report', 'without')
+        ->set('year', 2026);
+
+    expect($component->instance()->withoutTotals['without'])->toBe(30);
+});
+
+test('switching report starts the table from the top', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->count(30)->create();
+
+    $component = Livewire::test('pages::reports')
+        ->set('report', 'without')
+        ->call('setPage', 2);
+
+    expect($component->instance()->getPage())->toBe(2);
+
+    $component->set('report', 'coverage');
+
+    expect($component->instance()->getPage())->toBe(1);
+});
