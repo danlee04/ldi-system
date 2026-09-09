@@ -55,9 +55,24 @@ new #[Title('LDI trainings')] class extends Component {
 
     public ?int $target_attendees = null;
 
-    public ?float $budget = null;
+    /**
+     * The fund is chosen, not typed. Free text is how the same fund ended
+     * up recorded four ways — and how "asdad" ended up carrying money.
+     */
+    public const HR_SOURCE = 'Human Resource';
 
-    public string $budget_source = '';
+    /**
+     * HR's own budget, which every plan may draw on. It is the one fund
+     * with a fixed name, so the form states it rather than asking.
+     */
+    public ?float $budget_amount = null;
+
+    /**
+     * Whoever else paid, written in full, and what they put in.
+     */
+    public string $other_budget_source = '';
+
+    public ?float $other_budget_amount = null;
 
     public function mount(): void
     {
@@ -160,8 +175,7 @@ new #[Title('LDI trainings')] class extends Component {
         $this->ld_type_other = (string) $plan->ld_type_other;
         $this->location = (string) $plan->location;
         $this->target_attendees = $plan->target_attendees;
-        $this->budget = $plan->budget === null ? null : (float) $plan->budget;
-        $this->budget_source = (string) $plan->budget_source;
+        [$this->budget_amount, $this->other_budget_source, $this->other_budget_amount] = $this->splitFunds($plan);
 
         Flux::modal('ldi-form')->show();
     }
@@ -186,8 +200,9 @@ new #[Title('LDI trainings')] class extends Component {
             'ld_type_other' => ['nullable', 'string', 'max:255', Rule::requiredIf($this->ld_type === LdType::Other->value)],
             'location' => ['nullable', 'string', 'max:255'],
             'target_attendees' => ['nullable', 'integer', 'min:1', 'max:9999'],
-            'budget' => ['nullable', 'numeric', 'min:0'],
-            'budget_source' => ['nullable', 'string', 'max:255'],
+            'budget_amount' => ['nullable', 'numeric', 'min:0'],
+            'other_budget_source' => ['nullable', 'string', 'max:255', 'required_with:other_budget_amount'],
+            'other_budget_amount' => ['nullable', 'numeric', 'min:0', 'required_with:other_budget_source'],
         ]);
 
         LdiTraining::updateOrCreate(['id' => $this->editingId], [
@@ -196,7 +211,13 @@ new #[Title('LDI trainings')] class extends Component {
             'training_communication' => $validated['training_communication'] ?: null,
             'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
             'location' => $validated['location'] ?: null,
-            'budget_source' => $validated['budget_source'] ?: null,
+            // HR is named only when it actually put something in, so a
+            // plan it did not fund does not land against its cap.
+            'budget_source' => $this->budget_amount === null ? null : self::HR_SOURCE,
+            'budget' => $this->totalBudget ?: null,
+            'budget_amount' => $validated['budget_amount'],
+            'other_budget_source' => $validated['other_budget_source'] ?: null,
+            'other_budget_amount' => $validated['other_budget_amount'],
             'created_by' => auth()->id(),
         ]);
 
@@ -220,7 +241,7 @@ new #[Title('LDI trainings')] class extends Component {
     public function budgetHint(): ?string
     {
         $cap = BudgetCap::forSourceAndYear(
-            $this->budget_source ?: null,
+            self::HR_SOURCE,
             $this->date_start !== '' ? (int) substr($this->date_start, 0, 4) : null,
         );
 
@@ -232,7 +253,7 @@ new #[Title('LDI trainings')] class extends Component {
             ->whereKey($this->editingId)
             ->sum('budget');
 
-        $left = (float) $cap->amount - $committedElsewhere - (float) $this->budget;
+        $left = (float) $cap->amount - $committedElsewhere - (float) ($this->budget_amount ?? 0);
 
         if ($left < 0) {
             return __('Over the :year :source cap by :amount.', [
@@ -249,12 +270,52 @@ new #[Title('LDI trainings')] class extends Component {
         ]);
     }
 
+    /**
+     * What the plan costs: whatever its funds add up to.
+     */
+    #[Computed]
+    public function totalBudget(): float
+    {
+        return (float) ($this->budget_amount ?? 0) + (float) ($this->other_budget_amount ?? 0);
+    }
+    /**
+     * A saved plan's funds, as the form holds them.
+     *
+     * Anything not carried by HR belongs in the other slot, including a
+     * plan recorded before the split existed whose single source was some
+     * other fund entirely.
+     *
+     * @return array{0: float|null, 1: string, 2: float|null}
+     */
+    private function splitFunds(LdiTraining $plan): array
+    {
+        $whole = $plan->budget_amount ?? $plan->budget;
+
+        if ($plan->budget_source === self::HR_SOURCE) {
+            return [
+                $whole === null ? null : (float) $whole,
+                (string) $plan->other_budget_source,
+                $plan->other_budget_amount === null ? null : (float) $plan->other_budget_amount,
+            ];
+        }
+
+        // Not HR's, so the whole of it sits on the other side.
+        return [
+            null,
+            (string) ($plan->other_budget_source ?: $plan->budget_source),
+            match (true) {
+                $plan->other_budget_amount !== null => (float) $plan->other_budget_amount,
+                $whole !== null => (float) $whole,
+                default => null,
+            },
+        ];
+    }
     public function resetForm(): void
     {
         $this->reset(
             'editingId', 'title', 'development_partner', 'facilitator', 'type_of_training',
             'training_communication', 'date_start', 'date_end', 'hours', 'cpd_units',
-            'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget', 'budget_source',
+            'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget_amount', 'other_budget_source', 'other_budget_amount',
         );
         $this->resetValidation();
     }
@@ -406,11 +467,25 @@ new #[Title('LDI trainings')] class extends Component {
                     <flux:separator :text="__('Budget')" />
                 </div>
 
-                <flux:input wire:model.live.debounce.400ms="budget" :label="__('Budget')"
-                    type="number" step="0.01" min="0" />
+                {{-- The agency's own budget is the one fund with a fixed
+                     name, so it is stated. Everything else is written in. --}}
+                <flux:input wire:model.live.debounce.400ms="budget_amount"
+                    :label="__('HR source of fund — budget')" type="number" step="0.01" min="0"
+                    :description="__('Leave it empty when HR put nothing into this plan.')" />
 
-                <x-picklist-input wire:model.live="budget_source" :label="__('Budget source')"
-                    :options="config('ldi.budget_sources')" />
+                <div></div>
+
+                <flux:input wire:model="other_budget_source" :label="__('Other source of fund')"
+                    :placeholder="__('Who else paid for it')" />
+
+                <flux:input wire:model.live.debounce.400ms="other_budget_amount"
+                    :label="__('Other source — budget')" type="number" step="0.01" min="0" />
+
+                <div class="md:col-span-2">
+                    <flux:text size="sm">
+                        {{ __('Total budget: :total', ['total' => number_format($this->totalBudget, 2)]) }}
+                    </flux:text>
+                </div>
 
                 @if ($this->budgetHint)
                     <div class="md:col-span-2">

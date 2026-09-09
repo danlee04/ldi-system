@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Reports\ApprovalsAgingReport;
+use App\Actions\Reports\BudgetUtilizationReport;
 use App\Actions\Reports\CostPerParticipantReport;
 use App\Actions\Reports\CoverageByDivisionReport;
 use App\Actions\Reports\EmployeesWithoutTrainingReport;
@@ -566,4 +567,32 @@ test('switching report starts the table from the top', function () {
     $component->set('report', 'coverage');
 
     expect($component->instance()->getPage())->toBe(1);
+});
+
+test('a second fund is listed even though nothing is charged to it', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $plan = LdiTraining::factory()->create([
+        'date_start' => '2026-03-02',
+        'date_end' => '2026-03-04',
+        'budget' => 5000,
+        'budget_source' => 'Human Resource',
+        'other_budget_source' => 'WFP- Hospital Income',
+    ]);
+
+    TrainingRecord::factory()->for($plan, 'ldiTraining')->approved()->create([
+        'date_end' => '2026-03-04',
+        'registration_fee' => 1000,
+        'tev' => 600,
+        'expenses' => 400,
+    ]);
+
+    $rows = collect(app(BudgetUtilizationReport::class)->handle(2026))->keyBy('source');
+
+    // The plan says a second fund helped, but not by how much, so the
+    // spend stays whole against the source the plan belongs to.
+    expect($rows)->toHaveKey('WFP- Hospital Income')
+        ->and($rows['Human Resource']['spent'])->toBe(2000.0)
+        ->and($rows['WFP- Hospital Income']['spent'])->toBe(0.0)
+        ->and($rows['Human Resource']['committed'])->toBe(5000.0);
 });

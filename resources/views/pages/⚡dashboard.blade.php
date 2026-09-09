@@ -172,9 +172,9 @@ new #[Title('Dashboard')] class extends Component {
      * @return array{total: float, hr: float, other: float, rows: list<array{label: string, amount: float}>}
      */
     #[Computed]
-    public function spendTotals(): array
+    public function fundingTotals(): array
     {
-        return app(AgencyTotalsReport::class)->spendBySource($this->year());
+        return app(AgencyTotalsReport::class)->fundingBySource($this->year());
     }
     /**
      * @return list<array{month: int, label: string, attendances: int}>
@@ -499,7 +499,7 @@ new #[Title('Dashboard')] class extends Component {
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
                 <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals"
-                    :spend="$this->spendTotals" :year="$this->year()" />
+                    :funding="$this->fundingTotals" :year="$this->year()" />
 
                 <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak"
                     :year="$this->year()" />

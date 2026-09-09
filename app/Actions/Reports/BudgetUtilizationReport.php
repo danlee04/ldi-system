@@ -29,7 +29,11 @@ class BudgetUtilizationReport
         $planned = LdiTraining::query()
             ->whereYear('date_start', $year)
             ->whereNotNull('budget_source')
-            ->pluck('budget_source');
+            ->pluck('budget_source')
+            ->merge(LdiTraining::query()
+                ->whereYear('date_start', $year)
+                ->whereNotNull('other_budget_source')
+                ->pluck('other_budget_source'));
 
         $sources = $caps->keys()
             ->merge($planned)
@@ -87,6 +91,10 @@ class BudgetUtilizationReport
 
     /**
      * What the attendees of this source's plans actually cost.
+     *
+     * A plan may name a second fund, but not how much came from it, so
+     * the spend stays with the plan's own source rather than being split
+     * on a guess.
      */
     private function spentOn(string $source, int $year): float
     {

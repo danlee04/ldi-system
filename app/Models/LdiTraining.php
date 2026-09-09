@@ -32,6 +32,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $target_attendees
  * @property string|null $budget
  * @property string|null $budget_source
+ * @property string|null $budget_amount how much the first fund carried; null means the whole budget
+ * @property string|null $other_budget_source a second fund, when one pocket does not carry the plan
+ * @property string|null $other_budget_amount how much that second fund carried
  * @property int $created_by
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -57,6 +60,9 @@ class LdiTraining extends Model
         'target_attendees',
         'budget',
         'budget_source',
+        'budget_amount',
+        'other_budget_source',
+        'other_budget_amount',
         'created_by',
     ];
 
@@ -73,7 +79,31 @@ class LdiTraining extends Model
             'ld_type' => LdType::class,
             'target_attendees' => 'integer',
             'budget' => 'decimal:2',
+            'budget_amount' => 'decimal:2',
+            'other_budget_amount' => 'decimal:2',
         ];
+    }
+
+    /**
+     * How much of this plan the given fund carried.
+     *
+     * A plan names one or two funds. When no amount was stated the first
+     * fund carried the whole budget, which is what a plan with a single
+     * source has always meant.
+     */
+    public function fundedBy(string $source): float
+    {
+        $funded = 0.0;
+
+        if ($this->budget_source === $source) {
+            $funded += (float) ($this->budget_amount ?? $this->budget);
+        }
+
+        if ($this->other_budget_source === $source) {
+            $funded += (float) $this->other_budget_amount;
+        }
+
+        return $funded;
     }
 
     /**

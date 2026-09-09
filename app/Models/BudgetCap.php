@@ -40,10 +40,15 @@ class BudgetCap extends Model
      */
     public function committed(): float
     {
+        // A plan may be carried by two funds, so what counts against this
+        // cap is the part this fund carried, not the plan's whole budget.
         return (float) LdiTraining::query()
-            ->where('budget_source', $this->budget_source)
+            ->where(fn ($query) => $query
+                ->where('budget_source', $this->budget_source)
+                ->orWhere('other_budget_source', $this->budget_source))
             ->whereYear('date_start', $this->year)
-            ->sum('budget');
+            ->get()
+            ->sum(fn (LdiTraining $plan): float => $plan->fundedBy($this->budget_source));
     }
 
     public function remaining(): float

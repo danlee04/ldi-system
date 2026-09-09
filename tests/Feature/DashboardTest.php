@@ -335,40 +335,53 @@ test('a plan with no communication recorded is counted rather than dropped', fun
         ->and($totals['rows'][1])->toBe(['label' => 'Not stated', 'count' => 1]);
 });
 
-test('the expense card separates the hr budget from every other fund', function () {
+test('the funding card counts only what hr actually put in', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    $hrPlan = LdiTraining::factory()->create(['budget_source' => 'Human Resource']);
-    $otherPlan = LdiTraining::factory()->create(['budget_source' => 'WFP- Hospital Income']);
-
-    TrainingRecord::factory()->for($hrPlan, 'ldiTraining')->approved()->create([
+    // A 19,000 plan of which HR carried the 6,000 registration.
+    LdiTraining::factory()->create([
+        'date_start' => now(),
         'date_end' => now(),
-        'registration_fee' => 1000,
-        'tev' => 0,
-        'expenses' => 0,
+        'budget' => 19000,
+        'budget_source' => 'Human Resource',
+        'budget_amount' => 6000,
+        'other_budget_source' => 'WFP- Hospital Income',
+        'other_budget_amount' => 13000,
     ]);
 
-    TrainingRecord::factory()->for($otherPlan, 'ldiTraining')->approved()->create([
-        'date_end' => now(),
-        'registration_fee' => 0,
-        'tev' => 500,
-        'expenses' => 250,
-    ]);
+    $funding = Livewire::test('pages::dashboard')->instance()->fundingTotals;
 
-    $spend = Livewire::test('pages::dashboard')->instance()->spendTotals;
-
-    expect($spend['total'])->toBe(1750.0)
-        ->and($spend['hr'])->toBe(1000.0)
-        ->and($spend['other'])->toBe(750.0)
-        ->and($spend['rows'][0])->toBe(['label' => 'Human Resource', 'amount' => 1000.0]);
+    expect($funding['hr'])->toBe(6000.0)
+        ->and($funding['other'])->toBe(13000.0)
+        ->and($funding['total'])->toBe(19000.0);
 });
 
-test('a source that spent nothing is left off the expense card', function () {
+test('one fund with no amount stated carries the whole budget', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    LdiTraining::factory()->create(['budget_source' => 'Spent Nothing']);
+    LdiTraining::factory()->create([
+        'date_start' => now(),
+        'date_end' => now(),
+        'budget' => 19000,
+        'budget_source' => 'Human Resource',
+        'budget_amount' => null,
+        'other_budget_source' => null,
+    ]);
 
-    expect(Livewire::test('pages::dashboard')->instance()->spendTotals['rows'])->toBe([]);
+    expect(Livewire::test('pages::dashboard')->instance()->fundingTotals['hr'])->toBe(19000.0);
+});
+
+test('a fund that put in nothing is left off the card', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    LdiTraining::factory()->create([
+        'date_start' => now(),
+        'date_end' => now(),
+        'budget' => 0,
+        'budget_source' => 'Funded Nothing',
+    ]);
+
+    expect(Livewire::test('pages::dashboard')->instance()->fundingTotals['rows'])->toBe([]);
 });
 
 test('the three cards are shown to hr and not to an employee', function () {
@@ -376,7 +389,7 @@ test('the three cards are shown to hr and not to an employee', function () {
 
     Livewire::test('pages::dashboard')
         ->assertSee('Total employees')
-        ->assertSee('HR source');
+        ->assertSee('From HR');
 
     $user = User::factory()->employee()->create();
     Employee::factory()->create(['user_id' => $user->id]);
@@ -385,5 +398,5 @@ test('the three cards are shown to hr and not to an employee', function () {
 
     Livewire::test('pages::dashboard')
         ->assertDontSee('Total employees')
-        ->assertDontSee('HR source');
+        ->assertDontSee('From HR');
 });

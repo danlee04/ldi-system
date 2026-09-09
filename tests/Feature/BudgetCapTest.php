@@ -130,8 +130,7 @@ test('the ldi form warns when a plan goes over the cap but still saves it', func
         ->set('date_end', '2026-03-04')
         ->set('hours', 24)
         ->set('ld_type', LdType::Technical->value)
-        ->set('budget_source', 'Human Resource')
-        ->set('budget', 80000);
+        ->set('budget_amount', 80000);
 
     expect($component->instance()->budgetHint)->toContain('Over the 2026 Human Resource cap by 30,000.00');
 
@@ -152,8 +151,7 @@ test('the ldi form shows what is left when the plan fits', function () {
     $component = Livewire::test('pages::ldi.index')
         ->call('create')
         ->set('date_start', '2026-03-02')
-        ->set('budget_source', 'Human Resource')
-        ->set('budget', 54000);
+        ->set('budget_amount', 54000);
 
     expect($component->instance()->budgetHint)->toContain('246,000.00 left');
 });

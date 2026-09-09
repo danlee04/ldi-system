@@ -2,10 +2,8 @@
 
 namespace App\Actions\Reports;
 
-use App\Enums\TrainingStatus;
 use App\Models\Employee;
 use App\Models\LdiTraining;
-use App\Models\TrainingRecord;
 
 /**
  * The three headline totals, each with the breakdown behind it.
@@ -64,26 +62,33 @@ class AgencyTotalsReport
     }
 
     /**
-     * What the year cost, split by the fund that carried it.
+     * What each fund put into the year's plans.
      *
-     * The agency's own HR budget is separated from everything else,
-     * because that is the split the office is asked about.
+     * This is funding, not spending. A plan can cost 19,000 while HR's
+     * budget carries only the 6,000 registration, so the answer to "what
+     * did HR fund" is the amount the plan states — never the plan's whole
+     * cost, and never a share worked out from one.
+     *
+     * The agency's own budget is separated from everything else, because
+     * that is the split the office is asked about.
      *
      * @return array{total: float, hr: float, other: float, rows: list<array{label: string, amount: float}>}
      */
-    public function spendBySource(int $year): array
+    public function fundingBySource(int $year): array
     {
-        $amounts = TrainingRecord::query()
-            ->where('status', TrainingStatus::Approved)
-            ->whereYear('date_end', $year)
-            ->with('ldiTraining')
-            ->get()
-            ->groupBy(fn (TrainingRecord $record): string => $record->ldiTraining?->budget_source ?: self::NOT_STATED)
-            ->map(fn ($group): float => (float) $group->sum(fn (TrainingRecord $record): float => (float) $record->registration_fee
-                + (float) $record->tev
-                + (float) $record->expenses))
-            ->filter(fn (float $amount): bool => $amount > 0)
-            ->all();
+        $amounts = [];
+
+        foreach (LdiTraining::query()->whereYear('date_start', $year)->get() as $plan) {
+            foreach ([$plan->budget_source, $plan->other_budget_source] as $source) {
+                if (blank($source)) {
+                    continue;
+                }
+
+                $amounts[$source] = ($amounts[$source] ?? 0.0) + $plan->fundedBy($source);
+            }
+        }
+
+        $amounts = array_filter($amounts, fn (float $amount): bool => $amount > 0);
 
         arsort($amounts);
 
