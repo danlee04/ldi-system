@@ -64,12 +64,7 @@ new #[Title('Budget caps')] class extends Component {
 
         $validated = $this->validate([
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
-            'budget_source' => [
-                'required', 'string', 'max:255',
-                Rule::unique('budget_caps', 'budget_source')
-                    ->where(fn ($query) => $query->where('year', $this->year))
-                    ->ignore($this->editingId),
-            ],
+            'budget_source' => ['required', 'string', 'max:255', Rule::unique('budget_caps', 'budget_source')->where(fn($query) => $query->where('year', $this->year))->ignore($this->editingId)],
             'amount' => ['required', 'numeric', 'min:0'],
         ]);
 
@@ -103,10 +98,6 @@ new #[Title('Budget caps')] class extends Component {
         <flux:button variant="primary" wire:click="create">{{ __('Add cap') }}</flux:button>
     </div>
 
-    <flux:callout icon="information-circle">
-        {{ __('How much may be spent from one source in one year. Going over never blocks a plan from being saved — the commitment is made outside this system, so HR is warned and the record still stands.') }}
-    </flux:callout>
-
     <flux:table>
         <flux:table.columns>
             <flux:table.column>{{ __('Year') }}</flux:table.column>
@@ -139,7 +130,8 @@ new #[Title('Budget caps')] class extends Component {
                 </flux:table.row>
             @empty
                 <flux:table.row>
-                    <flux:table.cell colspan="6">{{ __('No caps set. Without one, no budget warning is shown.') }}</flux:table.cell>
+                    <flux:table.cell colspan="6">{{ __('No caps set. Without one, no budget warning is shown.') }}
+                    </flux:table.cell>
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
@@ -152,13 +144,13 @@ new #[Title('Budget caps')] class extends Component {
             </flux:heading>
 
             <div class="grid gap-4 md:grid-cols-2">
-                <flux:input wire:model="year" :label="__('Year')" type="number" min="2000" max="2100" required />
+                <flux:input wire:model="year" :label="__('Year')" type="number" min="2000" max="2100"
+                    required />
 
-                <x-picklist-input wire:model="budget_source" :label="__('Budget source')"
-                    :options="config('ldi.budget_sources')" required />
+                <x-picklist-input wire:model="budget_source" :label="__('Budget source')" :options="config('ldi.budget_sources')" required />
 
-                <flux:input class="md:col-span-2" wire:model="amount" :label="__('Cap')"
-                    type="number" step="0.01" min="0" required />
+                <flux:input class="md:col-span-2" wire:model="amount" :label="__('Cap')" type="number"
+                    step="0.01" min="0" required />
             </div>
 
             <div class="flex gap-2">

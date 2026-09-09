@@ -102,14 +102,12 @@ new #[Title('LDI trainings')] class extends Component {
     {
         return LdiTraining::query()
             ->when($this->search !== '', function (Builder $query): void {
-                $term = '%'.$this->search.'%';
+                $term = '%' . $this->search . '%';
 
-                $query->where(fn (Builder $match) => $match->where('title', 'like', $term)
-                    ->orWhere('development_partner', 'like', $term)
-                    ->orWhere('budget_source', 'like', $term));
+                $query->where(fn(Builder $match) => $match->where('title', 'like', $term)->orWhere('development_partner', 'like', $term)->orWhere('budget_source', 'like', $term));
             })
-            ->when($this->filterYear !== null, fn (Builder $query) => $query->whereYear('date_start', $this->filterYear))
-            ->when($this->filterMonth !== null, fn (Builder $query) => $query->whereMonth('date_start', $this->filterMonth))
+            ->when($this->filterYear !== null, fn(Builder $query) => $query->whereYear('date_start', $this->filterYear))
+            ->when($this->filterMonth !== null, fn(Builder $query) => $query->whereMonth('date_start', $this->filterMonth))
             ->withCount('trainingRecords')
             ->orderByDesc('date_start')
             ->paginate(15);
@@ -123,12 +121,7 @@ new #[Title('LDI trainings')] class extends Component {
     #[Computed]
     public function years(): Collection
     {
-        return LdiTraining::query()
-            ->pluck('date_start')
-            ->map(fn (CarbonImmutable $date): int => (int) $date->format('Y'))
-            ->unique()
-            ->sortDesc()
-            ->values();
+        return LdiTraining::query()->pluck('date_start')->map(fn(CarbonImmutable $date): int => (int) $date->format('Y'))->unique()->sortDesc()->values();
     }
 
     /**
@@ -138,9 +131,14 @@ new #[Title('LDI trainings')] class extends Component {
     public function months(): array
     {
         return collect(range(1, 12))
-            ->mapWithKeys(fn (int $month): array => [
-                $month => now()->startOfYear()->addMonths($month - 1)->format('F'),
-            ])
+            ->mapWithKeys(
+                fn(int $month): array => [
+                    $month => now()
+                        ->startOfYear()
+                        ->addMonths($month - 1)
+                        ->format('F'),
+                ],
+            )
             ->all();
     }
 
@@ -182,9 +180,7 @@ new #[Title('LDI trainings')] class extends Component {
 
     public function save(): void
     {
-        $this->authorize($this->editingId === null ? 'create' : 'update', $this->editingId === null
-            ? LdiTraining::class
-            : LdiTraining::findOrFail($this->editingId));
+        $this->authorize($this->editingId === null ? 'create' : 'update', $this->editingId === null ? LdiTraining::class : LdiTraining::findOrFail($this->editingId));
 
         $validated = $this->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -205,21 +201,24 @@ new #[Title('LDI trainings')] class extends Component {
             'other_budget_amount' => ['nullable', 'numeric', 'min:0', 'required_with:other_budget_source'],
         ]);
 
-        LdiTraining::updateOrCreate(['id' => $this->editingId], [
-            ...$validated,
-            'type_of_training' => $validated['type_of_training'] ?: null,
-            'training_communication' => $validated['training_communication'] ?: null,
-            'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
-            'location' => $validated['location'] ?: null,
-            // HR is named only when it actually put something in, so a
-            // plan it did not fund does not land against its cap.
-            'budget_source' => $this->budget_amount === null ? null : self::HR_SOURCE,
-            'budget' => $this->totalBudget ?: null,
-            'budget_amount' => $validated['budget_amount'],
-            'other_budget_source' => $validated['other_budget_source'] ?: null,
-            'other_budget_amount' => $validated['other_budget_amount'],
-            'created_by' => auth()->id(),
-        ]);
+        LdiTraining::updateOrCreate(
+            ['id' => $this->editingId],
+            [
+                ...$validated,
+                'type_of_training' => $validated['type_of_training'] ?: null,
+                'training_communication' => $validated['training_communication'] ?: null,
+                'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
+                'location' => $validated['location'] ?: null,
+                // HR is named only when it actually put something in, so a
+                // plan it did not fund does not land against its cap.
+                'budget_source' => $this->budget_amount === null ? null : self::HR_SOURCE,
+                'budget' => $this->totalBudget ?: null,
+                'budget_amount' => $validated['budget_amount'],
+                'other_budget_source' => $validated['other_budget_source'] ?: null,
+                'other_budget_amount' => $validated['other_budget_amount'],
+                'created_by' => auth()->id(),
+            ],
+        );
 
         $this->resetForm();
 
@@ -240,18 +239,13 @@ new #[Title('LDI trainings')] class extends Component {
     #[Computed]
     public function budgetHint(): ?string
     {
-        $cap = BudgetCap::forSourceAndYear(
-            self::HR_SOURCE,
-            $this->date_start !== '' ? (int) substr($this->date_start, 0, 4) : null,
-        );
+        $cap = BudgetCap::forSourceAndYear(self::HR_SOURCE, $this->date_start !== '' ? (int) substr($this->date_start, 0, 4) : null);
 
         if ($cap === null) {
             return null;
         }
 
-        $committedElsewhere = $cap->committed() - (float) LdiTraining::query()
-            ->whereKey($this->editingId)
-            ->sum('budget');
+        $committedElsewhere = $cap->committed() - (float) LdiTraining::query()->whereKey($this->editingId)->sum('budget');
 
         $left = (float) $cap->amount - $committedElsewhere - (float) ($this->budget_amount ?? 0);
 
@@ -292,11 +286,7 @@ new #[Title('LDI trainings')] class extends Component {
         $whole = $plan->budget_amount ?? $plan->budget;
 
         if ($plan->budget_source === self::HR_SOURCE) {
-            return [
-                $whole === null ? null : (float) $whole,
-                (string) $plan->other_budget_source,
-                $plan->other_budget_amount === null ? null : (float) $plan->other_budget_amount,
-            ];
+            return [$whole === null ? null : (float) $whole, (string) $plan->other_budget_source, $plan->other_budget_amount === null ? null : (float) $plan->other_budget_amount];
         }
 
         // Not HR's, so the whole of it sits on the other side.
@@ -312,11 +302,7 @@ new #[Title('LDI trainings')] class extends Component {
     }
     public function resetForm(): void
     {
-        $this->reset(
-            'editingId', 'title', 'development_partner', 'facilitator', 'type_of_training',
-            'training_communication', 'date_start', 'date_end', 'hours', 'cpd_units',
-            'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget_amount', 'other_budget_source', 'other_budget_amount',
-        );
+        $this->reset('editingId', 'title', 'development_partner', 'facilitator', 'type_of_training', 'training_communication', 'date_start', 'date_end', 'hours', 'cpd_units', 'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget_amount', 'other_budget_source', 'other_budget_amount');
         $this->resetValidation();
     }
 }; ?>
@@ -330,18 +316,15 @@ new #[Title('LDI trainings')] class extends Component {
                 :href="route('reports.doh-ldi', [
                     'year' => $filterYear,
                     'month' => $filterMonth,
-                    'search' => $search ?: null,
-                ])" target="_blank">
+                    'search' => $search ? : null,
+                ])"
+                target="_blank">
                 {{ __('Generate report') }}
             </flux:button>
 
             <flux:button variant="primary" wire:click="create">{{ __('Add LDI training') }}</flux:button>
         </div>
     </div>
-
-    <flux:callout icon="information-circle">
-        {{ __('These are the trainings the agency planned and funded. Attendance recorded here needs no approval. A training an employee found on their own is submitted from My trainings instead.') }}
-    </flux:callout>
 
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
         <flux:input size="sm" class="lg:flex-1" wire:model.live.debounce.300ms="search"
@@ -418,7 +401,7 @@ new #[Title('LDI trainings')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="ldi-form" class="md:w-5xl md:max-w-[calc(100vw-4rem)] lg:w-6xl">
+    <flux:modal name="ldi-form" class="md:w-3xl md:max-w-[calc(100vw-4rem)] lg:w-3xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add LDI training') : __('Edit LDI training') }}
@@ -427,14 +410,11 @@ new #[Title('LDI trainings')] class extends Component {
             <div class="grid gap-4 md:grid-cols-2">
                 <flux:input class="md:col-span-2" wire:model="title" :label="__('Title')" required />
 
-                <x-picklist-input wire:model="development_partner" :label="__('Development partner')"
-                    :options="config('ldi.development_partners')" required />
+                <x-picklist-input wire:model="development_partner" :label="__('Development partner')" :options="config('ldi.development_partners')" required />
 
-                <x-picklist-input wire:model="facilitator" :label="__('Conducted or sponsored by')"
-                    :options="config('ldi.facilitators')" required />
+                <x-picklist-input wire:model="facilitator" :label="__('Conducted or sponsored by')" :options="config('ldi.facilitators')" required />
 
-                <x-picklist-input wire:model="type_of_training" :label="__('Type of training')"
-                    :options="config('ldi.training_types')" />
+                <x-picklist-input wire:model="type_of_training" :label="__('Type of training')" :options="config('ldi.training_types')" />
 
                 <flux:select wire:model="training_communication" :label="__('Training communication')">
                     <flux:select.option value="">{{ __('Not stated') }}</flux:select.option>
@@ -447,7 +427,8 @@ new #[Title('LDI trainings')] class extends Component {
                 <flux:input wire:model="date_end" :label="__('To')" type="date" required />
 
                 <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
-                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0" />
+                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1"
+                    min="0" />
 
                 <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
@@ -457,11 +438,13 @@ new #[Title('LDI trainings')] class extends Component {
                 </flux:select>
 
                 @if ($ld_type === LdType::Other->value)
-                    <flux:input class="md:col-span-2" wire:model="ld_type_other" :label="__('Specify the type')" required />
+                    <flux:input class="md:col-span-2" wire:model="ld_type_other" :label="__('Specify the type')"
+                        required />
                 @endif
 
                 <flux:input wire:model="location" :label="__('Location')" />
-                <flux:input wire:model="target_attendees" :label="__('Target attendees')" type="number" min="1" />
+                <flux:input wire:model="target_attendees" :label="__('Target attendees')" type="number"
+                    min="1" />
 
                 <div class="md:col-span-2">
                     <flux:separator :text="__('Budget')" />
@@ -469,8 +452,8 @@ new #[Title('LDI trainings')] class extends Component {
 
                 {{-- The agency's own budget is the one fund with a fixed
                      name, so it is stated. Everything else is written in. --}}
-                <flux:input wire:model.live.debounce.400ms="budget_amount"
-                    :label="__('HR source of fund — budget')" type="number" step="0.01" min="0"
+                <flux:input wire:model.live.debounce.400ms="budget_amount" :label="__('HR source of fund — budget')"
+                    type="number" step="0.01" min="0"
                     :description="__('Leave it empty when HR put nothing into this plan.')" />
 
                 <div></div>
@@ -478,8 +461,8 @@ new #[Title('LDI trainings')] class extends Component {
                 <flux:input wire:model="other_budget_source" :label="__('Other source of fund')"
                     :placeholder="__('Who else paid for it')" />
 
-                <flux:input wire:model.live.debounce.400ms="other_budget_amount"
-                    :label="__('Other source — budget')" type="number" step="0.01" min="0" />
+                <flux:input wire:model.live.debounce.400ms="other_budget_amount" :label="__('Other source — budget')"
+                    type="number" step="0.01" min="0" />
 
                 <div class="md:col-span-2">
                     <flux:text size="sm">

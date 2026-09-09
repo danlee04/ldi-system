@@ -56,11 +56,11 @@ new #[Title('Sections')] class extends Component {
     {
         return Section::query()
             ->when($this->search !== '', function (Builder $query): void {
-                $term = '%'.$this->search.'%';
+                $term = '%' . $this->search . '%';
 
-                $query->where(fn (Builder $match) => $match->where('name', 'like', $term)->orWhere('code', 'like', $term));
+                $query->where(fn(Builder $match) => $match->where('name', 'like', $term)->orWhere('code', 'like', $term));
             })
-            ->when($this->filterDivisionId !== null, fn (Builder $query) => $query->where('division_id', $this->filterDivisionId))
+            ->when($this->filterDivisionId !== null, fn(Builder $query) => $query->where('division_id', $this->filterDivisionId))
             ->with(['division', 'head'])
             ->withCount('employees')
             ->orderBy('name')
@@ -122,12 +122,15 @@ new #[Title('Sections')] class extends Component {
             'sectionHeadEmployeeId' => ['nullable', 'exists:employees,id'],
         ]);
 
-        Section::updateOrCreate(['id' => $this->editingId], [
-            'division_id' => $validated['divisionId'],
-            'name' => $validated['name'],
-            'code' => $validated['code'],
-            'section_head_employee_id' => $validated['sectionHeadEmployeeId'],
-        ]);
+        Section::updateOrCreate(
+            ['id' => $this->editingId],
+            [
+                'division_id' => $validated['divisionId'],
+                'name' => $validated['name'],
+                'code' => $validated['code'],
+                'section_head_employee_id' => $validated['sectionHeadEmployeeId'],
+            ],
+        );
 
         $this->resetForm();
 
@@ -151,10 +154,6 @@ new #[Title('Sections')] class extends Component {
 
         <flux:button variant="primary" wire:click="create">{{ __('Add section') }}</flux:button>
     </div>
-
-    <flux:callout icon="information-circle">
-        {{ __('A section with no head sends its submissions straight to the division head. If neither has a head, submissions cannot move at all.') }}
-    </flux:callout>
 
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
         <flux:input size="sm" class="lg:flex-1" wire:model.live.debounce.300ms="search"
