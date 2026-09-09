@@ -24,5 +24,15 @@ Lay modal bodies out as `grid gap-4 md:grid-cols-2` rather than one stacked colu
 
 For a confirmation modal, put the record's details in the left column and the remarks or reason field in the right, so the approver sees what they are deciding on without leaving the modal.
 
-## Modal sizes: w-5xl for short forms, w-7xl for full ones
-Use `md:w-5xl` (64rem) for a confirmation or a short form, and `md:w-7xl` (80rem) for a full record form. Narrower squeezes the two-column grid back into one column on a laptop, which is the layout these modals exist to avoid. `w-7xl` is the widest step Tailwind offers; past it, use an explicit width.
+## A modal width does nothing on its own — Flux caps it at max-w-xl
+flux:modal puts `[:where(&)]:max-w-xl` (36rem) on the same `<dialog>` your class lands on. `max-width` beats `width`, so `md:w-5xl` and `md:w-7xl` were both silently rendering at 36rem across every modal in this app. Zero specificity is the only reason the fix works: any real `max-w-*` class wins.
+
+So a wide modal takes two classes, not one:
+
+```blade
+<flux:modal name="ldi-form" class="md:w-5xl md:max-w-[calc(100vw-4rem)] lg:w-6xl">
+```
+
+`md:w-5xl` (64rem) suits a full record form and `md:w-6xl`/`w-7xl` a longer one, but the `md:max-w-[calc(100vw-4rem)]` is not optional — `md:` starts at 768px, and 64rem of width there overflows the viewport without it.
+
+Anything narrower than 4xl squeezes the two-column grid back into one column on a laptop, which is the layout these modals exist to avoid.

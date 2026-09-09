@@ -418,7 +418,7 @@ new #[Title('LDI trainings')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="ldi-form" class="md:w-7xl">
+    <flux:modal name="ldi-form" class="md:w-5xl md:max-w-[calc(100vw-4rem)] lg:w-6xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add LDI training') : __('Edit LDI training') }}
