@@ -4,6 +4,7 @@ use App\Models\Employee;
 use App\Models\TrainingRecord;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -28,6 +29,12 @@ new #[Title('Employee')] class extends Component {
     {
         return $this->employee->trainingRecords()->orderByDesc('date_end')->get();
     }
+
+    #[On('training-saved')]
+    public function refresh(): void
+    {
+        unset($this->records);
+    }
 }; ?>
 
 <div class="space-y-6">
@@ -48,9 +55,18 @@ new #[Title('Employee')] class extends Component {
                 </flux:text>
             </div>
 
-            <flux:button icon="arrow-down-tray" :href="route('employees.pds', $employee)">
-                {{ __('Download PDS') }}
-            </flux:button>
+            <div class="flex flex-wrap gap-2">
+                @can('createFor', [App\Models\TrainingRecord::class, $employee])
+                    <flux:button variant="primary"
+                        wire:click="$dispatch('add-training', { employeeId: {{ $employee->id }} })">
+                        {{ __('Add training') }}
+                    </flux:button>
+                @endcan
+
+                <flux:button icon="arrow-down-tray" :href="route('employees.pds', $employee)">
+                    {{ __('Download PDS') }}
+                </flux:button>
+            </div>
         </div>
     </div>
 
@@ -118,6 +134,8 @@ new #[Title('Employee')] class extends Component {
             @endforelse
         </flux:table.rows>
     </flux:table>
+
+    <livewire:pages::trainings.form-modal />
 
     <livewire:pages::trainings.detail-modal />
 </div>

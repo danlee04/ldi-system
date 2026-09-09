@@ -5,6 +5,7 @@ use Carbon\CarbonImmutable;
 use App\Models\LdiTraining;
 use App\Actions\Reports\TrainingByMonthReport;
 use App\Actions\Reports\CoverageByDivisionReport;
+use App\Actions\Reports\AgencyTotalsReport;
 use App\Actions\Reports\ApprovalsAgingReport;
 use App\Enums\TrainingStatus;
 use App\Models\Employee;
@@ -21,7 +22,6 @@ new #[Title('Dashboard')] class extends Component {
 
     public int $myApproved = 0;
 
-    public int $awaitingMe = 0;
 
     public int $unroutable = 0;
 
@@ -35,47 +35,10 @@ new #[Title('Dashboard')] class extends Component {
             $this->myApproved = $employee->trainingRecords()->approved()->count();
         }
 
-        $this->awaitingMe = $this->countAwaitingMe();
 
         if ($user->isAdminOrHr()) {
             $this->unroutable = TrainingRecord::query()->unroutable()->count();
         }
-    }
-
-    /**
-     * How many decisions are actually this account's to make.
-     *
-     * HR and admin may decide on anything, so counting only the records
-     * they are the designated head for told them nothing — an HR officer
-     * with four waiting saw a zero.
-     */
-    private function countAwaitingMe(): int
-    {
-        $user = auth()->user();
-
-        if ($user->isAdminOrHr()) {
-            return TrainingRecord::query()->pending()->count();
-        }
-
-        $employee = $user->employee;
-
-        if (! $employee instanceof Employee) {
-            return 0;
-        }
-
-        $router = app(ApprovalRouter::class);
-
-        return TrainingRecord::query()
-            ->pending()
-            ->whereNotNull('current_level')
-            ->with('employee')
-            ->get()
-            ->filter(function (TrainingRecord $record) use ($router, $employee): bool {
-                $approver = $router->approverFor($record->current_level, $record->employee);
-
-                return $approver instanceof Employee && $approver->is($employee);
-            })
-            ->count();
     }
 
     #[Computed(persist: true)]
@@ -187,6 +150,32 @@ new #[Title('Dashboard')] class extends Component {
         return now()->year;
     }
 
+    /**
+     * @return array{total: int, rows: list<array{label: string, count: int}>}
+     */
+    #[Computed]
+    public function employeeTotals(): array
+    {
+        return app(AgencyTotalsReport::class)->employeesByDivision();
+    }
+
+    /**
+     * @return array{total: int, rows: list<array{label: string, count: int}>}
+     */
+    #[Computed]
+    public function planTotals(): array
+    {
+        return app(AgencyTotalsReport::class)->plansByCommunication($this->year());
+    }
+
+    /**
+     * @return array{total: float, hr: float, other: float, rows: list<array{label: string, amount: float}>}
+     */
+    #[Computed]
+    public function spendTotals(): array
+    {
+        return app(AgencyTotalsReport::class)->spendBySource($this->year());
+    }
     /**
      * @return list<array{month: int, label: string, attendances: int}>
      */
@@ -438,15 +427,6 @@ new #[Title('Dashboard')] class extends Component {
             </flux:card>
         @endif
 
-        @if (auth()->user()->decidesOnTrainings())
-            <flux:card class="space-y-1">
-                <flux:text size="sm">{{ __('Waiting for my decision') }}</flux:text>
-                <flux:heading size="xl" class="tabular-nums">{{ $awaitingMe }}</flux:heading>
-                @if ($awaitingMe > 0)
-                    <flux:link :href="route('approvals')" wire:navigate>{{ __('Go to approvals') }}</flux:link>
-                @endif
-            </flux:card>
-        @endif
     </div>
 
     @if ($this->employee)
@@ -518,6 +498,9 @@ new #[Title('Dashboard')] class extends Component {
     @if ($this->seesAgency)
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
+                <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals"
+                    :spend="$this->spendTotals" :year="$this->year()" />
+
                 <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak"
                     :year="$this->year()" />
 

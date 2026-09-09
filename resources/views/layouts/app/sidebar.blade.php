@@ -40,7 +40,15 @@
                         @endif
 
                         @if (auth()->user()->decidesOnTrainings())
-                            <flux:sidebar.item icon="check-badge" :href="route('approvals')" :current="request()->routeIs('approvals')" wire:navigate>
+                            {{-- The count sits here rather than on the dashboard,
+                                 so it is in front of the approver on every page
+                                 instead of only on the one they land on. --}}
+                            @php($pendingDecisions = app(App\Actions\Training\CountPendingDecisions::class)->handle(auth()->user()))
+
+                            <flux:sidebar.item icon="check-badge" :href="route('approvals')"
+                                :current="request()->routeIs('approvals')"
+                                :badge="$pendingDecisions > 0 ? $pendingDecisions : null"
+                                badge-color="amber" wire:navigate>
                                 {{ __('Approvals') }}
                             </flux:sidebar.item>
                         @endif

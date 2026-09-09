@@ -2,6 +2,7 @@
 
 use App\Enums\ApprovalLevel;
 use App\Enums\LdType;
+use App\Models\Division;
 use App\Models\Employee;
 use App\Models\EmployeeEligibility;
 use App\Models\LdiTraining;
@@ -38,32 +39,6 @@ test('the dashboard counts my own records by state', function () {
         ->assertSet('myApproved', 1);
 });
 
-test('the dashboard tells a head how many records await them', function () {
-    $user = User::factory()->sectionHead()->create();
-    Employee::factory()->create(['user_id' => $user->id]);
-
-    $this->actingAs($user);
-
-    Livewire::test('pages::dashboard')->assertSet('awaitingMe', 0);
-});
-
-test('a head sees a record that is actually waiting on them', function () {
-    $section = Section::factory()->create();
-
-    $headUser = User::factory()->sectionHead()->create();
-    $head = Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
-    $section->update(['section_head_employee_id' => $head->id]);
-
-    $employee = Employee::factory()->for($section)->create();
-    TrainingRecord::factory()->for($employee)->create([
-        'current_level' => ApprovalLevel::SectionHead,
-    ]);
-
-    $this->actingAs($headUser);
-
-    Livewire::test('pages::dashboard')->assertSet('awaitingMe', 1);
-});
-
 test('hr is warned about records nobody can approve', function () {
     $section = Section::factory()->create(['section_head_employee_id' => null]);
     $employee = Employee::factory()->for($section)->create();
@@ -89,42 +64,6 @@ test('an ordinary employee is not shown the unroutable warning', function () {
     $this->actingAs($user);
 
     Livewire::test('pages::dashboard')->assertSet('unroutable', 0);
-});
-
-test('hr is told how many decisions are actually theirs to make', function () {
-    $section = Section::factory()->create();
-    $headUser = User::factory()->sectionHead()->create();
-    $head = Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
-    $section->update(['section_head_employee_id' => $head->id]);
-
-    $employee = Employee::factory()->for($section)->create();
-
-    // One sitting with a head, one nobody can route.
-    TrainingRecord::factory()->for($employee)->create(['current_level' => ApprovalLevel::SectionHead]);
-    TrainingRecord::factory()->for($employee)->create(['current_level' => null]);
-    TrainingRecord::factory()->for($employee)->approved()->create();
-
-    $this->actingAs(User::factory()->hr()->create());
-
-    // HR decides on anything, so both pending records count.
-    Livewire::test('pages::dashboard')->assertSet('awaitingMe', 2);
-});
-
-test('a head is still told only what is waiting on them', function () {
-    $section = Section::factory()->create();
-    $headUser = User::factory()->sectionHead()->create();
-    $head = Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
-    $section->update(['section_head_employee_id' => $head->id]);
-
-    TrainingRecord::factory()->for(Employee::factory()->for($section)->create())
-        ->create(['current_level' => ApprovalLevel::SectionHead]);
-
-    // Somebody else's section entirely.
-    TrainingRecord::factory()->create(['current_level' => ApprovalLevel::SectionHead]);
-
-    $this->actingAs($headUser);
-
-    Livewire::test('pages::dashboard')->assertSet('awaitingMe', 1);
 });
 
 test('a submission says who it is sitting with', function () {
@@ -214,7 +153,7 @@ test('an administrative account gets no personal panels', function () {
     Livewire::test('pages::dashboard')
         ->assertDontSee('My PDS')
         ->assertDontSee('Where my submissions stand')
-        ->assertSee('Waiting for my decision');
+        ->assertSee('Training completed each month');
 });
 
 test('an employee is not shown the agency panels', function () {
@@ -355,4 +294,96 @@ test('the agency eligibility list holds the lapsed and the lapsing, not the dist
     // Soonest first, so the overdue one leads.
     expect($alerts)->toHaveCount(2)
         ->and($alerts->first()->date_of_validity->toDateString())->toBe(today()->subMonth()->toDateString());
+});
+
+test('the employee card totals the roster and splits it by division', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $wanted = Division::factory()->create(['code' => 'FAD']);
+    Employee::factory()->count(2)->for(Section::factory()->for($wanted))->create();
+    Employee::factory()->for(Section::factory()->for(Division::factory()->create(['code' => 'RITD'])))->create();
+
+    // Inactive people are not on the roster.
+    Employee::factory()->inactive()->for(Section::factory()->for($wanted))->create();
+
+    $totals = Livewire::test('pages::dashboard')->instance()->employeeTotals;
+
+    expect($totals['total'])->toBe(3)
+        ->and($totals['rows'][0])->toBe(['label' => 'FAD', 'count' => 2])
+        ->and($totals['rows'][1])->toBe(['label' => 'RITD', 'count' => 1]);
+});
+
+test('a plan with no communication recorded is counted rather than dropped', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    LdiTraining::factory()->count(2)->create([
+        'date_start' => now(),
+        'date_end' => now(),
+        'training_communication' => 'Requested Training',
+    ]);
+
+    LdiTraining::factory()->create([
+        'date_start' => now(),
+        'date_end' => now(),
+        'training_communication' => null,
+    ]);
+
+    $totals = Livewire::test('pages::dashboard')->instance()->planTotals;
+
+    expect($totals['total'])->toBe(3)
+        ->and($totals['rows'][0])->toBe(['label' => 'Requested Training', 'count' => 2])
+        ->and($totals['rows'][1])->toBe(['label' => 'Not stated', 'count' => 1]);
+});
+
+test('the expense card separates the hr budget from every other fund', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $hrPlan = LdiTraining::factory()->create(['budget_source' => 'Human Resource']);
+    $otherPlan = LdiTraining::factory()->create(['budget_source' => 'WFP- Hospital Income']);
+
+    TrainingRecord::factory()->for($hrPlan, 'ldiTraining')->approved()->create([
+        'date_end' => now(),
+        'registration_fee' => 1000,
+        'tev' => 0,
+        'expenses' => 0,
+    ]);
+
+    TrainingRecord::factory()->for($otherPlan, 'ldiTraining')->approved()->create([
+        'date_end' => now(),
+        'registration_fee' => 0,
+        'tev' => 500,
+        'expenses' => 250,
+    ]);
+
+    $spend = Livewire::test('pages::dashboard')->instance()->spendTotals;
+
+    expect($spend['total'])->toBe(1750.0)
+        ->and($spend['hr'])->toBe(1000.0)
+        ->and($spend['other'])->toBe(750.0)
+        ->and($spend['rows'][0])->toBe(['label' => 'Human Resource', 'amount' => 1000.0]);
+});
+
+test('a source that spent nothing is left off the expense card', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    LdiTraining::factory()->create(['budget_source' => 'Spent Nothing']);
+
+    expect(Livewire::test('pages::dashboard')->instance()->spendTotals['rows'])->toBe([]);
+});
+
+test('the three cards are shown to hr and not to an employee', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Total employees')
+        ->assertSee('HR source');
+
+    $user = User::factory()->employee()->create();
+    Employee::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::dashboard')
+        ->assertDontSee('Total employees')
+        ->assertDontSee('HR source');
 });
