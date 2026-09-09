@@ -1,8 +1,16 @@
 <?php
 
+use App\Actions\Reports\ApprovalsAgingReport;
 use App\Actions\Reports\BudgetUtilizationReport;
+use App\Actions\Reports\CostPerParticipantReport;
+use App\Actions\Reports\CoverageByDivisionReport;
 use App\Actions\Reports\EmployeesWithoutTrainingReport;
+use App\Actions\Reports\FundUtilizationByDivisionReport;
+use App\Actions\Reports\LdiAccomplishmentReport;
 use App\Actions\Reports\MonthlyActivityReport;
+use App\Actions\Reports\RepeatAttendanceReport;
+use App\Models\Division;
+use App\Models\Section;
 use App\Models\TrainingRecord;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -20,6 +28,32 @@ new #[Title('Reports')] class extends Component {
 
     #[Url]
     public ?int $month = null;
+
+    #[Url]
+    public string $quarter = '';
+
+    #[Url]
+    public string $divisionId = '';
+
+    #[Url]
+    public string $sectionId = '';
+
+    /**
+     * Every report this page offers, and what it is called on screen.
+     *
+     * @var array<string, string>
+     */
+    public const REPORTS = [
+        'activity' => 'Monthly activity',
+        'without' => 'Without training',
+        'coverage' => 'Coverage by division',
+        'repeat' => 'Repeat and first-timers',
+        'accomplishment' => 'LDI accomplishment',
+        'budget' => 'Budget utilization',
+        'funds' => 'Fund utilization by division',
+        'providers' => 'Cost per participant',
+        'aging' => 'Approvals aging',
+    ];
 
     public function mount(): void
     {
@@ -48,16 +82,20 @@ new #[Title('Reports')] class extends Component {
     }
 
     /**
-     * @return Collection<int, \App\Models\Employee>
+     * @return list<array{employee: \App\Models\Employee, last_training: \Carbon\CarbonImmutable|null}>
      */
     #[Computed]
-    public function without(): Collection
+    public function without(): array
     {
-        return app(EmployeesWithoutTrainingReport::class)->handle($this->year);
+        return app(EmployeesWithoutTrainingReport::class)->handle(
+            $this->year,
+            $this->divisionId === '' ? null : (int) $this->divisionId,
+            $this->sectionId === '' ? null : (int) $this->sectionId,
+        );
     }
 
     /**
-     * @return array{without: int, active: int}
+     * @return array{without: int, active: int, never: int}
      */
     #[Computed]
     public function withoutTotals(): array
@@ -72,6 +110,141 @@ new #[Title('Reports')] class extends Component {
     public function budget(): array
     {
         return app(BudgetUtilizationReport::class)->handle($this->year);
+    }
+
+    /**
+     * @return list<array{plan: \App\Models\LdiTraining, attendees: int, spent: float}>
+     */
+    #[Computed]
+    public function accomplishment(): array
+    {
+        return app(LdiAccomplishmentReport::class)->handle(
+            $this->year,
+            $this->quarter === '' ? null : (int) $this->quarter,
+        );
+    }
+
+    /**
+     * @return array{plans: int, attendees: int, hours: int, spent: float}
+     */
+    #[Computed]
+    public function accomplishmentTotals(): array
+    {
+        return app(LdiAccomplishmentReport::class)->summarise($this->accomplishment);
+    }
+
+    /**
+     * @return list<array{division: string, quarters: array<int, float>, total: float, attendances: int}>
+     */
+    #[Computed]
+    public function funds(): array
+    {
+        return app(FundUtilizationByDivisionReport::class)->handle($this->year);
+    }
+
+    /**
+     * @return list<array{division: string, employees: int, covered: int, percentage: float}>
+     */
+    #[Computed]
+    public function coverage(): array
+    {
+        return app(CoverageByDivisionReport::class)->handle($this->year);
+    }
+
+    /**
+     * @return array{employees: int, covered: int, percentage: float}
+     */
+    #[Computed]
+    public function coverageTotals(): array
+    {
+        return app(CoverageByDivisionReport::class)->summarise($this->coverage);
+    }
+
+    /**
+     * @return list<array{employee: \App\Models\Employee, attendances: int, earlier: int, first_timer: bool}>
+     */
+    #[Computed]
+    public function repeat(): array
+    {
+        return app(RepeatAttendanceReport::class)->handle($this->year);
+    }
+
+    /**
+     * @return array{attendees: int, first_timers: int, repeats: int}
+     */
+    #[Computed]
+    public function repeatTotals(): array
+    {
+        return app(RepeatAttendanceReport::class)->summarise($this->repeat);
+    }
+
+    /**
+     * @return list<array{provider: string, attendances: int, employees: int, hours: int, cost: float, per_participant: float}>
+     */
+    #[Computed]
+    public function providers(): array
+    {
+        return app(CostPerParticipantReport::class)->handle($this->year);
+    }
+
+    /**
+     * @return array{providers: int, attendances: int, cost: float, per_participant: float}
+     */
+    #[Computed]
+    public function providerTotals(): array
+    {
+        return app(CostPerParticipantReport::class)->summarise($this->providers);
+    }
+
+    /**
+     * @return Collection<int, TrainingRecord>
+     */
+    #[Computed]
+    public function aging(): Collection
+    {
+        return app(ApprovalsAgingReport::class)->handle();
+    }
+
+    /**
+     * @return array{pending: int, unroutable: int, longest: int}
+     */
+    #[Computed]
+    public function agingTotals(): array
+    {
+        return app(ApprovalsAgingReport::class)->summarise($this->aging);
+    }
+
+    /**
+     * @return Collection<int, Division>
+     */
+    #[Computed(persist: true)]
+    public function divisions(): Collection
+    {
+        return Division::query()->orderBy('code')->get();
+    }
+
+    /**
+     * Only the sections of the chosen division, so the two filters cannot
+     * contradict each other.
+     *
+     * @return Collection<int, Section>
+     */
+    #[Computed]
+    public function sections(): Collection
+    {
+        return Section::query()
+            ->when($this->divisionId !== '', fn ($query) => $query->where('division_id', $this->divisionId))
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * A section outside the newly chosen division would filter everybody
+     * out, so it is dropped rather than left to look broken.
+     */
+    public function updatedDivisionId(): void
+    {
+        $this->sectionId = '';
     }
 
     /**
@@ -111,6 +284,12 @@ new #[Title('Reports')] class extends Component {
         return match ($this->report) {
             'without' => __('Employees with no training in :year', ['year' => $this->year]),
             'budget' => __('Budget utilization for :year', ['year' => $this->year]),
+            'coverage' => __('Training coverage by division, :year', ['year' => $this->year]),
+            'repeat' => __('Repeat attendance and first-timers, :year', ['year' => $this->year]),
+            'accomplishment' => __('LDI accomplishment, :period', ['period' => $this->period()]),
+            'funds' => __('Fund utilization by division, :year', ['year' => $this->year]),
+            'providers' => __('Cost per participant by provider, :year', ['year' => $this->year]),
+            'aging' => __('Training still awaiting a decision'),
             default => __('Training activity for :month :year', [
                 'month' => $this->months[$this->month] ?? '',
                 'year' => $this->year,
@@ -131,6 +310,30 @@ new #[Title('Reports')] class extends Component {
                 "budget-utilization-{$this->year}",
                 app(BudgetUtilizationReport::class)->toRows($this->budget),
             ],
+            'coverage' => [
+                "coverage-by-division-{$this->year}",
+                app(CoverageByDivisionReport::class)->toRows($this->coverage),
+            ],
+            'repeat' => [
+                "repeat-and-first-timers-{$this->year}",
+                app(RepeatAttendanceReport::class)->toRows($this->repeat),
+            ],
+            'accomplishment' => [
+                'ldi-accomplishment-'.str($this->period())->slug(),
+                app(LdiAccomplishmentReport::class)->toRows($this->accomplishment),
+            ],
+            'funds' => [
+                "fund-utilization-by-division-{$this->year}",
+                app(FundUtilizationByDivisionReport::class)->toRows($this->funds),
+            ],
+            'providers' => [
+                "cost-per-participant-{$this->year}",
+                app(CostPerParticipantReport::class)->toRows($this->providers),
+            ],
+            'aging' => [
+                'approvals-aging-'.now()->format('Y-m-d'),
+                app(ApprovalsAgingReport::class)->toRows($this->aging),
+            ],
             default => [
                 "training-activity-{$this->year}-{$this->month}",
                 app(MonthlyActivityReport::class)->toRows($this->activity),
@@ -140,12 +343,27 @@ new #[Title('Reports')] class extends Component {
         return response()->streamDownload(function () use ($rows): void {
             $handle = fopen('php://output', 'w');
 
+            if ($handle === false) {
+                return;
+            }
+
             foreach ($rows as $row) {
                 fputcsv($handle, $row);
             }
 
             fclose($handle);
         }, $name.'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * What the accomplishment report covers, for the heading and the file
+     * name: a quarter of a year, or the whole of it.
+     */
+    private function period(): string
+    {
+        return $this->quarter === ''
+            ? (string) $this->year
+            : 'Q'.$this->quarter.' '.$this->year;
     }
 }; ?>
 
@@ -158,15 +376,13 @@ new #[Title('Reports')] class extends Component {
         </flux:button>
     </div>
 
-    <div class="print:hidden">
-        <flux:radio.group wire:model.live="report" variant="segmented">
-            <flux:radio value="activity" :label="__('Monthly activity')" />
-            <flux:radio value="without" :label="__('Without training')" />
-            <flux:radio value="budget" :label="__('Budget utilization')" />
-        </flux:radio.group>
-    </div>
-
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center print:hidden">
+        <flux:select size="sm" class="lg:w-64" wire:model.live="report">
+            @foreach ($this::REPORTS as $key => $label)
+                <flux:select.option :value="$key">{{ __($label) }}</flux:select.option>
+            @endforeach
+        </flux:select>
+
         @if ($report === 'activity')
             <flux:select size="sm" class="lg:w-44" wire:model.live="month">
                 @foreach ($this->months as $number => $name)
@@ -175,161 +391,86 @@ new #[Title('Reports')] class extends Component {
             </flux:select>
         @endif
 
-        <flux:select size="sm" class="lg:w-32" wire:model.live="year">
-            @foreach ($this->years as $option)
-                <flux:select.option :value="$option">{{ $option }}</flux:select.option>
-            @endforeach
-        </flux:select>
+        @if ($report === 'accomplishment')
+            <flux:select size="sm" class="lg:w-40" wire:model.live="quarter">
+                <flux:select.option value="">{{ __('Whole year') }}</flux:select.option>
+                @foreach ([1, 2, 3, 4] as $option)
+                    <flux:select.option :value="$option">{{ __('Quarter :n', ['n' => $option]) }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        @endif
+
+        @if ($report === 'without')
+            <flux:select size="sm" class="lg:w-64" wire:model.live="divisionId">
+                <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
+                @foreach ($this->divisions as $division)
+                    <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select size="sm" class="lg:w-64" wire:model.live="sectionId">
+                <flux:select.option value="">{{ __('All sections') }}</flux:select.option>
+                @foreach ($this->sections as $section)
+                    <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        @endif
+
+        @if ($report !== 'aging')
+            <flux:select size="sm" class="lg:w-32" wire:model.live="year">
+                @foreach ($this->years as $option)
+                    <flux:select.option :value="$option">{{ $option }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        @endif
     </div>
 
     {{-- Only this heading survives printing, so the paper says what it is. --}}
     <div class="hidden print:block">
         <flux:heading size="lg">{{ config('app.name') }}</flux:heading>
         <flux:text>{{ $this->heading }}</flux:text>
+        <flux:text size="sm">
+            {{ __('Generated on :date by :user', [
+                'date' => now()->format('d M Y, g:i a'),
+                'user' => auth()->user()->name,
+            ]) }}
+        </flux:text>
     </div>
 
-    @if ($report === 'activity')
-        <div class="grid gap-4 md:grid-cols-4">
-            <flux:card>
-                <flux:text size="sm">{{ __('Attendances') }}</flux:text>
-                <flux:heading size="xl">{{ $this->activityTotals['attendances'] }}</flux:heading>
-            </flux:card>
-            <flux:card>
-                <flux:text size="sm">{{ __('Employees') }}</flux:text>
-                <flux:heading size="xl">{{ $this->activityTotals['employees'] }}</flux:heading>
-            </flux:card>
-            <flux:card>
-                <flux:text size="sm">{{ __('Hours') }}</flux:text>
-                <flux:heading size="xl">{{ number_format($this->activityTotals['hours']) }}</flux:heading>
-            </flux:card>
-            <flux:card>
-                <flux:text size="sm">{{ __('Cost') }}</flux:text>
-                <flux:heading size="xl">{{ number_format($this->activityTotals['cost'], 2) }}</flux:heading>
-            </flux:card>
-        </div>
+    @switch ($report)
+        @case('without')
+            <x-reports.without :rows="$this->without" :totals="$this->withoutTotals" :year="$year" />
+            @break
 
-        <flux:table>
-            <flux:table.columns>
-                <flux:table.column>{{ __('Division') }}</flux:table.column>
-                <flux:table.column>{{ __('Employee') }}</flux:table.column>
-                <flux:table.column>{{ __('Training') }}</flux:table.column>
-                <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Hours') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Cost') }}</flux:table.column>
-            </flux:table.columns>
+        @case('coverage')
+            <x-reports.coverage :rows="$this->coverage" :totals="$this->coverageTotals" />
+            @break
 
-            <flux:table.rows>
-                @forelse ($this->activity as $record)
-                    <flux:table.row :key="$record->id">
-                        <flux:table.cell>{{ $record->employee->division?->code ?? '—' }}</flux:table.cell>
-                        <flux:table.cell>
-                            <div class="w-52 truncate" title="{{ $record->employee->full_name }}">
-                                {{ $record->employee->listing_name }}
-                            </div>
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            <div class="w-64 truncate" title="{{ $record->title }}">{{ $record->title }}</div>
-                        </flux:table.cell>
-                        <flux:table.cell class="whitespace-nowrap">{{ $record->inclusive_dates }}</flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">{{ $record->hours }}</flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">
-                            {{ number_format((float) $record->registration_fee + (float) $record->tev + (float) $record->expenses, 2) }}
-                        </flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="6">
-                            {{ __('No training ended in this month.') }}
-                        </flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
-    @elseif ($report === 'without')
-        <flux:callout icon="exclamation-triangle" variant="warning">
-            {{ __(':without of :active active employees finished no approved training in :year.', [
-                'without' => $this->withoutTotals['without'],
-                'active' => $this->withoutTotals['active'],
-                'year' => $this->year,
-            ]) }}
-        </flux:callout>
+        @case('repeat')
+            <x-reports.repeat :rows="$this->repeat" :totals="$this->repeatTotals" />
+            @break
 
-        <flux:table>
-            <flux:table.columns>
-                <flux:table.column>{{ __('Division') }}</flux:table.column>
-                <flux:table.column>{{ __('Section') }}</flux:table.column>
-                <flux:table.column>{{ __('Employee no.') }}</flux:table.column>
-                <flux:table.column>{{ __('Employee') }}</flux:table.column>
-                <flux:table.column>{{ __('Position') }}</flux:table.column>
-            </flux:table.columns>
+        @case('accomplishment')
+            <x-reports.accomplishment :rows="$this->accomplishment" :totals="$this->accomplishmentTotals" />
+            @break
 
-            <flux:table.rows>
-                @forelse ($this->without as $employee)
-                    <flux:table.row :key="$employee->id">
-                        <flux:table.cell>{{ $employee->division?->code ?? '—' }}</flux:table.cell>
-                        <flux:table.cell>
-                            <div class="w-48 truncate" title="{{ $employee->section?->name }}">
-                                {{ $employee->section?->name ?? '—' }}
-                            </div>
-                        </flux:table.cell>
-                        <flux:table.cell>{{ $employee->employee_number }}</flux:table.cell>
-                        <flux:table.cell>
-                            <div class="w-52 truncate" title="{{ $employee->full_name }}">
-                                {{ $employee->listing_name }}
-                            </div>
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            <div class="w-48 truncate" title="{{ $employee->position?->title }}">
-                                {{ $employee->position?->title ?? '—' }}
-                            </div>
-                        </flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="5">
-                            {{ __('Everybody has training on record for this year.') }}
-                        </flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
-    @else
-        <flux:table>
-            <flux:table.columns>
-                <flux:table.column>{{ __('Budget source') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Plans') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Cap') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Committed') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Spent') }}</flux:table.column>
-                <flux:table.column class="text-right">{{ __('Unspent') }}</flux:table.column>
-            </flux:table.columns>
+        @case('budget')
+            <x-reports.budget :rows="$this->budget" />
+            @break
 
-            <flux:table.rows>
-                @forelse ($this->budget as $row)
-                    <flux:table.row :key="$row['source']">
-                        <flux:table.cell>{{ $row['source'] }}</flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">{{ $row['plans'] }}</flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">
-                            {{ $row['cap'] === null ? '—' : number_format($row['cap'], 2) }}
-                        </flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">
-                            {{ number_format($row['committed'], 2) }}
-                        </flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">
-                            {{ number_format($row['spent'], 2) }}
-                        </flux:table.cell>
-                        <flux:table.cell class="text-right tabular-nums">
-                            {{ number_format($row['committed'] - $row['spent'], 2) }}
-                        </flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="6">
-                            {{ __('No plan carried a budget source in this year. Set a cap under Setup to track one.') }}
-                        </flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
-    @endif
+        @case('funds')
+            <x-reports.funds :rows="$this->funds" />
+            @break
+
+        @case('providers')
+            <x-reports.providers :rows="$this->providers" :totals="$this->providerTotals" />
+            @break
+
+        @case('aging')
+            <x-reports.aging :records="$this->aging" :totals="$this->agingTotals" />
+            @break
+
+        @default
+            <x-reports.activity :records="$this->activity" :totals="$this->activityTotals" />
+    @endswitch
 </div>
