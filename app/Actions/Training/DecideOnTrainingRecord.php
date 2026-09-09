@@ -6,6 +6,8 @@ use App\Enums\ApprovalDecision;
 use App\Enums\TrainingStatus;
 use App\Models\TrainingRecord;
 use App\Models\User;
+use App\Notifications\TrainingAwaitsDecision;
+use App\Notifications\TrainingDecided;
 use App\Workflow\ApprovalRouter;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -66,6 +68,35 @@ class DecideOnTrainingRecord
             ]);
         });
 
-        return $record->refresh()->load('approvals');
+        $record->refresh()->load('approvals');
+
+        $this->tell($record, $decision);
+
+        return $record;
+    }
+
+    /**
+     * Say what happened, to whoever it now concerns.
+     *
+     * A record that has moved up is not finished, so the employee hears
+     * nothing yet — only the head who now has to act on it.
+     */
+    private function tell(TrainingRecord $record, ApprovalDecision $decision): void
+    {
+        $employee = $record->employee;
+
+        if ($employee === null) {
+            return;
+        }
+
+        if ($record->current_level !== null) {
+            $this->router->approverFor($record->current_level, $employee)?->user?->notify(
+                new TrainingAwaitsDecision($record),
+            );
+
+            return;
+        }
+
+        $employee->user?->notify(new TrainingDecided($record, $decision));
     }
 }

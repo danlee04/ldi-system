@@ -6,6 +6,7 @@ use App\Enums\TrainingStatus;
 use App\Models\Employee;
 use App\Models\TrainingRecord;
 use App\Models\User;
+use App\Notifications\TrainingAwaitsDecision;
 use App\Workflow\ApprovalRouter;
 
 class SubmitTrainingRecord
@@ -22,12 +23,22 @@ class SubmitTrainingRecord
      */
     public function handle(Employee $employee, array $attributes, User $submittedBy): TrainingRecord
     {
-        return TrainingRecord::create([
+        $level = $this->router->firstLevelFor($employee);
+
+        $record = TrainingRecord::create([
             ...$attributes,
             'employee_id' => $employee->getKey(),
             'submitted_by' => $submittedBy->getKey(),
             'status' => TrainingStatus::Pending,
-            'current_level' => $this->router->firstLevelFor($employee),
+            'current_level' => $level,
         ]);
+
+        if ($level !== null) {
+            $this->router->approverFor($level, $employee)?->user?->notify(
+                new TrainingAwaitsDecision($record),
+            );
+        }
+
+        return $record;
     }
 }
