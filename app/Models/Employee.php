@@ -134,6 +134,16 @@ class Employee extends Model
     }
 
     /**
+     * Question 41 of their PDS: three people who can speak for them.
+     *
+     * @return HasMany<EmployeeReference, $this>
+     */
+    public function references(): HasMany
+    {
+        return $this->hasMany(EmployeeReference::class);
+    }
+
+    /**
      * Section VII of their PDS, most recent first.
      *
      * @return HasMany<EmployeeVoluntaryWork, $this>

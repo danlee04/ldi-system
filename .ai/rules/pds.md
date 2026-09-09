@@ -15,3 +15,13 @@ Traps found while mapping it:
 - Wide answers span merged cells (A:E, D:F, G:I, I:K). Write only the leftmost address.
 - PhpSpreadsheet stores numeric strings as numbers, so assert those with toEqual, not toBe.
 - Section VI is filled from approved TrainingRecords, not from anything the employee retypes on the my-pds page.
+
+## Yes/no answers on the PDS are checkbox controls, not cells
+Sex, civil status and citizenship on sheet C1, and every question on page 4 (sheet C4), are Excel form controls. Writing the word into the cell prints nothing: the template formats those link cells white on white so only the tick shows.
+
+FillPersonalDataSheet::tick() sets both halves — the linked cell to TRUE, and checked="Checked" on the control, which lives in the workbook's unparsed loaded data ($book->getUnparsedLoadedData()['sheets'][$sheet->getCodeName()]['ctrlProps']), matched by its fmlaLink. PhpSpreadsheet carries ctrlProps and the VML through untouched, so this survives a save.
+
+C1 boxes: sex D16/E16, civil status D17/E17/D18/E19/D20, citizenship J13/K13, dual basis L14/M14, country dropdown J16 (stores the 1-based line within Q11:Q217 of the same sheet).
+C4 boxes: yes in column H, no in column J, at rows 3, 8, 13, 18, 23, 27, 31, 34, 37, 43, 45, 47.
+
+A nullable boolean means unanswered: leave both boxes alone rather than ticking No.

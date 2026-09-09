@@ -11,6 +11,7 @@ use App\Models\EmployeeChild;
 use App\Models\EmployeeEducation;
 use App\Models\EmployeeEligibility;
 use App\Models\EmployeeOtherInformation;
+use App\Models\EmployeeReference;
 use App\Models\EmployeeVoluntaryWork;
 use App\Models\EmployeeWorkExperience;
 use App\Models\PersonalDataSheet;
@@ -19,6 +20,7 @@ use App\Models\TrainingRecord;
 use App\Models\User;
 use Livewire\Livewire;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
@@ -133,9 +135,6 @@ test('the download is the CSC workbook with section I written into it', function
         ->and($sheet->getCell('D12')->getValue())->toBe('Santos')
         ->and($sheet->getCell('D13')->getValue())->toBe('15/04/1990')
         ->and($sheet->getCell('D15')->getValue())->toBe('Butuan City')
-        ->and($sheet->getCell('E16')->getValue())->toBe('Female')
-        ->and($sheet->getCell('E17')->getValue())->toBe('Married')
-        ->and($sheet->getCell('K13')->getValue())->toBe('Filipino')
         ->and($sheet->getCell('D25')->getValue())->toBe('O+')
         ->and($sheet->getCell('I22')->getValue())->toBe('Butuan City')
         ->and($sheet->getCell('I33')->getValue())->toBe('09171234567');
@@ -861,4 +860,190 @@ test('training past the seventeenth line carries on to the continuation sheet', 
         ->and($book->getSheetByName('C5_L&D cont.')->getCell('A6')->getValue())->toBe('Training 18')
         ->and($book->getSheetByName('C5_L&D cont.')->getCell('A7')->getValue())->toBe('Training 19')
         ->and($book->getSheetByName('C5_L&D cont.')->getCell('A8')->getValue())->toBeEmpty();
+});
+
+/**
+ * Whether the form's checkbox for this cell is ticked, control and all.
+ */
+function boxIsTicked(Spreadsheet $book, string $sheetName, string $cell): bool
+{
+    $sheet = $book->getSheetByName($sheetName);
+    $controls = $book->getUnparsedLoadedData()['sheets'][$sheet->getCodeName()]['ctrlProps'] ?? [];
+
+    foreach ($controls as $control) {
+        if (! str_contains($control['content'], 'fmlaLink="'.$cell.'"')) {
+            continue;
+        }
+
+        return str_contains($control['content'], 'checked="Checked"')
+            && $sheet->getCell($cell)->getValue() === true;
+    }
+
+    return false;
+}
+
+test('sex, civil status and citizenship tick their boxes rather than print words', function () {
+    $employee = pdsEmployee(['gender' => 'Female']);
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'civil_status' => 'Married',
+        'citizenship' => 'Filipino',
+    ]);
+
+    $book = app(FillPersonalDataSheet::class)->handle($employee->fresh());
+
+    expect(boxIsTicked($book, 'C1', 'E16'))->toBeTrue()
+        ->and(boxIsTicked($book, 'C1', 'D16'))->toBeFalse()
+        ->and(boxIsTicked($book, 'C1', 'E17'))->toBeTrue()
+        ->and(boxIsTicked($book, 'C1', 'D17'))->toBeFalse()
+        ->and(boxIsTicked($book, 'C1', 'J13'))->toBeTrue()
+        ->and(boxIsTicked($book, 'C1', 'K13'))->toBeFalse();
+});
+
+test('a dual citizenship names its basis and its country', function () {
+    $employee = pdsEmployee();
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'citizenship' => 'Dual Citizenship',
+        'dual_citizenship_basis' => 'by naturalization',
+        'dual_citizenship_country' => 'Canada',
+    ]);
+
+    $book = app(FillPersonalDataSheet::class)->handle($employee->fresh());
+    $sheet = $book->getSheetByName('C1');
+
+    // The country dropdown stores the line it landed on, not the name.
+    $chosen = $sheet->getCell('Q'.(10 + (int) $sheet->getCell('J16')->getValue()))->getValue();
+
+    expect(boxIsTicked($book, 'C1', 'K13'))->toBeTrue()
+        ->and(boxIsTicked($book, 'C1', 'M14'))->toBeTrue()
+        ->and(trim((string) $chosen))->toBe('Canada');
+});
+
+test('an employee answers the questions on page 4', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.related_within_third_degree', '0')
+        ->set('form.convicted_of_crime', '0')
+        ->set('form.solo_parent', '1')
+        ->set('form.solo_parent_id_no', 'SP-2024-0091')
+        ->set('form.government_id_type', 'PRC')
+        ->set('form.government_id_number', '0123456')
+        ->call('savePageFour')
+        ->assertHasNoErrors();
+
+    $sheet = $employee->fresh()->personalDataSheet;
+
+    expect($sheet->related_within_third_degree)->toBeFalse()
+        ->and($sheet->convicted_of_crime)->toBeFalse()
+        ->and($sheet->solo_parent)->toBeTrue()
+        ->and($sheet->solo_parent_id_no)->toBe('SP-2024-0091')
+        ->and($sheet->government_id_type)->toBe('PRC');
+});
+
+test('a yes with no details behind it is refused', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.criminally_charged', '1')
+        ->call('savePageFour')
+        ->assertHasErrors('form.criminally_charged_detail');
+});
+
+test('a no needs no details', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('form.criminally_charged', '0')
+        ->call('savePageFour')
+        ->assertHasNoErrors();
+});
+
+test('a no survives the round trip rather than reading as unanswered', function () {
+    $employee = pdsEmployee();
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'convicted_of_crime' => false,
+    ]);
+
+    Livewire::test('pages::my-pds')->assertSet('form.convicted_of_crime', '0');
+});
+
+test('page 4 ticks the yes and the no boxes', function () {
+    $employee = pdsEmployee();
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'related_within_third_degree' => false,
+        'criminally_charged' => true,
+        'criminally_charged_detail' => 'Dismissed for lack of merit',
+        'criminally_charged_date_filed' => '2019-02-11',
+        'criminally_charged_status' => 'Dismissed',
+        'person_with_disability' => null,
+    ]);
+
+    $book = app(FillPersonalDataSheet::class)->handle($employee->fresh());
+    $sheet = $book->getSheetByName('C4');
+
+    expect(boxIsTicked($book, 'C4', 'J3'))->toBeTrue()
+        ->and(boxIsTicked($book, 'C4', 'H3'))->toBeFalse()
+        ->and(boxIsTicked($book, 'C4', 'H18'))->toBeTrue()
+        ->and(boxIsTicked($book, 'C4', 'J18'))->toBeFalse()
+        // Unanswered leaves both boxes alone.
+        ->and(boxIsTicked($book, 'C4', 'H45'))->toBeFalse()
+        ->and(boxIsTicked($book, 'C4', 'J45'))->toBeFalse()
+        ->and($sheet->getCell('L19')->getValue())->toBe('Dismissed for lack of merit')
+        ->and($sheet->getCell('L20')->getValue())->toBe('11/02/2019')
+        ->and($sheet->getCell('L21')->getValue())->toBe('Dismissed');
+});
+
+test('an employee lists their references', function () {
+    $employee = pdsEmployee();
+
+    Livewire::test('pages::my-pds')
+        ->set('references.0.full_name', 'Dr. Jose P. Rizal')
+        ->set('references.0.address', 'Calamba, Laguna')
+        ->set('references.0.contact', '09171234567')
+        ->call('savePageFour')
+        ->assertHasNoErrors();
+
+    expect($employee->fresh()->references->first()->full_name)->toBe('Dr. Jose P. Rizal');
+});
+
+test('references land on the last three lines of page 4', function () {
+    $employee = pdsEmployee();
+
+    EmployeeReference::factory()->for($employee)->create([
+        'full_name' => 'Dr. Jose P. Rizal',
+        'address' => 'Calamba, Laguna',
+        'contact' => '09171234567',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C4');
+
+    expect($sheet->getCell('A52')->getValue())->toBe('Dr. Jose P. Rizal')
+        ->and($sheet->getCell('G52')->getValue())->toBe('Calamba, Laguna')
+        ->and($sheet->getCell('H52')->getValue())->toEqual('09171234567')
+        ->and($sheet->getCell('A53')->getValue())->toBeEmpty();
+});
+
+test('the government ID lands under the declaration', function () {
+    $employee = pdsEmployee();
+
+    PersonalDataSheet::factory()->create([
+        'employee_id' => $employee->id,
+        'government_id_type' => 'PRC',
+        'government_id_number' => '0123456',
+        'government_id_issued' => '20/01/2024, Butuan City',
+    ]);
+
+    $sheet = app(FillPersonalDataSheet::class)->handle($employee->fresh())->getSheetByName('C4');
+
+    expect($sheet->getCell('D61')->getValue())->toBe('PRC')
+        ->and($sheet->getCell('D62')->getValue())->toEqual('0123456')
+        ->and($sheet->getCell('D64')->getValue())->toBe('20/01/2024, Butuan City');
 });

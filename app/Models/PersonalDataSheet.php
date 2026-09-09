@@ -61,6 +61,36 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $mother_last_name
  * @property string|null $mother_first_name
  * @property string|null $mother_middle_name
+ * @property bool|null $related_within_third_degree
+ * @property bool|null $related_within_fourth_degree
+ * @property bool|null $found_guilty_administrative
+ * @property bool|null $criminally_charged
+ * @property bool|null $convicted_of_crime
+ * @property bool|null $separated_from_service
+ * @property bool|null $election_candidate
+ * @property bool|null $resigned_for_election
+ * @property bool|null $immigrant_or_resident
+ * @property bool|null $indigenous_member
+ * @property bool|null $person_with_disability
+ * @property bool|null $solo_parent
+ * @property CarbonImmutable|null $criminally_charged_date_filed
+ * @property string|null $related_within_third_degree_detail
+ * @property string|null $related_within_fourth_degree_detail
+ * @property string|null $found_guilty_administrative_detail
+ * @property string|null $criminally_charged_detail
+ * @property string|null $criminally_charged_status
+ * @property string|null $convicted_of_crime_detail
+ * @property string|null $separated_from_service_detail
+ * @property string|null $election_candidate_detail
+ * @property string|null $resigned_for_election_detail
+ * @property string|null $immigrant_or_resident_country
+ * @property string|null $indigenous_group
+ * @property string|null $pwd_id_no
+ * @property string|null $solo_parent_id_no
+ * @property string|null $government_id_type
+ * @property string|null $government_id_number
+ * @property string|null $government_id_issued
+ * @property string|null $dual_citizenship_basis
  */
 class PersonalDataSheet extends Model
 {
@@ -123,6 +153,39 @@ class PersonalDataSheet extends Model
         'mother_last_name',
         'mother_first_name',
         'mother_middle_name',
+
+        // Page 4: questions 34 to 40, the government ID at 42, and the
+        // second half of question 16.
+        'convicted_of_crime',
+        'convicted_of_crime_detail',
+        'criminally_charged',
+        'criminally_charged_date_filed',
+        'criminally_charged_detail',
+        'criminally_charged_status',
+        'dual_citizenship_basis',
+        'election_candidate',
+        'election_candidate_detail',
+        'found_guilty_administrative',
+        'found_guilty_administrative_detail',
+        'government_id_issued',
+        'government_id_number',
+        'government_id_type',
+        'immigrant_or_resident',
+        'immigrant_or_resident_country',
+        'indigenous_group',
+        'indigenous_member',
+        'person_with_disability',
+        'pwd_id_no',
+        'related_within_fourth_degree',
+        'related_within_fourth_degree_detail',
+        'related_within_third_degree',
+        'related_within_third_degree_detail',
+        'resigned_for_election',
+        'resigned_for_election_detail',
+        'separated_from_service',
+        'separated_from_service_detail',
+        'solo_parent',
+        'solo_parent_id_no',
     ];
 
     /**
@@ -131,6 +194,19 @@ class PersonalDataSheet extends Model
     protected function casts(): array
     {
         return [
+            'related_within_third_degree' => 'boolean',
+            'related_within_fourth_degree' => 'boolean',
+            'found_guilty_administrative' => 'boolean',
+            'criminally_charged' => 'boolean',
+            'convicted_of_crime' => 'boolean',
+            'separated_from_service' => 'boolean',
+            'election_candidate' => 'boolean',
+            'resigned_for_election' => 'boolean',
+            'immigrant_or_resident' => 'boolean',
+            'indigenous_member' => 'boolean',
+            'person_with_disability' => 'boolean',
+            'solo_parent' => 'boolean',
+            'criminally_charged_date_filed' => 'date',
             'date_of_birth' => 'date',
             'height_m' => 'decimal:2',
             'weight_kg' => 'decimal:2',
@@ -146,13 +222,14 @@ class PersonalDataSheet extends Model
     }
 
     /**
-     * The civil status options the form offers, in its own order.
+     * The five the form prints. There is no box for anything else,
+     * so an option that is not here could never reach CSC.
      *
      * @return list<string>
      */
     public static function civilStatuses(): array
     {
-        return ['Single', 'Married', 'Widow/er', 'Separated', 'Solo Parent', 'Others'];
+        return ['Single', 'Married', 'Widowed', 'Separated', 'Others'];
     }
 
     /**

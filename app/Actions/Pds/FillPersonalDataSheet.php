@@ -30,9 +30,7 @@ class FillPersonalDataSheet
     private const PERSONAL = [
         'D13' => 'date_of_birth',
         'D15' => 'place_of_birth',
-        'E17' => 'civil_status',
         'E20' => 'civil_status_other',
-        'K13' => 'citizenship',
         'D22' => 'height_m',
         'D24' => 'weight_kg',
         'D25' => 'blood_type',
@@ -212,6 +210,105 @@ class FillPersonalDataSheet
      */
     private const OTHER_ROWS = [39, 40, 41, 42, 43, 44, 45];
 
+    private const COUNTRY_CELL = 'J16';
+
+    private const COUNTRY_FIRST_ROW = 11;
+
+    private const COUNTRY_LAST_ROW = 217;
+
+    /**
+     * Question 5: sex at birth, a box each.
+     *
+     * @var array<string, string>
+     */
+    private const SEX_BOXES = [
+        'Male' => 'D16',
+        'Female' => 'E16',
+    ];
+
+    /**
+     * Question 6: civil status, in the order the form lays the boxes out.
+     *
+     * @var array<string, string>
+     */
+    private const CIVIL_STATUS_BOXES = [
+        'Single' => 'D17',
+        'Married' => 'E17',
+        'Widowed' => 'D18',
+        'Separated' => 'E19',
+        'Others' => 'D20',
+    ];
+
+    /**
+     * Question 16: citizenship, and how a dual citizenship was acquired.
+     *
+     * @var array<string, string>
+     */
+    private const CITIZENSHIP_BOXES = [
+        'Filipino' => 'J13',
+        'Dual Citizenship' => 'K13',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const DUAL_BASIS_BOXES = [
+        'by birth' => 'L14',
+        'by naturalization' => 'M14',
+    ];
+
+    /**
+     * Questions 34 to 40 on page 4. Each is a pair of boxes — the yes on
+     * the left, the no on the right — and the field behind them.
+     *
+     * @var array<string, array{yes: string, no: string}>
+     */
+    private const DISCLOSURE_BOXES = [
+        'related_within_third_degree' => ['yes' => 'H3', 'no' => 'J3'],
+        'related_within_fourth_degree' => ['yes' => 'H8', 'no' => 'J8'],
+        'found_guilty_administrative' => ['yes' => 'H13', 'no' => 'J13'],
+        'criminally_charged' => ['yes' => 'H18', 'no' => 'J18'],
+        'convicted_of_crime' => ['yes' => 'H23', 'no' => 'J23'],
+        'separated_from_service' => ['yes' => 'H27', 'no' => 'J27'],
+        'election_candidate' => ['yes' => 'H31', 'no' => 'J31'],
+        'resigned_for_election' => ['yes' => 'H34', 'no' => 'J34'],
+        'immigrant_or_resident' => ['yes' => 'H37', 'no' => 'J37'],
+        'indigenous_member' => ['yes' => 'H43', 'no' => 'J43'],
+        'person_with_disability' => ['yes' => 'H45', 'no' => 'J45'],
+        'solo_parent' => ['yes' => 'H47', 'no' => 'J47'],
+    ];
+
+    /**
+     * The write-in line under each question, and the government ID block.
+     *
+     * @var array<string, string>
+     */
+    private const DISCLOSURE_DETAILS = [
+        'H5' => 'related_within_third_degree_detail',
+        'I11' => 'related_within_fourth_degree_detail',
+        'I15' => 'found_guilty_administrative_detail',
+        'L19' => 'criminally_charged_detail',
+        'L21' => 'criminally_charged_status',
+        'I25' => 'convicted_of_crime_detail',
+        'I29' => 'separated_from_service_detail',
+        'L32' => 'election_candidate_detail',
+        'L35' => 'resigned_for_election_detail',
+        'I39' => 'immigrant_or_resident_country',
+        'M44' => 'indigenous_group',
+        'M46' => 'pwd_id_no',
+        'M48' => 'solo_parent_id_no',
+        'D61' => 'government_id_type',
+        'D62' => 'government_id_number',
+        'D64' => 'government_id_issued',
+    ];
+
+    /**
+     * Question 41: three lines, name in A, address in G, contact in H.
+     *
+     * @var list<int>
+     */
+    private const REFERENCE_ROWS = [52, 53, 54];
+
     public function handle(Employee $employee): Spreadsheet
     {
         $book = IOFactory::createReader('Xlsx')->load($this->templatePath());
@@ -224,6 +321,7 @@ class FillPersonalDataSheet
         $this->fillLearningDevelopment($book, $employee);
         $this->fillVoluntaryWork($book, $employee);
         $this->fillOtherInformation($book, $employee);
+        $this->fillDisclosures($book, $employee);
 
         $book->setActiveSheetIndexByName('C1');
 
@@ -245,23 +343,33 @@ class FillPersonalDataSheet
 
         $pds = $employee->personalDataSheet;
 
-        // The name and sex live on the employee record; everything else in
-        // this section is the employee's own to state.
+        // The name lives on the employee record; everything else in this
+        // section is the employee's own to state.
         $fromEmployee = [
             'D10' => $employee->last_name,
             'D11' => $employee->first_name,
             'D12' => $employee->middle_name,
             'N11' => $employee->suffix,
-            'E16' => $employee->gender,
         ];
 
         foreach ($fromEmployee as $cell => $value) {
             $this->write($sheet, $cell, $value);
         }
 
+        // Sex, civil status and citizenship are boxes on this form, not
+        // words. Writing the word into the cell behind a box would print
+        // nothing at all: the template hides those cells in white.
+        $this->tick($book, 'C1', self::SEX_BOXES[$employee->gender] ?? '');
+
         if ($pds === null) {
             return;
         }
+
+        $this->tick($book, 'C1', self::CIVIL_STATUS_BOXES[$pds->civil_status] ?? '');
+        $this->tick($book, 'C1', self::CITIZENSHIP_BOXES[$pds->citizenship] ?? '');
+        $this->tick($book, 'C1', self::DUAL_BASIS_BOXES[$pds->dual_citizenship_basis] ?? '');
+
+        $this->chooseCountry($book, $pds->dual_citizenship_country);
 
         $this->write($sheet, 'D13', $pds->date_of_birth?->format('d/m/Y'));
 
@@ -271,6 +379,30 @@ class FillPersonalDataSheet
             }
 
             $this->write($sheet, $cell, $pds->{$field});
+        }
+    }
+
+    /**
+     * Question 16's country is a dropdown reading down a hidden column of
+     * the same sheet, and it stores the line it landed on rather than the
+     * name. So the name is looked up and the line number written.
+     */
+    private function chooseCountry(Spreadsheet $book, ?string $country): void
+    {
+        $sheet = $book->getSheetByName('C1');
+
+        if ($sheet === null || blank($country)) {
+            return;
+        }
+
+        foreach (range(self::COUNTRY_FIRST_ROW, self::COUNTRY_LAST_ROW) as $row) {
+            if (trim((string) $sheet->getCell('Q'.$row)->getValue()) !== $country) {
+                continue;
+            }
+
+            $sheet->setCellValue(self::COUNTRY_CELL, $row - self::COUNTRY_FIRST_ROW + 1);
+
+            return;
         }
     }
 
@@ -447,6 +579,82 @@ class FillPersonalDataSheet
                 $this->write($sheet, $column.self::OTHER_ROWS[$index], $entry->description);
             }
         }
+    }
+
+    private function fillDisclosures(Spreadsheet $book, Employee $employee): void
+    {
+        $sheet = $book->getSheetByName('C4');
+
+        if ($sheet === null) {
+            return;
+        }
+
+        foreach ($employee->references->take(count(self::REFERENCE_ROWS))->values() as $index => $reference) {
+            $row = self::REFERENCE_ROWS[$index];
+
+            $this->write($sheet, 'A'.$row, $reference->full_name);
+            $this->write($sheet, 'G'.$row, $reference->address);
+            $this->write($sheet, 'H'.$row, $reference->contact);
+        }
+
+        $pds = $employee->personalDataSheet;
+
+        if ($pds === null) {
+            return;
+        }
+
+        foreach (self::DISCLOSURE_BOXES as $field => $boxes) {
+            $answer = $pds->{$field};
+
+            // Unanswered leaves both boxes empty rather than reading as a no.
+            if ($answer === null) {
+                continue;
+            }
+
+            $this->tick($book, 'C4', $answer ? $boxes['yes'] : $boxes['no']);
+        }
+
+        foreach (self::DISCLOSURE_DETAILS as $cell => $field) {
+            $this->write($sheet, $cell, $pds->{$field});
+        }
+
+        $this->write($sheet, 'L20', $pds->criminally_charged_date_filed?->format('d/m/Y'));
+    }
+
+    /**
+     * Ticks one of the form's checkboxes.
+     *
+     * A checkbox here is a control, not a cell. It carries its own state
+     * and drives a linked cell the template hides in white on white, so
+     * both are set — the box reads as ticked whether the reader looks at
+     * the control or at the cell behind it.
+     */
+    private function tick(Spreadsheet $book, string $sheetName, string $cell): void
+    {
+        $sheet = $book->getSheetByName($sheetName);
+
+        if ($sheet === null || $cell === '') {
+            return;
+        }
+
+        $sheet->setCellValue($cell, true);
+
+        $data = $book->getUnparsedLoadedData();
+        $code = $sheet->getCodeName();
+
+        foreach ($data['sheets'][$code]['ctrlProps'] ?? [] as $id => $control) {
+            if (! str_contains($control['content'], 'fmlaLink="'.$cell.'"')) {
+                continue;
+            }
+
+            $data['sheets'][$code]['ctrlProps'][$id]['content'] = str_replace(
+                '<formControlPr ',
+                '<formControlPr checked="Checked" ',
+                $control['content'],
+            );
+        }
+
+        $book->setUnparsedLoadedData($data);
     }
 
     private function write(Worksheet $sheet, string $cell, mixed $value): void

@@ -8,6 +8,7 @@ use App\Models\EmployeeChild;
 use App\Models\EmployeeEducation;
 use App\Models\EmployeeEligibility;
 use App\Models\EmployeeOtherInformation;
+use App\Models\EmployeeReference;
 use App\Models\EmployeeVoluntaryWork;
 use App\Models\EmployeeWorkExperience;
 use App\Models\PersonalDataSheet;
@@ -46,6 +47,9 @@ new #[Title('My PDS')] class extends Component {
 
     /** @var array<string, list<string>> */
     public array $other = [];
+
+    /** @var list<array<string, mixed>> */
+    public array $references = [];
 
     /**
      * Every repeating section: how many lines the form prints, and the
@@ -93,6 +97,16 @@ new #[Title('My PDS')] class extends Component {
                 'date_of_birth' => '',
             ],
         ],
+        'references' => [
+            'relation' => 'references',
+            'max' => 3,
+            'blank' => [
+                'id' => null,
+                'full_name' => '',
+                'address' => '',
+                'contact' => '',
+            ],
+        ],
         'voluntary' => [
             'relation' => 'voluntaryWorks',
             'max' => 9,
@@ -119,8 +133,16 @@ new #[Title('My PDS')] class extends Component {
         $sheet = $this->employee->personalDataSheet;
 
         foreach ($this->fields() as $field) {
-            $this->form[$field] = match ($field) {
-                'date_of_birth' => $sheet?->date_of_birth?->toDateString() ?? '',
+            $this->form[$field] = match (true) {
+                in_array($field, ['date_of_birth', 'criminally_charged_date_filed'], true)
+                    => $sheet?->{$field}?->toDateString() ?? '',
+                // A no is an answer. Cast it to a string and it would come
+                // back as an empty box, indistinguishable from unanswered.
+                array_key_exists($field, self::DISCLOSURES) => match ($sheet?->{$field}) {
+                    true => '1',
+                    false => '0',
+                    default => '',
+                },
                 default => (string) ($sheet?->{$field} ?? ''),
             };
         }
@@ -184,6 +206,15 @@ new #[Title('My PDS')] class extends Component {
                 'to_date' => $row->to_date?->toDateString() ?? '',
                 'hours' => (string) ($row->hours ?? ''),
                 'position' => (string) ($row->position ?? ''),
+            ])
+            ->all();
+
+        $this->references = $this->employee->references
+            ->map(fn (EmployeeReference $row): array => [
+                'id' => $row->getKey(),
+                'full_name' => $row->full_name,
+                'address' => (string) ($row->address ?? ''),
+                'contact' => (string) ($row->contact ?? ''),
             ])
             ->all();
 
@@ -438,6 +469,61 @@ new #[Title('My PDS')] class extends Component {
         $this->employee->unsetRelation('otherInformation');
 
         Flux::toast(variant: 'success', text: __('Other information saved.'));
+    }
+
+    /**
+     * Questions 34 to 40: the answer, and the field that carries the
+     * detail the form asks for when the answer is yes.
+     *
+     * @var array<string, string>
+     */
+    public const DISCLOSURES = [
+        'related_within_third_degree' => 'related_within_third_degree_detail',
+        'related_within_fourth_degree' => 'related_within_fourth_degree_detail',
+        'found_guilty_administrative' => 'found_guilty_administrative_detail',
+        'criminally_charged' => 'criminally_charged_detail',
+        'convicted_of_crime' => 'convicted_of_crime_detail',
+        'separated_from_service' => 'separated_from_service_detail',
+        'election_candidate' => 'election_candidate_detail',
+        'resigned_for_election' => 'resigned_for_election_detail',
+        'immigrant_or_resident' => 'immigrant_or_resident_country',
+        'indigenous_member' => 'indigenous_group',
+        'person_with_disability' => 'pwd_id_no',
+        'solo_parent' => 'solo_parent_id_no',
+    ];
+
+    public function savePageFour(): void
+    {
+        $rules = [
+            'form.criminally_charged_date_filed' => ['nullable', 'date'],
+            'form.criminally_charged_status' => ['nullable', 'string', 'max:255'],
+            'form.government_id_type' => ['nullable', 'string', 'max:255'],
+            'form.government_id_number' => ['nullable', 'string', 'max:60'],
+            'form.government_id_issued' => ['nullable', 'string', 'max:255'],
+            'references' => ['array', 'max:'.self::REPEATERS['references']['max']],
+            'references.*.full_name' => ['nullable', 'string', 'max:255'],
+            'references.*.address' => ['nullable', 'string', 'max:255'],
+            'references.*.contact' => ['nullable', 'string', 'max:255'],
+        ];
+
+        foreach (self::DISCLOSURES as $question => $detail) {
+            $rules['form.'.$question] = ['nullable', 'boolean'];
+
+            // The form asks for details on a yes and nothing on a no, so
+            // that is what is required here.
+            $rules['form.'.$detail] = ['nullable', 'string', 'max:255', 'required_if:form.'.$question.',1,true'];
+        }
+
+        $validated = $this->validate($rules, attributes: [
+            'references.*.full_name' => __('name'),
+        ]);
+
+        $this->writeSheet($validated['form']);
+
+        $this->syncRows('references', collect($validated['references'])
+            ->filter(fn (array $row): bool => filled($row['full_name'])));
+
+        Flux::toast(variant: 'success', text: __('Page 4 saved.'));
     }
 
     public function saveEducation(): void
@@ -1007,6 +1093,143 @@ new #[Title('My PDS')] class extends Component {
         <div class="flex">
             <flux:spacer />
             <flux:button type="submit" variant="primary">{{ __('Save other information') }}</flux:button>
+        </div>
+    </form>
+
+    <form wire:submit="savePageFour" class="space-y-4">
+        <flux:separator :text="__('Questions 34 to 42')" />
+
+        <flux:text size="sm">
+            {{ __('Answer every one. A question left blank prints with neither box ticked, and CSC returns the form.') }}
+        </flux:text>
+
+        @php
+            $questions = [
+                'related_within_third_degree' => [
+                    __('34a. Are you related within the third degree to the appointing or recommending authority, or to the chief of the bureau or office?'),
+                    __('Give details'),
+                ],
+                'related_within_fourth_degree' => [
+                    __('34b. Within the fourth degree, for a local government unit?'),
+                    __('Give details'),
+                ],
+                'found_guilty_administrative' => [
+                    __('35a. Have you ever been found guilty of an administrative offence?'),
+                    __('Give details'),
+                ],
+                'criminally_charged' => [
+                    __('35b. Have you been criminally charged before any court?'),
+                    __('Give details'),
+                ],
+                'convicted_of_crime' => [
+                    __('36. Have you ever been convicted of any crime or violation of any law, decree, ordinance or regulation?'),
+                    __('Give details'),
+                ],
+                'separated_from_service' => [
+                    __('37. Have you ever been separated from the service through resignation, retirement, dismissal, dropping from the rolls, or any other reason?'),
+                    __('Give details'),
+                ],
+                'election_candidate' => [
+                    __('38a. Have you ever been a candidate in a national or local election, barangay elections aside?'),
+                    __('Give details'),
+                ],
+                'resigned_for_election' => [
+                    __('38b. Have you resigned from government service during the three-month period before the last election?'),
+                    __('Give details'),
+                ],
+                'immigrant_or_resident' => [
+                    __('39. Have you acquired the status of an immigrant or permanent resident of another country?'),
+                    __('Which country'),
+                ],
+                'indigenous_member' => [
+                    __('40a. Are you a member of any indigenous group?'),
+                    __('Please specify'),
+                ],
+                'person_with_disability' => [
+                    __('40b. Are you a person with disability?'),
+                    __('PWD ID no.'),
+                ],
+                'solo_parent' => [
+                    __('40c. Are you a solo parent?'),
+                    __('Solo parent ID no.'),
+                ],
+            ];
+        @endphp
+
+        <div class="space-y-3">
+            @foreach ($questions as $question => [$label, $detailLabel])
+                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <flux:text class="md:col-span-2">{{ $label }}</flux:text>
+
+                        <flux:radio.group wire:model.live="form.{{ $question }}" variant="segmented">
+                            <flux:radio value="1" :label="__('Yes')" />
+                            <flux:radio value="0" :label="__('No')" />
+                        </flux:radio.group>
+
+                        @if (($form[$question] ?? '') === '1')
+                            <flux:input class="md:col-span-3"
+                                wire:model="form.{{ $this::DISCLOSURES[$question] }}"
+                                :label="$detailLabel" />
+                        @endif
+                    </div>
+
+                    @if ($question === 'criminally_charged' && ($form['criminally_charged'] ?? '') === '1')
+                        <div class="mt-4 grid gap-4 md:grid-cols-2">
+                            <flux:input wire:model="form.criminally_charged_date_filed"
+                                :label="__('Date filed')" type="date" />
+                            <flux:input wire:model="form.criminally_charged_status"
+                                :label="__('Status of the case')" />
+                        </div>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+
+        <flux:separator :text="__('41. References')" />
+
+        <flux:text size="sm">{{ __('Three people who are not related to you.') }}</flux:text>
+
+        <div class="space-y-3">
+            @foreach ($references as $index => $row)
+                <div wire:key="reference-{{ $index }}" class="grid items-end gap-4 md:grid-cols-4">
+                    <flux:input wire:model="references.{{ $index }}.full_name"
+                        :label="$index === 0 ? __('Name') : null" />
+
+                    <flux:input wire:model="references.{{ $index }}.address"
+                        :label="$index === 0 ? __('Office or residential address') : null" />
+
+                    <flux:input wire:model="references.{{ $index }}.contact"
+                        :label="$index === 0 ? __('Contact no. or e-mail') : null" />
+
+                    <div class="flex justify-start">
+                        <flux:button size="sm" variant="subtle" icon="trash" type="button"
+                            wire:click="removeRow('references', {{ $index }})">
+                            {{ __('Remove') }}
+                        </flux:button>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        @if ($this->roomIn('references'))
+            <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addRow('references')">
+                {{ __('Add reference') }}
+            </flux:button>
+        @endif
+
+        <flux:separator :text="__('42. Government issued ID')" />
+
+        <div class="grid gap-4 md:grid-cols-3">
+            <flux:input wire:model="form.government_id_type" :label="__('Government issued ID')"
+                :placeholder="__('Passport, GSIS, SSS, PRC, Driver&rsquo;s licence')" />
+            <flux:input wire:model="form.government_id_number" :label="__('ID, licence or passport no.')" />
+            <flux:input wire:model="form.government_id_issued" :label="__('Date and place of issuance')" />
+        </div>
+
+        <div class="flex">
+            <flux:spacer />
+            <flux:button type="submit" variant="primary">{{ __('Save page 4') }}</flux:button>
         </div>
     </form>
 </div>
