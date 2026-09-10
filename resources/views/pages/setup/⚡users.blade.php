@@ -230,10 +230,10 @@ new #[Title('User accounts')] class extends Component {
             @forelse ($this->users as $user)
                 <flux:table.row :key="$user->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
-                        <div class="w-44 truncate" title="{{ $user->name }}">{{ $user->name }}</div>
+                        <div class="w-72 truncate" title="{{ $user->name }}">{{ $user->name }}</div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-56 truncate" title="{{ $user->email }}">{{ $user->email }}</div>
+                        <div class="w-64 truncate" title="{{ $user->email }}">{{ $user->email }}</div>
                     </flux:table.cell>
                     <flux:table.cell>{{ $user->role->label() }}</flux:table.cell>
                     <flux:table.cell>
