@@ -35,13 +35,15 @@ new class extends Component {
     }
 }; ?>
 
-<div>
-    @php($initials = $photo === null ? auth()->user()->initials() : null)
+@php($initials = $photo === null ? auth()->user()->initials() : null)
 
-    @if ($sidebar)
-        <flux:sidebar.profile :avatar="$photo" :initials="$initials" :name="$name"
-            icon:trailing="chevrons-up-down" data-test="sidebar-menu-button" />
-    @else
-        <flux:profile :avatar="$photo" :initials="$initials" icon-trailing="chevron-down" />
-    @endif
-</div>
+{{-- No wrapper around these. flux:sidebar.profile widens itself with
+     `[ui-dropdown>&]:w-full`, which only matches while the button is a
+     direct child of the dropdown — wrap it and the button sizes to the
+     name instead, pushing the sidebar wider than the screen. --}}
+@if ($sidebar)
+    <flux:sidebar.profile :avatar="$photo" :initials="$initials" :name="$name"
+        icon:trailing="chevrons-up-down" data-test="sidebar-menu-button" />
+@else
+    <flux:profile :avatar="$photo" :initials="$initials" icon-trailing="chevron-down" />
+@endif

@@ -207,6 +207,25 @@ class Employee extends Model
     }
 
     /**
+     * Their own name the way they would write it: "LLOYD B. ABAO".
+     *
+     * The roster reads surname first because it is ordered that way; a
+     * person's own name in the corner of the screen is not a list entry
+     * and reads better in its natural order.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function personalName(): Attribute
+    {
+        return Attribute::get(fn (): string => collect([
+            $this->first_name,
+            $this->middle_name ? mb_substr($this->middle_name, 0, 1).'.' : null,
+            $this->last_name,
+            $this->suffix,
+        ])->filter()->join(' '));
+    }
+
+    /**
      * Surname first, the way a roster is read: "ABAO, LLOYD B."
      *
      * Lists are ordered by last name, and printing the first name first

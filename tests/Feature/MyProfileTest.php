@@ -311,3 +311,42 @@ test('the sidebar profile button carries the photograph', function () {
         ->assertSee($employee->refresh()->photo_path)
         ->assertSee('Maria Cruz');
 });
+
+test('the sidebar names a person the way they would write it', function () {
+    $employee = profileEmployee([
+        'first_name' => 'Lloyd',
+        'middle_name' => 'Bislig',
+        'last_name' => 'Abao',
+        'suffix' => null,
+    ]);
+
+    expect($employee->personal_name)->toBe('Lloyd B. Abao')
+        // The roster keeps its own order; the two are different questions.
+        ->and($employee->listing_name)->toBe('Abao, Lloyd B.');
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Lloyd B. Abao');
+});
+
+test('an account with no employee record still has a name in the corner', function () {
+    $this->actingAs(User::factory()->hr()->create(['name' => 'HR Office']));
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('HR Office');
+});
+
+test('the profile button is a direct child of its dropdown, so the name truncates', function () {
+    profileEmployee(['first_name' => 'Mary Jane', 'middle_name' => 'Espina', 'last_name' => 'Lao Guico']);
+
+    $html = $this->get(route('dashboard'))->assertOk()->getContent();
+
+    // Flux widens the button with `[ui-dropdown>&]:w-full`, which stops
+    // matching the moment anything wraps it — and then the button grows to
+    // the length of the name and pushes the sidebar off the screen.
+    $withoutComments = preg_replace('/<!--.*?-->/s', '', $html);
+
+    expect($withoutComments)->toMatch('/<ui-dropdown[^>]*>\s*<button/')
+        ->and($html)->toContain('Mary Jane E. Lao Guico');
+});

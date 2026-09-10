@@ -1,179 +1,191 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
-    <head>
-        @include('partials.head')
-    </head>
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky collapsible="mobile" class="print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
-            <flux:sidebar.header>
-                <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
-                <livewire:notifications />
-                <flux:sidebar.collapse class="lg:hidden" />
-            </flux:sidebar.header>
 
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                    {{ __('Dashboard') }}
-                </flux:sidebar.item>
+<head>
+    @include('partials.head')
+</head>
 
-                <flux:sidebar.item icon="calendar-days" :href="route('calendar')" :current="request()->routeIs('calendar')" wire:navigate>
-                    {{ __('Calendar') }}
-                </flux:sidebar.item>
+<body class="min-h-screen bg-white dark:bg-zinc-800">
+    <flux:sidebar sticky collapsible="mobile"
+        class="w-64 print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        <flux:sidebar.header>
+            <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+            <livewire:notifications />
+            <flux:sidebar.collapse class="lg:hidden" />
+        </flux:sidebar.header>
 
-                @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
-                    <flux:sidebar.group :heading="__('My work')" class="grid">
-                        {{-- Both of these need an employee record behind them,
+        <flux:sidebar.nav>
+            <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
+                wire:navigate>
+                {{ __('Dashboard') }}
+            </flux:sidebar.item>
+
+            <flux:sidebar.item icon="calendar-days" :href="route('calendar')" :current="request()->routeIs('calendar')"
+                wire:navigate>
+                {{ __('Calendar') }}
+            </flux:sidebar.item>
+
+            @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
+                <flux:sidebar.group :heading="__('My work')" class="grid">
+                    {{-- Both of these need an employee record behind them,
                              so an administrative account is not offered a
                              profile or a PDS it would only be refused. --}}
-                        @if (auth()->user()->employee !== null)
-                            <flux:sidebar.item icon="user" :href="route('my-profile')" :current="request()->routeIs('my-profile')" wire:navigate>
-                                {{ __('My profile') }}
-                            </flux:sidebar.item>
-                        @endif
+                    @if (auth()->user()->employee !== null)
+                        <flux:sidebar.item icon="user" :href="route('my-profile')"
+                            :current="request()->routeIs('my-profile')" wire:navigate>
+                            {{ __('My profile') }}
+                        </flux:sidebar.item>
+                    @endif
 
-                        @if (auth()->user()->hasOwnTrainings())
-                            <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')" :current="request()->routeIs('trainings.*')" wire:navigate>
-                                {{ __('My trainings') }}
-                            </flux:sidebar.item>
-                        @endif
+                    @if (auth()->user()->hasOwnTrainings())
+                        <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')"
+                            :current="request()->routeIs('trainings.*')" wire:navigate>
+                            {{ __('My trainings') }}
+                        </flux:sidebar.item>
+                    @endif
 
-                        @if (auth()->user()->employee !== null)
-                            <flux:sidebar.item icon="identification" :href="route('my-pds')" :current="request()->routeIs('my-pds')" wire:navigate>
-                                {{ __('My PDS') }}
-                            </flux:sidebar.item>
-                        @endif
+                    @if (auth()->user()->employee !== null)
+                        <flux:sidebar.item icon="identification" :href="route('my-pds')"
+                            :current="request()->routeIs('my-pds')" wire:navigate>
+                            {{ __('My PDS') }}
+                        </flux:sidebar.item>
+                    @endif
 
-                        @if (auth()->user()->decidesOnTrainings())
-                            {{-- The count sits here rather than on the dashboard,
+                    @if (auth()->user()->decidesOnTrainings())
+                        {{-- The count sits here rather than on the dashboard,
                                  so it is in front of the approver on every page
                                  instead of only on the one they land on. --}}
-                            @php($pendingDecisions = app(App\Actions\Training\CountPendingDecisions::class)->handle(auth()->user()))
+                        @php($pendingDecisions = app(App\Actions\Training\CountPendingDecisions::class)->handle(auth()->user()))
 
-                            <flux:sidebar.item icon="check-badge" :href="route('approvals')"
-                                :current="request()->routeIs('approvals')"
-                                :badge="$pendingDecisions > 0 ? $pendingDecisions : null"
-                                badge-color="amber" wire:navigate>
-                                {{ __('Approvals') }}
-                            </flux:sidebar.item>
-                        @endif
-                    </flux:sidebar.group>
-                @endif
+                        <flux:sidebar.item icon="check-badge" :href="route('approvals')"
+                            :current="request()->routeIs('approvals')"
+                            :badge="$pendingDecisions > 0 ? $pendingDecisions : null" badge-color="amber"
+                            wire:navigate>
+                            {{ __('Approvals') }}
+                        </flux:sidebar.item>
+                    @endif
+                </flux:sidebar.group>
+            @endif
 
-                @if (auth()->user()->role !== App\Enums\UserRole::Employee)
-                    <flux:sidebar.group :heading="__('Organization')" class="grid">
-                        <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
-                            {{ __('Employees') }}
+            @if (auth()->user()->role !== App\Enums\UserRole::Employee)
+                <flux:sidebar.group :heading="__('Organization')" class="grid">
+                    <flux:sidebar.item icon="users" :href="route('employees.index')"
+                        :current="request()->routeIs('employees.*')" wire:navigate>
+                        {{ __('Employees') }}
+                    </flux:sidebar.item>
+
+                    @if (auth()->user()->isAdminOrHr())
+                        <flux:sidebar.item icon="presentation-chart-bar" :href="route('ldi.index')"
+                            :current="request()->routeIs('ldi.*')" wire:navigate>
+                            {{ __('LDI trainings') }}
                         </flux:sidebar.item>
 
-                        @if (auth()->user()->isAdminOrHr())
-                            <flux:sidebar.item icon="presentation-chart-bar" :href="route('ldi.index')" :current="request()->routeIs('ldi.*')" wire:navigate>
-                                {{ __('LDI trainings') }}
-                            </flux:sidebar.item>
-
-                            <flux:sidebar.item icon="chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" wire:navigate>
-                                {{ __('Reports') }}
-                            </flux:sidebar.item>
-                        @endif
-                    </flux:sidebar.group>
-                @endif
-
-                @if (auth()->user()->isAdminOrHr())
-                    <flux:sidebar.group :heading="__('Setup')" class="grid">
-                        <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')" :current="request()->routeIs('setup.divisions')" wire:navigate>
-                            {{ __('Divisions') }}
+                        <flux:sidebar.item icon="chart-bar" :href="route('reports')"
+                            :current="request()->routeIs('reports')" wire:navigate>
+                            {{ __('Reports') }}
                         </flux:sidebar.item>
+                    @endif
+                </flux:sidebar.group>
+            @endif
 
-                        <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')" :current="request()->routeIs('setup.sections')" wire:navigate>
-                            {{ __('Sections') }}
+            @if (auth()->user()->isAdminOrHr())
+                <flux:sidebar.group :heading="__('Setup')" class="grid">
+                    <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
+                        :current="request()->routeIs('setup.divisions')" wire:navigate>
+                        {{ __('Divisions') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')"
+                        :current="request()->routeIs('setup.sections')" wire:navigate>
+                        {{ __('Sections') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="identification" :href="route('setup.positions')"
+                        :current="request()->routeIs('setup.positions')" wire:navigate>
+                        {{ __('Positions') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')"
+                        :current="request()->routeIs('setup.budget-caps')" wire:navigate>
+                        {{ __('Budget caps') }}
+                    </flux:sidebar.item>
+
+                    @if (auth()->user()->role === App\Enums\UserRole::Admin)
+                        <flux:sidebar.item icon="key" :href="route('setup.users')"
+                            :current="request()->routeIs('setup.users')" wire:navigate>
+                            {{ __('User accounts') }}
                         </flux:sidebar.item>
+                    @endif
+                </flux:sidebar.group>
+            @endif
+        </flux:sidebar.nav>
 
-                        <flux:sidebar.item icon="identification" :href="route('setup.positions')" :current="request()->routeIs('setup.positions')" wire:navigate>
-                            {{ __('Positions') }}
-                        </flux:sidebar.item>
+        <flux:spacer />
 
-                        <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')" :current="request()->routeIs('setup.budget-caps')" wire:navigate>
-                            {{ __('Budget caps') }}
-                        </flux:sidebar.item>
+        <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
+    </flux:sidebar>
 
-                        @if (auth()->user()->role === App\Enums\UserRole::Admin)
-                            <flux:sidebar.item icon="key" :href="route('setup.users')" :current="request()->routeIs('setup.users')" wire:navigate>
-                                {{ __('User accounts') }}
-                            </flux:sidebar.item>
-                        @endif
-                    </flux:sidebar.group>
-                @endif
-            </flux:sidebar.nav>
+    <!-- Mobile User Menu -->
+    <flux:header class="lg:hidden print:hidden">
+        <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
-            <flux:spacer />
+        <flux:spacer />
 
-            <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
-        </flux:sidebar>
+        <livewire:notifications />
 
-        <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden print:hidden">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
-
-            <flux:spacer />
-
-            <livewire:notifications />
-
-            <flux:dropdown position="top" align="end">
-                {{-- Its own component, so a photograph saved on My profile
+        <flux:dropdown position="top" align="end">
+            {{-- Its own component, so a photograph saved on My profile
                      appears here without a page load. --}}
-                <livewire:profile-avatar />
+            <livewire:profile-avatar />
 
-                <flux:menu>
-                    <flux:menu.radio.group>
-                        <div class="p-0 text-sm font-normal">
-                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                                <flux:avatar
-                                    :src="auth()->user()->employee?->photoUrl()"
-                                    :name="auth()->user()->name"
-                                    :initials="auth()->user()->initials()"
-                                />
+            <flux:menu>
+                <flux:menu.radio.group>
+                    <div class="p-0 text-sm font-normal">
+                        <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                            <flux:avatar :src="auth()->user()->employee?->photoUrl()"
+                                :name="auth()->user()->employee?->personal_name ?? auth()->user()->name"
+                                :initials="auth()->user()->initials()" />
 
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                                    <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-                                </div>
+                            <div class="grid flex-1 text-start text-sm leading-tight">
+                                <flux:heading class="truncate">
+                                    {{ auth()->user()->employee?->personal_name ?? auth()->user()->name }}
+                                </flux:heading>
+                                <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
                             </div>
                         </div>
-                    </flux:menu.radio.group>
+                    </div>
+                </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                <flux:menu.separator />
 
-                    <flux:menu.radio.group>
-                        <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                            {{ __('Settings') }}
-                        </flux:menu.item>
-                    </flux:menu.radio.group>
+                <flux:menu.radio.group>
+                    <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
+                        {{ __('Settings') }}
+                    </flux:menu.item>
+                </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                <flux:menu.separator />
 
-                    <form method="POST" action="{{ route('logout') }}" class="w-full">
-                        @csrf
-                        <flux:menu.item
-                            as="button"
-                            type="submit"
-                            icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer"
-                            data-test="logout-button"
-                        >
-                            {{ __('Log out') }}
-                        </flux:menu.item>
-                    </form>
-                </flux:menu>
-            </flux:dropdown>
-        </flux:header>
+                <form method="POST" action="{{ route('logout') }}" class="w-full">
+                    @csrf
+                    <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
+                        class="w-full cursor-pointer" data-test="logout-button">
+                        {{ __('Log out') }}
+                    </flux:menu.item>
+                </form>
+            </flux:menu>
+        </flux:dropdown>
+    </flux:header>
 
-        {{ $slot }}
+    {{ $slot }}
 
-        @persist('toast')
-            <flux:toast.group>
-                <flux:toast />
-            </flux:toast.group>
-        @endpersist
+    @persist('toast')
+        <flux:toast.group>
+            <flux:toast />
+        </flux:toast.group>
+    @endpersist
 
-        @fluxScripts
-    </body>
+    @fluxScripts
+</body>
+
 </html>
