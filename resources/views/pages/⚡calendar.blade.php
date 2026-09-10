@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Calendar\BuildMonthGrid;
+use App\Actions\Calendar\BuildCalendarMonth;
 use App\Enums\ActivityType;
 use App\Models\Activity;
 use App\Models\LdiTraining;
@@ -19,14 +19,6 @@ new #[Title('Calendar')] class extends Component {
      */
     #[Url]
     public string $month = '';
-
-    /**
-     * A training wears purple against the meeting's blue, and keeps the
-     * dashed edge as well — those two hues are the pair a colourblind
-     * reader is likeliest to confuse, and the edge settles it. The dash
-     * also says the bar is not this page's to edit.
-     */
-    private const PLAN_CLASSES = 'border border-dashed border-purple-500 bg-purple-100 text-purple-900 dark:border-purple-300/50 dark:bg-purple-400/25 dark:text-purple-100';
 
     public ?int $editingId = null;
 
@@ -131,164 +123,50 @@ new #[Title('Calendar')] class extends Component {
     }
 
     /**
-     * The month as the weeks a calendar draws.
+     * The month as the weeks a calendar draws, bars and all.
      *
-     * Each week carries its seven days and the bars that cross it. A thing
-     * running Monday to Thursday is one bar four days wide, not the same
-     * chip repeated in four boxes, so the eye follows how long it lasts.
-     *
-     * @return list<array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<array{key: string, kind: string, id: int, title: string, classes: string, column: int, span: int, lane: int, opensBefore: bool, runsOn: bool}>, lanes: int}>
+     * @return list<array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<array<string, mixed>>, lanes: int}>
      */
     #[Computed]
     public function weeks(): array
     {
-        $weeks = [];
+        return app(BuildCalendarMonth::class)->handle($this->shownMonth, $this->entries());
+    }
 
-        foreach (app(BuildMonthGrid::class)->handle($this->shownMonth) as $week) {
-            $dates = array_values(array_filter($week, fn (?CarbonImmutable $date): bool => $date !== null));
+    /**
+     * Everything the month has to draw, in the shape the builder wants.
+     *
+     * @return list<array{key: string, kind: string, id: int, title: string, classes: string, start: CarbonImmutable, end: CarbonImmutable}>
+     */
+    private function entries(): array
+    {
+        $entries = [];
 
-            $bars = $dates === [] ? [] : $this->barsAcross($dates[0], $dates[count($dates) - 1]);
-
-            $weeks[] = [
-                'days' => array_map(fn (?CarbonImmutable $date): array => [
-                    'day' => $date?->day,
-                    'date' => $date,
-                ], $week),
-                'bars' => $bars,
-                'lanes' => $bars === [] ? 0 : max(array_column($bars, 'lane')) + 1,
+        foreach ($this->activities as $activity) {
+            $entries[] = [
+                'key' => 'activity-'.$activity->getKey(),
+                'kind' => 'activity',
+                'id' => $activity->getKey(),
+                'title' => $activity->title,
+                'classes' => $activity->type->chipClasses(),
+                'start' => $activity->date_start,
+                'end' => $activity->date_end,
             ];
         }
 
-        return $weeks;
-    }
-
-    /**
-     * Everything crossing one week, cut to that week and stacked so no two
-     * bars land on the same line.
-     *
-     * @return list<array{key: string, kind: string, id: int, title: string, classes: string, column: int, span: int, lane: int, opensBefore: bool, runsOn: bool}>
-     */
-    private function barsAcross(CarbonImmutable $weekStart, CarbonImmutable $weekEnd): array
-    {
-        $bars = [];
-
-        foreach ($this->activities as $activity) {
-            $bars[] = $this->barFor(
-                'activity',
-                $activity->getKey(),
-                $activity->title,
-                $activity->type->chipClasses(),
-                $activity->date_start,
-                $activity->date_end,
-                $weekStart,
-                $weekEnd,
-            );
-        }
-
         foreach ($this->plans as $plan) {
-            $bars[] = $this->barFor(
-                'plan',
-                $plan->getKey(),
-                $plan->title,
-                self::PLAN_CLASSES,
-                $plan->date_start,
-                $plan->date_end,
-                $weekStart,
-                $weekEnd,
-            );
+            $entries[] = [
+                'key' => 'plan-'.$plan->getKey(),
+                'kind' => 'plan',
+                'id' => $plan->getKey(),
+                'title' => $plan->title,
+                'classes' => ActivityType::PLAN_CHIP,
+                'start' => $plan->date_start,
+                'end' => $plan->date_end,
+            ];
         }
 
-        $bars = array_values(array_filter($bars));
-
-        // Longest first from each starting day, so a week-long bar takes the
-        // top line and the short ones tuck under it.
-        usort($bars, fn (array $a, array $b): int => [$a['column'], -$a['span']] <=> [$b['column'], -$b['span']]);
-
-        return $this->stack($bars);
-    }
-
-    /**
-     * One bar, cut to the week it is being drawn on, or null when it does
-     * not reach that week at all.
-     *
-     * @return array{key: string, kind: string, id: int, title: string, classes: string, column: int, span: int, lane: int, opensBefore: bool, runsOn: bool}|null
-     */
-    private function barFor(
-        string $kind,
-        int $id,
-        string $title,
-        string $classes,
-        CarbonImmutable $start,
-        CarbonImmutable $end,
-        CarbonImmutable $weekStart,
-        CarbonImmutable $weekEnd,
-    ): ?array {
-        if ($start->startOfDay()->gt($weekEnd) || $end->startOfDay()->lt($weekStart)) {
-            return null;
-        }
-
-        $from = $start->startOfDay()->max($weekStart);
-        $until = $end->startOfDay()->min($weekEnd);
-
-        return [
-            'key' => $kind.'-'.$id,
-            'kind' => $kind,
-            'id' => $id,
-            'title' => $title,
-            'classes' => $classes,
-            // CSS grid columns count from one, and the week starts on Sunday.
-            'column' => $from->dayOfWeek + 1,
-            'span' => (int) $from->diffInDays($until) + 1,
-            'lane' => 0,
-            'opensBefore' => $start->startOfDay()->lt($weekStart),
-            'runsOn' => $end->startOfDay()->gt($weekEnd),
-        ];
-    }
-
-    /**
-     * Puts each bar on the first line where nothing is in its way.
-     *
-     * @param  list<array<string, mixed>>  $bars
-     * @return list<array<string, mixed>>
-     */
-    private function stack(array $bars): array
-    {
-        /** @var list<list<bool>> $taken */
-        $taken = [];
-
-        foreach ($bars as $index => $bar) {
-            $columns = range($bar['column'], $bar['column'] + $bar['span'] - 1);
-
-            $lane = 0;
-
-            while (true) {
-                $taken[$lane] ??= [];
-
-                $free = true;
-
-                foreach ($columns as $column) {
-                    if ($taken[$lane][$column] ?? false) {
-                        $free = false;
-
-                        break;
-                    }
-                }
-
-                if ($free) {
-                    break;
-                }
-
-                $lane++;
-            }
-
-            foreach ($columns as $column) {
-                $taken[$lane][$column] = true;
-            }
-
-            $bars[$index]['lane'] = $lane;
-        }
-
-        return $bars;
+        return $entries;
     }
 
     /**
@@ -300,7 +178,7 @@ new #[Title('Calendar')] class extends Component {
     #[Computed]
     public function legend(): array
     {
-        $rows = [['label' => __('LDI training'), 'classes' => self::PLAN_CLASSES]];
+        $rows = [['label' => __('LDI training'), 'classes' => ActivityType::PLAN_CHIP]];
 
         foreach (ActivityType::cases() as $case) {
             $rows[] = ['label' => $case->label(), 'classes' => $case->chipClasses()];
@@ -499,59 +377,8 @@ new #[Title('Calendar')] class extends Component {
          seventh of a phone is not a title. --}}
     <div class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <flux:card class="min-w-3xl space-y-2">
-            <div class="grid grid-cols-7 gap-1 text-center text-xs text-zinc-600 dark:text-zinc-300">
-                @foreach ([__('Sun'), __('Mon'), __('Tue'), __('Wed'), __('Thu'), __('Fri'), __('Sat')] as $weekday)
-                    <div>{{ $weekday }}</div>
-                @endforeach
-            </div>
-
-            @foreach ($this->weeks as $week)
-                {{-- One grid per week: the day boxes fill every row so a bar
-                     can be laid over them, spanning as many days as it runs. --}}
-                <div class="grid grid-cols-7 gap-1"
-                    style="grid-template-rows: auto repeat({{ max($week['lanes'], 1) }}, auto);">
-                    @foreach ($week['days'] as $index => $cell)
-                        <div style="grid-column: {{ $index + 1 }}; grid-row: 1 / -1;"
-                            @class([
-                                'min-h-24 rounded-md',
-                                'bg-zinc-50 dark:bg-white/2' => $cell['day'] === null,
-                                'border border-zinc-200 dark:border-white/10' => $cell['day'] !== null && ! $cell['date']->isToday(),
-                                'border border-[var(--color-accent)] bg-zinc-50 dark:bg-white/5' => $cell['day'] !== null && $cell['date']->isToday(),
-                            ])></div>
-                    @endforeach
-
-                    @foreach ($week['days'] as $index => $cell)
-                        @if ($cell['day'] !== null)
-                            <div class="flex items-center justify-between px-1 pt-1"
-                                style="grid-column: {{ $index + 1 }}; grid-row: 1;">
-                                <span class="text-xs tabular-nums">{{ $cell['day'] }}</span>
-
-                                @if ($this->canManage())
-                                    {{-- A plain button, because a flux:button here
-                                         would be larger than the cell it sits in. --}}
-                                    <button type="button"
-                                        wire:click="create('{{ $cell['date']->toDateString() }}')"
-                                        class="cursor-pointer px-1 text-xs leading-none text-zinc-500 hover:text-[var(--color-accent-content)] dark:text-zinc-400"
-                                        aria-label="{{ __('Add an activity on :date', ['date' => $cell['date']->format('F j')]) }}">+</button>
-                                @endif
-                            </div>
-                        @endif
-                    @endforeach
-
-                    @foreach ($week['bars'] as $bar)
-                        <button type="button" wire:key="{{ $loop->parent->index }}-{{ $bar['key'] }}"
-                            wire:click="show('{{ $bar['kind'] }}', {{ $bar['id'] }})"
-                            style="grid-column: {{ $bar['column'] }} / span {{ $bar['span'] }}; grid-row: {{ $bar['lane'] + 2 }};"
-                            @class([
-                                'mx-0.5 block cursor-pointer truncate px-1.5 py-0.5 text-left text-[11px] leading-tight',
-                                $bar['classes'],
-                                'rounded-s-md' => ! $bar['opensBefore'],
-                                'rounded-e-md' => ! $bar['runsOn'],
-                            ])
-                            title="{{ $bar['title'] }}">{{ $bar['opensBefore'] ? '◀ ' : '' }}{{ $bar['title'] }}</button>
-                    @endforeach
-                </div>
-            @endforeach
+            <x-calendar.month :weeks="$this->weeks" on-show="show"
+                :on-add="$this->canManage() ? 'create' : null" />
 
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-200 pt-3 dark:border-white/10">
                 @foreach ($this->legend as $entry)

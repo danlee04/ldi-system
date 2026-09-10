@@ -5,7 +5,9 @@ use Carbon\CarbonImmutable;
 use App\Models\LdiTraining;
 use App\Actions\Reports\TrainingByMonthReport;
 use App\Actions\Reports\CoverageByDivisionReport;
-use App\Actions\Calendar\BuildMonthGrid;
+use App\Actions\Calendar\BuildCalendarMonth;
+use App\Enums\ActivityType;
+use App\Models\Activity;
 use App\Actions\Reports\AgencyTotalsReport;
 use App\Actions\Reports\ApprovalsAgingReport;
 use App\Enums\TrainingStatus;
@@ -332,36 +334,68 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
-     * The visible month as a grid of weeks, each day carrying the plans
-     * running on it.
+     * The visible month, drawn the same way the calendar page draws it:
+     * bars across the days a thing runs, in the same colours. The rail is
+     * too narrow for titles, so the bars carry theirs on hover and the
+     * legend under them says what the colours mean.
      *
-     * @return array{month: CarbonImmutable, weeks: list<list<array{day: int|null, date: CarbonImmutable|null, plans: Collection<int, LdiTraining>}>>}
+     * @return array{month: CarbonImmutable, weeks: list<array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<array<string, mixed>>, lanes: int}>, legend: list<array{label: string, classes: string}>}
      */
     #[Computed]
     public function calendar(): array
     {
         $month = CarbonImmutable::today()->startOfMonth()->addMonths($this->monthOffset);
+        $until = $month->endOfMonth();
+
+        $entries = [];
+        $legend = [];
+
+        foreach (Activity::query()->overlapping($month, $until)->orderBy('date_start')->get() as $activity) {
+            $entries[] = [
+                'key' => 'activity-'.$activity->getKey(),
+                'kind' => 'activity',
+                'id' => $activity->getKey(),
+                'title' => $activity->title,
+                'classes' => $activity->type->chipClasses(),
+                'start' => $activity->date_start,
+                'end' => $activity->date_end,
+            ];
+
+            $legend[$activity->type->value] = [
+                'label' => $activity->type->label(),
+                'classes' => $activity->type->chipClasses(),
+            ];
+        }
 
         $plans = LdiTraining::query()
-            ->whereDate('date_start', '<=', $month->endOfMonth())
+            ->whereDate('date_start', '<=', $until)
             ->whereDate('date_end', '>=', $month)
             ->orderBy('date_start')
             ->get();
 
-        $weeks = [];
-
-        foreach (app(BuildMonthGrid::class)->handle($month) as $week) {
-            $weeks[] = array_map(fn (?CarbonImmutable $date): array => [
-                'day' => $date?->day,
-                'date' => $date,
-                'plans' => $date === null ? collect() : $plans->filter(fn (LdiTraining $plan): bool => $date->betweenIncluded(
-                    $plan->date_start->startOfDay(),
-                    $plan->date_end->endOfDay(),
-                ))->values(),
-            ], $week);
+        foreach ($plans as $plan) {
+            $entries[] = [
+                'key' => 'plan-'.$plan->getKey(),
+                'kind' => 'plan',
+                'id' => $plan->getKey(),
+                'title' => $plan->title,
+                'classes' => ActivityType::PLAN_CHIP,
+                'start' => $plan->date_start,
+                'end' => $plan->date_end,
+            ];
         }
 
-        return ['month' => $month, 'weeks' => $weeks];
+        if ($plans->isNotEmpty()) {
+            $legend['plan'] = ['label' => __('LDI training'), 'classes' => ActivityType::PLAN_CHIP];
+        }
+
+        return [
+            'month' => $month,
+            'weeks' => app(BuildCalendarMonth::class)->handle($month, $entries),
+            // Only the kinds actually on show, so the rail is not explaining
+            // a colour the month does not use.
+            'legend' => array_values($legend),
+        ];
     }
 
     /**

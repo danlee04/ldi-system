@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\ActivityType;
 use App\Enums\ApprovalLevel;
 use App\Enums\LdType;
+use App\Models\Activity;
 use App\Models\Division;
 use App\Models\Employee;
 use App\Models\EmployeeEligibility;
@@ -245,7 +247,7 @@ test('the ld mix leads with the commonest type and carries its share', function 
         ->and($mix[1]['label'])->toBe('Supervisory');
 });
 
-test('the calendar marks the days a plan is running', function () {
+test('the calendar draws a plan as one bar across the days it runs', function () {
     $this->actingAs(User::factory()->hr()->create());
 
     LdiTraining::factory()->create([
@@ -255,12 +257,64 @@ test('the calendar marks the days a plan is running', function () {
     ]);
 
     $calendar = Livewire::test('pages::dashboard')->instance()->calendar;
-    $days = collect($calendar['weeks'])->flatten(1)->filter(fn (array $cell): bool => $cell['day'] !== null);
+    $bars = collect($calendar['weeks'])->pluck('bars')->flatten(1);
 
-    expect($days->firstWhere('day', 10)['plans'])->toHaveCount(1)
-        ->and($days->firstWhere('day', 11)['plans'])->toHaveCount(1)
-        ->and($days->firstWhere('day', 12)['plans'])->toHaveCount(1)
-        ->and($days->firstWhere('day', 13)['plans'])->toHaveCount(0);
+    expect($bars->sum('span'))->toBe(3)
+        ->and($bars->first()['title'])->toBe('Records Management Seminar')
+        // The calendar page's purple, so the two agree about a training.
+        ->and($bars->first()['classes'])->toBe(ActivityType::PLAN_CHIP);
+});
+
+test('the calendar draws an activity in the colour of its kind', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $day = today()->startOfMonth()->addDays(4);
+
+    Activity::factory()->create([
+        'title' => 'Management Committee Meeting',
+        'type' => ActivityType::Meeting,
+        'date_start' => $day,
+        'date_end' => $day,
+    ]);
+
+    $calendar = Livewire::test('pages::dashboard')->instance()->calendar;
+    $bars = collect($calendar['weeks'])->pluck('bars')->flatten(1);
+
+    expect($bars)->toHaveCount(1)
+        ->and($bars->first()['classes'])->toBe(ActivityType::Meeting->chipClasses())
+        // The legend names only what the month actually holds.
+        ->and(collect($calendar['legend'])->pluck('label')->all())->toBe(['Meeting']);
+});
+
+test('two things on the same day are stacked, not hidden', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $day = today()->startOfMonth()->addDays(4);
+
+    Activity::factory()->create(['type' => ActivityType::Meeting, 'date_start' => $day, 'date_end' => $day]);
+    LdiTraining::factory()->create(['date_start' => $day, 'date_end' => $day]);
+
+    $calendar = Livewire::test('pages::dashboard')->instance()->calendar;
+    $bars = collect($calendar['weeks'])->pluck('bars')->flatten(1);
+
+    expect($bars->pluck('lane')->all())->toBe([0, 1])
+        ->and($calendar['legend'])->toHaveCount(2);
+});
+
+test('the month list under the dashboard calendar is gone', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    LdiTraining::factory()->create([
+        'title' => 'Consultation on the Proposed DOH Information Systems Strategic Plan',
+        'date_start' => today()->startOfMonth()->addDays(9),
+        'date_end' => today()->startOfMonth()->addDays(13),
+    ]);
+
+    Livewire::test('pages::dashboard')
+        // The title is written on the bar itself, not in a list beneath it.
+        ->assertSee('Consultation on the Proposed DOH Information Systems Strategic Plan')
+        ->assertDontSee('Nothing is on the calendar this month')
+        ->assertSee('Open the calendar');
 });
 
 test('the calendar can be stepped back and forward', function () {

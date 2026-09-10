@@ -15,6 +15,18 @@ enum ActivityType: string
     case Deadline = 'deadline';
     case Other = 'other';
 
+    /**
+     * A training is planned as an LdiTraining rather than an activity, so
+     * it has no case here — but it shares this calendar's palette, and the
+     * palette is worth having in one place. Purple against the meeting's
+     * blue, with a dashed edge as well: those two hues are the pair a
+     * colourblind reader is likeliest to confuse, and the edge settles it.
+     * The dash also says the bar is not the calendar page's to edit.
+     */
+    public const PLAN_CHIP = 'border border-dashed border-purple-500 bg-purple-100 text-purple-900 dark:border-purple-300/50 dark:bg-purple-400/25 dark:text-purple-100';
+
+    public const PLAN_DOT = 'bg-purple-500 dark:bg-purple-400';
+
     public function label(): string
     {
         return $this->name;
@@ -30,6 +42,19 @@ enum ActivityType: string
             self::Holiday => 'green',
             self::Deadline => 'amber',
             self::Other => 'zinc',
+        };
+    }
+
+    /**
+     * The dot a day wears where there is no room for a chip.
+     */
+    public function dotClasses(): string
+    {
+        return match ($this) {
+            self::Meeting => 'bg-blue-500 dark:bg-blue-400',
+            self::Holiday => 'bg-green-500 dark:bg-green-400',
+            self::Deadline => 'bg-amber-500 dark:bg-amber-400',
+            self::Other => 'bg-zinc-400 dark:bg-zinc-400',
         };
     }
 
