@@ -187,7 +187,7 @@ new #[Title('Approvals')] class extends Component {
         <flux:table.rows>
             @forelse ($this->queue as $record)
                 <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
-                    <flux:table.cell>{{ $record->employee->full_name }}</flux:table.cell>
+                    <flux:table.cell>{{ $record->employee->listing_name }}</flux:table.cell>
                     <flux:table.cell>
                         <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                             {{ $record->title }}
@@ -242,7 +242,7 @@ new #[Title('Approvals')] class extends Component {
                         </div>
                         <div>
                             <flux:text size="sm">{{ __('Employee') }}</flux:text>
-                            <flux:heading>{{ $this->deciding->employee->full_name }}</flux:heading>
+                            <flux:heading>{{ $this->deciding->employee->listing_name }}</flux:heading>
                         </div>
                         <div>
                             <flux:text size="sm">{{ __('Inclusive dates') }}</flux:text>
@@ -294,7 +294,7 @@ new #[Title('Approvals')] class extends Component {
             <flux:table.rows>
                 @foreach ($this->unroutable as $record)
                     <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
-                        <flux:table.cell>{{ $record->employee->full_name }}</flux:table.cell>
+                        <flux:table.cell>{{ $record->employee->listing_name }}</flux:table.cell>
                         <flux:table.cell>
                             <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                                 {{ $record->title }}

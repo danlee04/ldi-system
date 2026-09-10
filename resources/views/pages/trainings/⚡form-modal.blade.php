@@ -225,14 +225,14 @@ new class extends Component {
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach ($this->employees as $employee)
                         <flux:select.option :value="$employee->id">
-                            {{ $employee->full_name }} — {{ $employee->employee_number }}
+                            {{ $employee->listing_name }} — {{ $employee->employee_number }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>
             @elseif ($this->fixedEmployee)
                 <div class="md:col-span-2">
                     <flux:text size="sm">{{ __('Employee') }}</flux:text>
-                    <flux:heading>{{ $this->fixedEmployee->full_name }}</flux:heading>
+                    <flux:heading>{{ $this->fixedEmployee->listing_name }}</flux:heading>
                 </div>
             @endif
 

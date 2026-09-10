@@ -150,7 +150,7 @@ new #[Title('Divisions')] class extends Component {
                     <flux:table.cell>
                         @if ($division->head)
                             <div class="w-44 truncate" title="{{ $division->head->full_name }}">
-                                {{ $division->head->full_name }}
+                                {{ $division->head->listing_name }}
                             </div>
                         @else
                             <flux:badge color="amber">{{ __('No head') }}</flux:badge>
@@ -185,7 +185,7 @@ new #[Title('Divisions')] class extends Component {
                     :description="__('The last step of every approval in this division.')">
                     <flux:select.option value="">{{ __('No head') }}</flux:select.option>
                     @foreach ($this->employees as $employee)
-                        <flux:select.option :value="$employee->id">{{ $employee->full_name }}</flux:select.option>
+                        <flux:select.option :value="$employee->id">{{ $employee->listing_name }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>

@@ -494,7 +494,7 @@ new #[Title('Employees')] class extends Component {
                     @if ($this->deleting)
                         <div>
                             <flux:text size="sm">{{ __('Name') }}</flux:text>
-                            <flux:heading>{{ $this->deleting->full_name }}</flux:heading>
+                            <flux:heading>{{ $this->deleting->listing_name }}</flux:heading>
                         </div>
                         <div>
                             <flux:text size="sm">{{ __('Employee no.') }}</flux:text>

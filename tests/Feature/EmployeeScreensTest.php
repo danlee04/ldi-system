@@ -36,6 +36,27 @@ test('the list reads surname first so its ordering is legible', function () {
     Livewire::test('pages::employees.index')->assertSee('Abao, Lloyd B.');
 });
 
+test('every screen names an employee surname first', function () {
+    // Setup is the admin's, so one account has to cover all three screens.
+    $this->actingAs(User::factory()->admin()->create());
+
+    $employee = Employee::factory()->create([
+        'first_name' => 'Lloyd',
+        'middle_name' => 'Bislig',
+        'last_name' => 'Abao',
+        'suffix' => null,
+    ]);
+
+    // One roster form throughout, so a name is recognised at a glance
+    // wherever it turns up.
+    Livewire::test('pages::employees.show', ['employee' => $employee])
+        ->assertSee('Abao, Lloyd B.')
+        ->assertDontSee('Lloyd Bislig Abao');
+
+    Livewire::test('pages::setup.divisions')->assertSee('Abao, Lloyd B.');
+    Livewire::test('pages::setup.users')->assertSee('Abao, Lloyd B.');
+});
+
 test('a suffix follows the initial in the listing name', function () {
     $employee = Employee::factory()->create([
         'first_name' => 'Carmelito',

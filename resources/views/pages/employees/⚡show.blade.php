@@ -46,7 +46,7 @@ new #[Title('Employee')] class extends Component {
 
         <div class="flex items-start justify-between gap-4">
             <div>
-                <flux:heading size="xl">{{ $employee->full_name }}</flux:heading>
+                <flux:heading size="xl">{{ $employee->listing_name }}</flux:heading>
                 <flux:text>
                     {{ $employee->position?->title ?? '—' }}
                     @if ($employee->section)

@@ -74,7 +74,7 @@ new #[Title('My profile')] class extends Component {
             <flux:avatar size="lg" :name="$this->employee->full_name" />
 
             <div class="min-w-0 space-y-1">
-                <flux:heading size="xl">{{ $this->employee->full_name }}</flux:heading>
+                <flux:heading size="xl">{{ $this->employee->listing_name }}</flux:heading>
 
                 <flux:text>
                     {{ $this->employee->position?->title ?? __('No position on record') }}

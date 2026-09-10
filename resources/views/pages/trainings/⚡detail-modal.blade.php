@@ -164,7 +164,7 @@ new class extends Component {
                 </div>
 
                 <flux:text>
-                    {{ $record->employee->full_name }}
+                    {{ $record->employee->listing_name }}
                     @if ($record->employee->section)
                         — {{ $record->employee->section->name }}
                     @endif

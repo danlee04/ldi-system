@@ -291,7 +291,7 @@ new #[Title('LDI training')] class extends Component {
                     <flux:table.cell>
                         <div class="w-52 truncate" title="{{ $record->employee->full_name }}">
                             <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
-                                {{ $record->employee->full_name }}
+                                {{ $record->employee->listing_name }}
                             </button>
                         </div>
                     </flux:table.cell>
@@ -349,7 +349,7 @@ new #[Title('LDI training')] class extends Component {
                 <div class="max-h-72 space-y-2 overflow-y-auto pr-1">
                     @forelse ($this->candidates as $employee)
                         <flux:checkbox wire:model="selected" :value="$employee->id"
-                            :label="$employee->full_name"
+                            :label="$employee->listing_name"
                             :description="$employee->section?->name ?? $employee->employee_number" />
                     @empty
                         <flux:text size="sm">{{ __('Nobody left to add.') }}</flux:text>
@@ -401,7 +401,7 @@ new #[Title('LDI training')] class extends Component {
                     @if ($this->removing)
                         <div>
                             <flux:text size="sm">{{ __('Name') }}</flux:text>
-                            <flux:heading>{{ $this->removing->employee->full_name }}</flux:heading>
+                            <flux:heading>{{ $this->removing->employee->listing_name }}</flux:heading>
                         </div>
                         <div>
                             <flux:text size="sm">{{ __('Section') }}</flux:text>

@@ -186,7 +186,7 @@ new #[Title('Sections')] class extends Component {
                     <flux:table.cell>
                         @if ($section->head)
                             <div class="w-44 truncate" title="{{ $section->head->full_name }}">
-                                {{ $section->head->full_name }}
+                                {{ $section->head->listing_name }}
                             </div>
                         @else
                             <flux:badge color="amber">{{ __('No head') }}</flux:badge>
@@ -229,7 +229,7 @@ new #[Title('Sections')] class extends Component {
                     :description="__('Leave empty to send submissions straight to the division head.')">
                     <flux:select.option value="">{{ __('No head') }}</flux:select.option>
                     @foreach ($this->employees as $employee)
-                        <flux:select.option :value="$employee->id">{{ $employee->full_name }}</flux:select.option>
+                        <flux:select.option :value="$employee->id">{{ $employee->listing_name }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>

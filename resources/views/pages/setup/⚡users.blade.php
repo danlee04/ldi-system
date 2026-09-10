@@ -269,12 +269,11 @@ new #[Title('User accounts')] class extends Component {
             </flux:heading>
 
             <div class="grid gap-4 md:grid-cols-2">
-                <flux:select class="md:col-span-2" wire:model="employeeId" :label="__('Employee')"
-                    :description="__('An account with no employee can sign in but cannot submit or approve.')">
+                <flux:select class="md:col-span-2" wire:model="employeeId" :label="__('Employee')">
                     <flux:select.option value="">{{ __('Not linked') }}</flux:select.option>
                     @foreach ($this->employeesWithoutAccount as $employee)
                         <flux:select.option :value="$employee->id">
-                            {{ $employee->full_name }} — {{ $employee->employee_number }}
+                            {{ $employee->listing_name }} — {{ $employee->employee_number }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>
@@ -294,21 +293,12 @@ new #[Title('User accounts')] class extends Component {
                     <flux:label>{{ __('Can sign in') }}</flux:label>
                 </flux:field>
 
-                <div class="md:col-span-2">
-                    <flux:field variant="inline">
-                        <flux:switch wire:model="keepsCalendar" />
-                        <flux:label>{{ __('Can add to the office calendar') }}</flux:label>
-                    </flux:field>
-
-                    <flux:text size="sm">
-                        {{ __('HR and admin can already. Turn this on for the one employee who keeps the calendar with them.') }}
-                    </flux:text>
-                </div>
+                <flux:field variant="inline" class="md:col-span-2">
+                    <flux:switch wire:model="keepsCalendar" />
+                    <flux:label>{{ __('Can add to the office calendar') }}</flux:label>
+                </flux:field>
 
                 <flux:input class="md:col-span-2" wire:model="password" :label="__('Password')" type="password"
-                    :description="$editingId === null
-                        ? __('Give this to the account holder.')
-                        : __('Leave empty to keep the current password.')"
                     :required="$editingId === null" />
             </div>
 
