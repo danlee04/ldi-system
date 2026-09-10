@@ -353,13 +353,14 @@ test('each kind of entry wears its own colour', function () {
     expect($classes)->toHaveCount(5)
         // No two kinds share a fill, which is the whole point of the colour.
         ->and($classes->unique())->toHaveCount(5)
-        ->and($classes[0])->toContain('bg-blue-100')
+        ->and($classes[0])->toContain('bg-violet-100')
         ->and($classes[1])->toContain('bg-green-100')
         ->and($classes[2])->toContain('bg-amber-100')
         ->and($classes[3])->toContain('bg-zinc-200')
-        ->and($classes[4])->toContain('bg-purple-100')
-        // The training keeps a dashed edge as well, so blue and purple are
-        // told apart by more than hue.
+        // A training wears the Center's own blue.
+        ->and($classes[4])->toContain('bg-brand-primary')
+        // And keeps a dashed edge, so blue and violet are told apart by
+        // more than hue.
         ->and($classes[4])->toContain('border-dashed');
 });
 

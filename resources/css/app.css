@@ -23,8 +23,22 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
+    /*
+     * The Center's colours. Primary carries every action; the mint pair is
+     * the family the seal is drawn in and marks something finished.
+     */
+    --color-brand-primary: #2563eb;
+    --color-brand-secondary: #6bfbce;
+    --color-brand-accent: #1ec198;
+
+    /*
+     * Primary on white is 5.2:1, so white type on a primary button reads.
+     * On a near-black surface the same blue drops to 3.5:1, which is fine
+     * for a button's edge and not for words — the dark theme lightens the
+     * one that has to be read as text.
+     */
+    --color-accent: var(--color-brand-primary);
+    --color-accent-content: var(--color-brand-primary);
     --color-accent-foreground: var(--color-white);
 
     /*
@@ -40,13 +54,21 @@
     --color-chart-1: #2a78d6;
     --color-chart-2: #eb6834;
     --color-chart-3: #1baf7a;
+
+    /*
+     * The sign-in page. The document this system exists to fill is behind
+     * it as ruling rather than beside it as a picture — a form is a grid
+     * of boxes, and that is enough to say which office you are at.
+     */
+    --color-gate-desk: #0f1720;
+    --color-gate-paper: #eef1f5;
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: var(--color-brand-primary);
+        --color-accent-content: #60a5fa;
+        --color-accent-foreground: var(--color-white);
 
         /* The same three hues stepped for the dark surface, not flipped. */
         --color-chart-1: #3987e5;
@@ -83,3 +105,58 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/*
+ * The sign-in page.
+ *
+ * Ruled like a form, faint enough to be a surface rather than a picture,
+ * and faded out at the edges so it never competes with the one thing
+ * anybody came here to do.
+ */
+.gate {
+    --gate-rule: rgb(255 255 255 / 0.06);
+
+    position: relative;
+}
+
+/*
+ * A layer of its own. The mask belongs to the ruling, and a mask on the
+ * container would fade the form sitting on top of it as well.
+ */
+.gate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        repeating-linear-gradient(to bottom, transparent 0 47px, var(--gate-rule) 47px 48px),
+        repeating-linear-gradient(to right, transparent 0 47px, var(--gate-rule) 47px 48px);
+    mask-image: radial-gradient(120% 80% at 50% 40%, #000 25%, transparent 75%);
+    pointer-events: none;
+}
+
+:where(:not(.dark)) .gate {
+    --gate-rule: rgb(20 35 31 / 0.08);
+}
+
+/*
+ * One orchestrated arrival rather than an effect on each piece: the mark,
+ * then the form, then the line beneath it, a beat apart.
+ */
+.gate-rise {
+    animation: gate-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.gate-rise-1 { animation-delay: 0.05s; }
+.gate-rise-2 { animation-delay: 0.18s; }
+.gate-rise-3 { animation-delay: 0.34s; }
+
+@keyframes gate-rise {
+    from { opacity: 0; transform: translateY(0.75rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gate-rise {
+        animation: none;
+    }
+}

@@ -4,7 +4,9 @@ use App\Http\Controllers\DohLdiReportController;
 use App\Http\Controllers\PersonalDataSheetController;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+// Nobody wants a landing page for an office system: send them to the
+// work if they are signed in, and to the door if they are not.
+Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'))->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');

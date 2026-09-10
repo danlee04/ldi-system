@@ -1,12 +1,13 @@
 @props(['employees', 'plans', 'funding', 'spend', 'year'])
 
-{{-- Each card wears the colour its subject wears elsewhere: trainings are
-     the calendar's purple, money is green. The colour sits on the icon
-     rather than the number, so the figure stays in reading ink. --}}
+{{-- One colour across the three, the Center's own. Three different
+     hues were decorating rather than telling: the label beside each icon
+     already says what the card counts. The colour sits on the icon and
+     never on the number, so the figure stays in reading ink. --}}
 <div class="grid gap-4 lg:grid-cols-3">
     <flux:card class="space-y-3">
         <div class="flex items-center gap-3">
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-400/20 dark:text-blue-200">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-blue-200">
                 <flux:icon.users variant="mini" />
             </span>
 
@@ -27,7 +28,7 @@
 
     <flux:card class="space-y-3">
         <div class="flex items-center gap-3">
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-400/20 dark:text-purple-200">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-blue-200">
                 <flux:icon.academic-cap variant="mini" />
             </span>
 
@@ -52,7 +53,7 @@
          because the office is asked both questions about the same year. --}}
     <flux:card class="space-y-3">
         <div class="flex items-center gap-3">
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700 dark:bg-green-400/20 dark:text-green-200">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-blue-200">
                 <flux:icon.banknotes variant="mini" />
             </span>
 
