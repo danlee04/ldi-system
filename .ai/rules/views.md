@@ -41,3 +41,11 @@ Also: flux:badge is a rounded-md pill with px-2 py-1, far too large for a 32px b
 `bg-{{ $type->color() }}-100` compiles to nothing. Tailwind scans the source for whole class names and cannot resolve an interpolated one, so the element renders unstyled with no error.
 
 Write the full class strings out in a `match` on the enum and return them as one string — see `ActivityType::chipClasses()`, used by the calendar's day chips. `color()` stays separate for `flux:badge`, which takes a colour name as a prop rather than a class.
+
+## Look at a screen before calling it done
+Chrome is installed and can shoot a page headless — use it on anything visual before reporting it finished. Twice now a design has been called done while a table sat empty and a mask faded the button it was meant to sit behind.
+
+Public page:
+`"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu --hide-scrollbars --window-size=1440,900 --virtual-time-budget=4000 --screenshot=out.png "http://hr-training-laravel.test/login"`
+
+A page behind auth needs a session, which headless has none of. Render it instead: a throwaway Pest test with `actingAs()` that writes `$this->get(route('dashboard'))->getContent()` to a file, then shoot `file:///that.html`. Vite emits absolute asset URLs, so the CSS still loads.

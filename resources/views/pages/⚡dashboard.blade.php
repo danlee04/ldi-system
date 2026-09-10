@@ -11,6 +11,7 @@ use App\Models\Activity;
 use App\Actions\Reports\AgencyTotalsReport;
 use App\Actions\Reports\ApprovalsAgingReport;
 use App\Enums\TrainingStatus;
+use App\Models\Division;
 use App\Models\Employee;
 use App\Models\EmployeeEligibility;
 use App\Models\TrainingRecord;
@@ -18,13 +19,13 @@ use App\Workflow\ApprovalRouter;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new #[Title('Dashboard')] class extends Component {
     public int $myPending = 0;
 
     public int $myApproved = 0;
-
 
     public int $unroutable = 0;
 
@@ -37,7 +38,6 @@ new #[Title('Dashboard')] class extends Component {
             $this->myPending = $employee->trainingRecords()->pending()->count();
             $this->myApproved = $employee->trainingRecords()->approved()->count();
         }
-
 
         if ($user->isAdminOrHr()) {
             $this->unroutable = TrainingRecord::query()->unroutable()->count();
@@ -56,19 +56,13 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function cpdUnits(): float
     {
-        return (float) $this->employee?->trainingRecords()
-            ->where('status', TrainingStatus::Approved)
-            ->whereYear('date_end', now()->year)
-            ->sum('cpd_units');
+        return (float) $this->employee?->trainingRecords()->where('status', TrainingStatus::Approved)->whereYear('date_end', now()->year)->sum('cpd_units');
     }
 
     #[Computed]
     public function approvedThisYear(): int
     {
-        return (int) $this->employee?->trainingRecords()
-            ->where('status', TrainingStatus::Approved)
-            ->whereYear('date_end', now()->year)
-            ->count();
+        return (int) $this->employee?->trainingRecords()->where('status', TrainingStatus::Approved)->whereYear('date_end', now()->year)->count();
     }
 
     /**
@@ -79,10 +73,7 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function mySubmissions(): Collection
     {
-        return $this->employee?->trainingRecords()
-            ->pending()
-            ->orderBy('created_at')
-            ->get() ?? collect();
+        return $this->employee?->trainingRecords()->pending()->orderBy('created_at')->get() ?? collect();
     }
 
     /**
@@ -97,9 +88,7 @@ new #[Title('Dashboard')] class extends Component {
 
         $approver = app(ApprovalRouter::class)->approverFor($record->current_level, $this->employee);
 
-        return $approver instanceof Employee
-            ? $approver->listing_name.' ('.$record->current_level->label().')'
-            : $record->current_level->label();
+        return $approver instanceof Employee ? $approver->listing_name . ' (' . $record->current_level->label() . ')' : $record->current_level->label();
     }
 
     public function daysWaiting(TrainingRecord $record): int
@@ -115,10 +104,7 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function eligibilityAlerts(): Collection
     {
-        return $this->employee?->eligibilities
-            ->filter(fn (EmployeeEligibility $line): bool => $line->date_of_validity !== null
-                && $line->date_of_validity->lessThanOrEqualTo(today()->addYear()))
-            ->values() ?? collect();
+        return $this->employee?->eligibilities->filter(fn(EmployeeEligibility $line): bool => $line->date_of_validity !== null && $line->date_of_validity->lessThanOrEqualTo(today()->addYear()))->values() ?? collect();
     }
 
     /**
@@ -127,9 +113,7 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function pdsSections(): array
     {
-        return $this->employee === null
-            ? []
-            : app(PersonalDataSheetProgress::class)->handle($this->employee);
+        return $this->employee === null ? [] : app(PersonalDataSheetProgress::class)->handle($this->employee);
     }
 
     #[Computed]
@@ -180,18 +164,70 @@ new #[Title('Dashboard')] class extends Component {
         return app(AgencyTotalsReport::class)->fundingBySource($this->year());
     }
     /**
+     * The year's coverage as one figure. The panel below breaks it down by
+     * division; this is the number the office is asked for.
+     *
+     * @return array{covered: int, employees: int, percentage: int}
+     */
+    #[Computed]
+    public function coverageTotal(): array
+    {
+        $employees = array_sum(array_column($this->coverage, 'employees'));
+        $covered = array_sum(array_column($this->coverage, 'covered'));
+
+        return [
+            'covered' => $covered,
+            'employees' => $employees,
+            'percentage' => $employees === 0 ? 0 : (int) round(($covered / $employees) * 100),
+        ];
+    }
+
+    /**
      * @return list<array{month: int, label: string, attendances: int}>
      */
     #[Computed]
     public function months(): array
     {
-        return app(TrainingByMonthReport::class)->handle($this->year());
+        $report = app(TrainingByMonthReport::class);
+
+        return $this->chartMonth === null
+            ? $report->handle($this->year(), $this->chartDivision)
+            : $report->forMonth($this->year(), $this->chartMonth, $this->chartDivision);
     }
 
     #[Computed]
     public function monthPeak(): int
     {
         return app(TrainingByMonthReport::class)->peak($this->months);
+    }
+
+    /**
+     * The two ways the chart can be narrowed. Both live in the link, so a
+     * head can send somebody a division's year.
+     */
+    #[Url]
+    public ?int $chartDivision = null;
+
+    #[Url]
+    public ?int $chartMonth = null;
+
+    public function updatedChartDivision(): void
+    {
+        unset($this->months, $this->monthPeak);
+    }
+
+    public function updatedChartMonth(): void
+    {
+        unset($this->months, $this->monthPeak);
+    }
+
+    /**
+     * @return Collection<int, Division>
+     */
+    #[Computed]
+    public function chartDivisions(): Collection
+    {
+        return Division::query()->orderBy('name')->get();
     }
 
     /**
@@ -214,22 +250,21 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function ldMix(): array
     {
-        $records = TrainingRecord::query()
-            ->where('status', TrainingStatus::Approved)
-            ->whereYear('date_end', $this->year())
-            ->get();
+        $records = TrainingRecord::query()->where('status', TrainingStatus::Approved)->whereYear('date_end', $this->year())->get();
 
         $total = max(1, $records->count());
 
         return $records
-            ->groupBy(fn (TrainingRecord $record): string => $record->ld_type->label())
+            ->groupBy(fn(TrainingRecord $record): string => $record->ld_type->label())
             ->map->count()
             ->sortDesc()
-            ->map(fn (int $count, string $label): array => [
-                'label' => $label,
-                'attendances' => $count,
-                'share' => round($count / $total * 100, 1),
-            ])
+            ->map(
+                fn(int $count, string $label): array => [
+                    'label' => $label,
+                    'attendances' => $count,
+                    'share' => round(($count / $total) * 100, 1),
+                ],
+            )
             ->values()
             ->all();
     }
@@ -242,15 +277,12 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function spend(): array
     {
-        $records = TrainingRecord::query()
-            ->where('status', TrainingStatus::Approved)
-            ->whereYear('date_end', $this->year())
-            ->get();
+        $records = TrainingRecord::query()->where('status', TrainingStatus::Approved)->whereYear('date_end', $this->year())->get();
 
         $parts = [
-            'registration' => (float) $records->sum(fn (TrainingRecord $r): float => (float) $r->registration_fee),
-            'tev' => (float) $records->sum(fn (TrainingRecord $r): float => (float) $r->tev),
-            'other' => (float) $records->sum(fn (TrainingRecord $r): float => (float) $r->expenses),
+            'registration' => (float) $records->sum(fn(TrainingRecord $r): float => (float) $r->registration_fee),
+            'tev' => (float) $records->sum(fn(TrainingRecord $r): float => (float) $r->tev),
+            'other' => (float) $records->sum(fn(TrainingRecord $r): float => (float) $r->expenses),
         ];
 
         return [...$parts, 'total' => array_sum($parts)];
@@ -273,11 +305,7 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function upcomingPlans(): Collection
     {
-        return LdiTraining::query()
-            ->where('date_start', '>=', today())
-            ->orderBy('date_start')
-            ->limit(5)
-            ->get();
+        return LdiTraining::query()->where('date_start', '>=', today())->orderBy('date_start')->limit(5)->get();
     }
 
     /**
@@ -288,11 +316,7 @@ new #[Title('Dashboard')] class extends Component {
     {
         return [
             'active' => Employee::query()->active()->count(),
-            'statuses' => Employee::query()->active()->get()
-                ->groupBy(fn (Employee $employee): string => $employee->employment_status->label())
-                ->map->count()
-                ->sortDesc()
-                ->all(),
+            'statuses' => Employee::query()->active()->get()->groupBy(fn(Employee $employee): string => $employee->employment_status->label())->map->count()->sortDesc()->all(),
             'plans' => LdiTraining::query()->whereYear('date_start', $this->year())->count(),
         ];
     }
@@ -352,7 +376,7 @@ new #[Title('Dashboard')] class extends Component {
 
         foreach (Activity::query()->overlapping($month, $until)->orderBy('date_start')->get() as $activity) {
             $entries[] = [
-                'key' => 'activity-'.$activity->getKey(),
+                'key' => 'activity-' . $activity->getKey(),
                 'kind' => 'activity',
                 'id' => $activity->getKey(),
                 'title' => $activity->title,
@@ -367,15 +391,11 @@ new #[Title('Dashboard')] class extends Component {
             ];
         }
 
-        $plans = LdiTraining::query()
-            ->whereDate('date_start', '<=', $until)
-            ->whereDate('date_end', '>=', $month)
-            ->orderBy('date_start')
-            ->get();
+        $plans = LdiTraining::query()->whereDate('date_start', '<=', $until)->whereDate('date_end', '>=', $month)->orderBy('date_start')->get();
 
         foreach ($plans as $plan) {
             $entries[] = [
-                'key' => 'plan-'.$plan->getKey(),
+                'key' => 'plan-' . $plan->getKey(),
                 'kind' => 'plan',
                 'id' => $plan->getKey(),
                 'title' => $plan->title,
@@ -404,15 +424,27 @@ new #[Title('Dashboard')] class extends Component {
     #[Computed]
     public function pdsMissing(): array
     {
-        return array_values(array_filter(
-            $this->pdsSections,
-            fn (array $section): bool => ! $section['filled'],
-        ));
+        return array_values(array_filter($this->pdsSections, fn(array $section): bool => !$section['filled']));
     }
 }; ?>
 
 <div class="space-y-6">
-    <flux:heading size="xl">{{ __('Dashboard') }}</flux:heading>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <span
+                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-blue-200">
+                <flux:icon.squares-2x2 variant="mini" />
+            </span>
+
+            <flux:heading size="xl">{{ __('Dashboard') }}</flux:heading>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <flux:text size="sm">{{ today()->format('l, j F Y') }}</flux:text>
+
+            <livewire:notifications />
+        </div>
+    </div>
 
     @if ($this->eligibilityAlerts->isNotEmpty())
         <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('Check your eligibility')">
@@ -520,19 +552,22 @@ new #[Title('Dashboard')] class extends Component {
     @endif
 
     @if ($this->seesAgency)
-        <div class="grid gap-6 lg:grid-cols-3">
-            <div class="space-y-6 lg:col-span-2">
-                <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals"
-                    :funding="$this->fundingTotals" :spend="$this->spend" :year="$this->year()" />
+        <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals" :coverage="$this->coverageTotal" :funding="$this->fundingTotals" :spend="$this->spend"
+            :year="$this->year()" />
 
+        {{-- A rail of a fixed width rather than a third of the screen: it
+             holds a month and two short lists, and everything it does not
+             need belongs to the panels beside it. --}}
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
+            <div class="space-y-6">
                 <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak"
-                    :year="$this->year()" />
+                    :divisions="$this->chartDivisions" :month="$this->chartMonth" :year="$this->year()" />
 
-                <x-dashboard.coverage :rows="$this->coverage" :year="$this->year()" />
-
+                {{-- Two small panels of the same kind of question: what the
+                     year was made of, and who it reached. --}}
                 <div class="grid gap-6 xl:grid-cols-2">
                     <x-dashboard.ld-mix :rows="$this->ldMix" :year="$this->year()" />
-                    <x-dashboard.spend :spend="$this->spend" :year="$this->year()" />
+                    <x-dashboard.coverage :rows="$this->coverage" :year="$this->year()" />
                 </div>
 
                 <flux:card class="space-y-3">
@@ -586,7 +621,8 @@ new #[Title('Dashboard')] class extends Component {
                             @foreach ($this->upcomingPlans as $plan)
                                 <div class="flex flex-wrap items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                                     <div class="min-w-0">
-                                        <div class="truncate text-sm" title="{{ $plan->title }}">{{ $plan->title }}</div>
+                                        <div class="truncate text-sm" title="{{ $plan->title }}">{{ $plan->title }}
+                                        </div>
                                         <div class="text-xs text-zinc-500 dark:text-zinc-400">
                                             {{ $plan->inclusive_dates }}
                                         </div>

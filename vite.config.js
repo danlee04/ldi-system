@@ -13,8 +13,14 @@ export default defineConfig({
             ],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
+                // Open Sans reads the tables and forms; Roboto sets the
+                // headings. Both are fetched at build time and served from
+                // this app, so no request leaves for a font CDN.
+                bunny('Open Sans', {
                     weights: [400, 500, 600],
+                }),
+                bunny('Roboto', {
+                    weights: [500, 700],
                 }),
             ],
         }),

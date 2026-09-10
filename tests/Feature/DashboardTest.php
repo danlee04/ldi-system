@@ -441,12 +441,13 @@ test('a fund that put in nothing adds nothing to the card', function () {
         ->and($funding['other'])->toBe(0.0);
 });
 
-test('the three cards are shown to hr and not to an employee', function () {
+test('the four figures are shown to hr and not to an employee', function () {
     $this->actingAs(User::factory()->hr()->create());
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Total employees')
-        ->assertSee('Funded by HR');
+        ->assertSee('Employees')
+        ->assertSee('Trained in '.now()->year)
+        ->assertSee('Spent in '.now()->year);
 
     $user = User::factory()->employee()->create();
     Employee::factory()->create(['user_id' => $user->id]);
@@ -454,8 +455,29 @@ test('the three cards are shown to hr and not to an employee', function () {
     $this->actingAs($user);
 
     Livewire::test('pages::dashboard')
-        ->assertDontSee('Total employees')
-        ->assertDontSee('Funded by HR');
+        ->assertDontSee('Trained in '.now()->year)
+        ->assertDontSee('Spent in '.now()->year);
+});
+
+test('the coverage figure is the whole agency, not one division', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $division = Division::factory()->create();
+    $employees = Employee::factory()->count(4)->create(['division_id' => $division->id]);
+
+    // Three of the four finished something this year.
+    foreach ($employees->take(3) as $employee) {
+        TrainingRecord::factory()->approved()->for($employee)->create([
+            'date_start' => now()->subDays(10),
+            'date_end' => now()->subDays(8),
+        ]);
+    }
+
+    $coverage = Livewire::test('pages::dashboard')->instance()->coverageTotal;
+
+    expect($coverage['covered'])->toBe(3)
+        ->and($coverage['employees'])->toBe(4)
+        ->and($coverage['percentage'])->toBe(75);
 });
 
 test('the expenses card leads with what was spent, not what was set aside', function () {
@@ -481,10 +503,65 @@ test('the expenses card leads with what was spent, not what was set aside', func
     ]);
 
     Livewire::test('pages::dashboard')
-        // Spent, in its two parts.
+        // What was spent leads the card.
         ->assertSee('10,200.00')
-        ->assertSee('6,000.00')
-        ->assertSee('4,200.00')
-        // Set aside, which is a larger and separate figure.
-        ->assertSee('13,000.00');
+        // What HR set aside supports it.
+        ->assertSee('6,000.00 funded by HR');
+});
+
+test('the monthly chart can be narrowed to one division', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    // An employee's division follows their section, so the section is
+    // what a test has to place them through.
+    $mine = Division::factory()->create(['name' => 'Rehabilitation']);
+    $theirs = Division::factory()->create(['name' => 'Administrative']);
+
+    foreach ([$mine, $theirs] as $division) {
+        $section = Section::factory()->create(['division_id' => $division->id]);
+
+        TrainingRecord::factory()->approved()->for(Employee::factory()->create(['section_id' => $section->id]))->create([
+            'date_start' => now()->startOfYear()->addMonths(3),
+            'date_end' => now()->startOfYear()->addMonths(3)->addDays(2),
+        ]);
+    }
+
+    $component = Livewire::test('pages::dashboard');
+
+    expect($component->instance()->months[3]['attendances'])->toBe(2);
+
+    $component->set('chartDivision', $mine->id);
+
+    expect($component->instance()->months[3]['attendances'])->toBe(1);
+});
+
+test('picking a month turns the chart on its side', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $division = Division::factory()->create(['name' => 'Rehabilitation']);
+    $section = Section::factory()->create(['division_id' => $division->id]);
+
+    TrainingRecord::factory()->approved()->for(Employee::factory()->create(['section_id' => $section->id]))->create([
+        'date_start' => now()->startOfYear()->addMonths(3),
+        'date_end' => now()->startOfYear()->addMonths(3)->addDays(2),
+    ]);
+
+    $component = Livewire::test('pages::dashboard')->set('chartMonth', 4);
+
+    // One month is one bar, so the bars become the divisions that were in it.
+    $rows = $component->instance()->months;
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['label'])->toBe('Rehabilitation')
+        ->and($rows[0]['attendances'])->toBe(1);
+
+    $component->assertSee('Training completed in April');
+});
+
+test('a month with nothing in it says so instead of drawing an empty chart', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::dashboard')
+        ->set('chartMonth', 7)
+        ->assertSee('Nothing was completed here.');
 });
