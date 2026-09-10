@@ -118,16 +118,16 @@
             <livewire:notifications />
 
             <flux:dropdown position="top" align="end">
-                <flux:profile
-                    :initials="auth()->user()->initials()"
-                    icon-trailing="chevron-down"
-                />
+                {{-- Its own component, so a photograph saved on My profile
+                     appears here without a page load. --}}
+                <livewire:profile-avatar />
 
                 <flux:menu>
                     <flux:menu.radio.group>
                         <div class="p-0 text-sm font-normal">
                             <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
                                 <flux:avatar
+                                    :src="auth()->user()->employee?->photoUrl()"
                                     :name="auth()->user()->name"
                                     :initials="auth()->user()->initials()"
                                 />

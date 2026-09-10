@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Employee extends Model
 {
@@ -28,6 +29,7 @@ class Employee extends Model
         'middle_name',
         'last_name',
         'suffix',
+        'photo_path',
         'gender',
         'position_id',
         'section_id',
@@ -193,6 +195,15 @@ class Employee extends Model
             $this->last_name,
             $this->suffix,
         ])->filter()->join(' '));
+    }
+
+    /**
+     * Where their photograph is served from, or null when there is none
+     * and initials stand in for it.
+     */
+    public function photoUrl(): ?string
+    {
+        return $this->photo_path === null ? null : Storage::disk('public')->url($this->photo_path);
     }
 
     /**

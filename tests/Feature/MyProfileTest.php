@@ -8,6 +8,8 @@ use App\Models\PersonalDataSheet;
 use App\Models\Section;
 use App\Models\TrainingRecord;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 /**
@@ -76,7 +78,6 @@ test('the cpd units count only approved training from this year', function () {
 
     expect(Livewire::test('pages::my-profile')->instance()->cpdUnits)->toBe(12.0);
 });
-
 
 test('their eligibility is listed', function () {
     $employee = profileEmployee();
@@ -159,4 +160,154 @@ test('an employee is offered one', function () {
     $this->get(route('dashboard'))
         ->assertOk()
         ->assertSee(route('my-profile'));
+});
+
+test('an employee can put a photograph on their profile', function () {
+    Storage::fake('public');
+
+    $employee = profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->call('choosePhoto')
+        ->set('photo', UploadedFile::fake()->image('me.jpg', 400, 400))
+        ->call('savePhoto')
+        ->assertHasNoErrors()
+        // The sidebar listens for this, which is how the face appears
+        // there without a page load.
+        ->assertDispatched('photo-updated');
+
+    $employee->refresh();
+
+    expect($employee->photo_path)->not->toBeNull()
+        // The stored name is generated, never the one it arrived with.
+        ->and($employee->photo_path)->not->toContain('me.jpg')
+        ->and(Storage::disk('public')->exists($employee->photo_path))->toBeTrue();
+});
+
+test('replacing a photograph does not leave the old one on the disk', function () {
+    Storage::fake('public');
+
+    $employee = profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('first.jpg', 400, 400))
+        ->call('savePhoto');
+
+    $first = $employee->refresh()->photo_path;
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('second.jpg', 400, 400))
+        ->call('savePhoto');
+
+    $second = $employee->refresh()->photo_path;
+
+    expect($second)->not->toBe($first)
+        ->and(Storage::disk('public')->exists($first))->toBeFalse()
+        ->and(Storage::disk('public')->exists($second))->toBeTrue();
+});
+
+test('removing the photograph puts the initials back', function () {
+    Storage::fake('public');
+
+    $employee = profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('me.jpg', 400, 400))
+        ->call('savePhoto');
+
+    $path = $employee->refresh()->photo_path;
+
+    Livewire::test('pages::my-profile')
+        ->call('removePhoto')
+        ->assertDispatched('photo-updated');
+
+    expect($employee->refresh()->photo_path)->toBeNull()
+        ->and(Storage::disk('public')->exists($path))->toBeFalse()
+        ->and($employee->photoUrl())->toBeNull();
+});
+
+test('a file that is not a picture is refused', function () {
+    Storage::fake('public');
+
+    profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->create('payroll.pdf', 100, 'application/pdf'))
+        ->call('savePhoto')
+        ->assertHasErrors('photo');
+});
+
+test('a picture over two megabytes is refused', function () {
+    Storage::fake('public');
+
+    profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('huge.jpg', 400, 400)->size(3000))
+        ->call('savePhoto')
+        ->assertHasErrors('photo');
+});
+
+test('a picture too small to recognise anybody by is refused', function () {
+    Storage::fake('public');
+
+    profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('tiny.jpg', 80, 80))
+        ->call('savePhoto')
+        ->assertHasErrors('photo');
+});
+
+test('the sidebar shows the photograph once there is one, and initials before', function () {
+    Storage::fake('public');
+
+    $employee = profileEmployee();
+    // The initials in the sidebar come off the account, which is what a
+    // sign-in is named by.
+    $initials = auth()->user()->initials();
+
+    Livewire::test('profile-avatar')->assertSee($initials);
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('me.jpg', 400, 400))
+        ->call('savePhoto');
+
+    Livewire::test('profile-avatar')
+        ->assertSee($employee->refresh()->photo_path)
+        ->assertDontSee($initials);
+});
+
+test('a page draws the photograph on both profile buttons', function () {
+    Storage::fake('public');
+
+    $employee = profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('me.jpg', 400, 400))
+        ->call('savePhoto');
+
+    $path = $employee->refresh()->photo_path;
+
+    // The layout carries two of them — the sidebar's, which is what a
+    // desktop shows, and the mobile header's. Both, plus the two avatars
+    // inside their menus, make four.
+    $html = $this->get(route('dashboard'))->assertOk()->getContent();
+
+    expect(substr_count($html, $path))->toBe(4);
+});
+
+test('the sidebar profile button carries the photograph', function () {
+    Storage::fake('public');
+
+    $employee = profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->set('photo', UploadedFile::fake()->image('me.jpg', 400, 400))
+        ->call('savePhoto');
+
+    // The desktop shape, which is the one that stayed on initials.
+    Livewire::test('profile-avatar', ['name' => 'Maria Cruz', 'sidebar' => true])
+        ->assertSee($employee->refresh()->photo_path)
+        ->assertSee('Maria Cruz');
 });
