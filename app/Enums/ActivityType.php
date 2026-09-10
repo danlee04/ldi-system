@@ -43,10 +43,10 @@ enum ActivityType: string
     public function chipClasses(): string
     {
         return match ($this) {
-            self::Meeting => 'bg-blue-100 text-blue-800 dark:bg-blue-400/20 dark:text-blue-200',
-            self::Holiday => 'bg-green-100 text-green-800 dark:bg-green-400/20 dark:text-green-200',
-            self::Deadline => 'bg-amber-100 text-amber-900 dark:bg-amber-400/20 dark:text-amber-100',
-            self::Other => 'bg-zinc-200 text-zinc-800 dark:bg-white/15 dark:text-zinc-100',
+            self::Meeting => 'bg-blue-100 text-blue-900 dark:bg-blue-400/25 dark:text-blue-100',
+            self::Holiday => 'bg-green-100 text-green-900 dark:bg-green-400/25 dark:text-green-100',
+            self::Deadline => 'bg-amber-100 text-amber-900 dark:bg-amber-400/25 dark:text-amber-100',
+            self::Other => 'bg-zinc-200 text-zinc-900 dark:bg-white/15 dark:text-zinc-100',
         };
     }
 }

@@ -337,3 +337,38 @@ test('the month list under the calendar is gone', function () {
         ->assertDontSee('This month')
         ->assertDontSee('Nothing is on the calendar this month');
 });
+
+test('each kind of entry wears its own colour', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Activity::factory()->on('2026-04-13')->create(['type' => ActivityType::Meeting]);
+    Activity::factory()->on('2026-04-14')->create(['type' => ActivityType::Holiday]);
+    Activity::factory()->on('2026-04-15')->create(['type' => ActivityType::Deadline]);
+    Activity::factory()->on('2026-04-16')->create(['type' => ActivityType::Other]);
+
+    LdiTraining::factory()->create(['date_start' => '2026-04-17', 'date_end' => '2026-04-17']);
+
+    $classes = collect(barsFor('2026-04'))->pluck('classes');
+
+    expect($classes)->toHaveCount(5)
+        // No two kinds share a fill, which is the whole point of the colour.
+        ->and($classes->unique())->toHaveCount(5)
+        ->and($classes[0])->toContain('bg-blue-100')
+        ->and($classes[1])->toContain('bg-green-100')
+        ->and($classes[2])->toContain('bg-amber-100')
+        ->and($classes[3])->toContain('bg-zinc-200')
+        ->and($classes[4])->toContain('bg-purple-100')
+        // The training keeps a dashed edge as well, so blue and purple are
+        // told apart by more than hue.
+        ->and($classes[4])->toContain('border-dashed');
+});
+
+test('the calendar says what its colours mean', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::calendar', ['month' => '2026-04'])
+        ->assertSee('LDI training')
+        ->assertSee('Meeting')
+        ->assertSee('Holiday')
+        ->assertSee('Deadline');
+});

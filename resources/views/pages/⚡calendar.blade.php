@@ -20,6 +20,14 @@ new #[Title('Calendar')] class extends Component {
     #[Url]
     public string $month = '';
 
+    /**
+     * A training wears purple against the meeting's blue, and keeps the
+     * dashed edge as well — those two hues are the pair a colourblind
+     * reader is likeliest to confuse, and the edge settles it. The dash
+     * also says the bar is not this page's to edit.
+     */
+    private const PLAN_CLASSES = 'border border-dashed border-purple-500 bg-purple-100 text-purple-900 dark:border-purple-300/50 dark:bg-purple-400/25 dark:text-purple-100';
+
     public ?int $editingId = null;
 
     public ?int $deletingId = null;
@@ -182,7 +190,7 @@ new #[Title('Calendar')] class extends Component {
                 'plan',
                 $plan->getKey(),
                 $plan->title,
-                'border border-dashed border-zinc-400 text-zinc-700 dark:border-white/30 dark:text-zinc-200',
+                self::PLAN_CLASSES,
                 $plan->date_start,
                 $plan->date_end,
                 $weekStart,
@@ -281,6 +289,24 @@ new #[Title('Calendar')] class extends Component {
         }
 
         return $bars;
+    }
+
+    /**
+     * What each colour on the grid means, since a bar carries its title
+     * rather than its kind.
+     *
+     * @return list<array{label: string, classes: string}>
+     */
+    #[Computed]
+    public function legend(): array
+    {
+        $rows = [['label' => __('LDI training'), 'classes' => self::PLAN_CLASSES]];
+
+        foreach (ActivityType::cases() as $case) {
+            $rows[] = ['label' => $case->label(), 'classes' => $case->chipClasses()];
+        }
+
+        return $rows;
     }
 
     public string $viewingKind = '';
@@ -526,6 +552,15 @@ new #[Title('Calendar')] class extends Component {
                     @endforeach
                 </div>
             @endforeach
+
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-200 pt-3 dark:border-white/10">
+                @foreach ($this->legend as $entry)
+                    <div class="flex items-center gap-1.5">
+                        <span class="size-3 rounded-sm {{ $entry['classes'] }}" aria-hidden="true"></span>
+                        <flux:text size="sm">{{ $entry['label'] }}</flux:text>
+                    </div>
+                @endforeach
+            </div>
         </flux:card>
     </div>
 
@@ -540,7 +575,7 @@ new #[Title('Calendar')] class extends Component {
                             {{ $this->viewing->type->label() }}
                         </flux:badge>
                     @else
-                        <flux:badge size="sm" color="zinc">{{ __('LDI training') }}</flux:badge>
+                        <flux:badge size="sm" color="purple">{{ __('LDI training') }}</flux:badge>
                     @endif
                 </div>
 
