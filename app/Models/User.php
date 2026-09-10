@@ -23,6 +23,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $email
  * @property UserRole $role
  * @property bool $is_active
+ * @property bool $can_manage_calendar
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -32,7 +33,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'role', 'is_active', 'password'])]
+#[Fillable(['name', 'email', 'role', 'is_active', 'can_manage_calendar', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -51,6 +52,7 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'can_manage_calendar' => 'boolean',
         ];
     }
 
@@ -98,6 +100,18 @@ class User extends Authenticatable implements PasskeyUser
 
         return Section::query()->where('section_head_employee_id', $employee->getKey())->exists()
             || Division::query()->where('division_head_employee_id', $employee->getKey())->exists();
+    }
+
+    /**
+     * Whoever keeps the office calendar.
+     *
+     * HR and admin do by virtue of the role. Anybody else is trusted with
+     * it one account at a time, by the tick an administrator puts on it in
+     * Setup, which is how the office designates its calendar keeper.
+     */
+    public function managesCalendar(): bool
+    {
+        return $this->isAdminOrHr() || $this->can_manage_calendar;
     }
 
     /**

@@ -16,6 +16,10 @@
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
 
+                <flux:sidebar.item icon="calendar-days" :href="route('calendar')" :current="request()->routeIs('calendar')" wire:navigate>
+                    {{ __('Calendar') }}
+                </flux:sidebar.item>
+
                 @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
                     <flux:sidebar.group :heading="__('My work')" class="grid">
                         {{-- Both of these need an employee record behind them,

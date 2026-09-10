@@ -64,6 +64,15 @@ class UserFactory extends Factory
     }
 
     /**
+     * The one employee an administrator has trusted with the office
+     * calendar. HR and admin do not need it — their role carries it.
+     */
+    public function keepsCalendar(): static
+    {
+        return $this->state(fn (array $attributes): array => ['can_manage_calendar' => true]);
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

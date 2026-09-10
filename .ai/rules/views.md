@@ -36,3 +36,8 @@ flux:button renders `<span>{{ $slot }}</span>` whenever it has an icon and a non
 So do not put a notification count, dot or badge inside such a button. Leave the slot empty, wrap the whole trigger in `<div class="relative inline-flex">`, and layer the count over the corner as a sibling. The wrapper must be inline-flex so it shrink-wraps the button rather than the sidebar's width.
 
 Also: flux:badge is a rounded-md pill with px-2 py-1, far too large for a 32px button. A plain span with `flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none` is the shape wanted. resources/views/components/⚡notifications.blade.php is the worked example.
+
+## Tailwind never sees a class a template pieces together
+`bg-{{ $type->color() }}-100` compiles to nothing. Tailwind scans the source for whole class names and cannot resolve an interpolated one, so the element renders unstyled with no error.
+
+Write the full class strings out in a `match` on the enum and return them as one string — see `ActivityType::chipClasses()`, used by the calendar's day chips. `color()` stays separate for `flux:badge`, which takes a colour name as a prop rather than a class.

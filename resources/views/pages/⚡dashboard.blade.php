@@ -5,6 +5,7 @@ use Carbon\CarbonImmutable;
 use App\Models\LdiTraining;
 use App\Actions\Reports\TrainingByMonthReport;
 use App\Actions\Reports\CoverageByDivisionReport;
+use App\Actions\Calendar\BuildMonthGrid;
 use App\Actions\Reports\AgencyTotalsReport;
 use App\Actions\Reports\ApprovalsAgingReport;
 use App\Enums\TrainingStatus;
@@ -347,31 +348,20 @@ new #[Title('Dashboard')] class extends Component {
             ->orderBy('date_start')
             ->get();
 
-        $days = [];
+        $weeks = [];
 
-        // Blank cells so the first of the month lands under its weekday.
-        foreach (range(1, $month->dayOfWeek) as $ignored) {
-            $days[] = ['day' => null, 'date' => null, 'plans' => collect()];
-        }
-
-        foreach (range(1, $month->daysInMonth) as $day) {
-            $date = $month->addDays($day - 1);
-
-            $days[] = [
-                'day' => $day,
+        foreach (app(BuildMonthGrid::class)->handle($month) as $week) {
+            $weeks[] = array_map(fn (?CarbonImmutable $date): array => [
+                'day' => $date?->day,
                 'date' => $date,
-                'plans' => $plans->filter(fn (LdiTraining $plan): bool => $date->betweenIncluded(
+                'plans' => $date === null ? collect() : $plans->filter(fn (LdiTraining $plan): bool => $date->betweenIncluded(
                     $plan->date_start->startOfDay(),
                     $plan->date_end->endOfDay(),
                 ))->values(),
-            ];
+            ], $week);
         }
 
-        while (count($days) % 7 !== 0) {
-            $days[] = ['day' => null, 'date' => null, 'plans' => collect()];
-        }
-
-        return ['month' => $month, 'weeks' => array_chunk($days, 7)];
+        return ['month' => $month, 'weeks' => $weeks];
     }
 
     /**

@@ -9,6 +9,8 @@ Route::view('/', 'welcome')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
+    Route::livewire('calendar', 'pages::calendar')->name('calendar');
+
     Route::livewire('trainings/mine', 'pages::trainings.mine')->name('trainings.mine');
 
     Route::livewire('my-profile', 'pages::my-profile')->name('my-profile');

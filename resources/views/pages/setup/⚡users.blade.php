@@ -38,6 +38,12 @@ new #[Title('User accounts')] class extends Component {
 
     public bool $isActive = true;
 
+    /**
+     * HR and admin keep the office calendar already. This is the tick that
+     * puts an ordinary account beside them.
+     */
+    public bool $keepsCalendar = false;
+
     public function mount(): void
     {
         abort_unless(auth()->user()->role === UserRole::Admin, 403);
@@ -116,6 +122,7 @@ new #[Title('User accounts')] class extends Component {
         $this->role = $user->role->value;
         $this->password = '';
         $this->isActive = $user->is_active;
+        $this->keepsCalendar = $user->can_manage_calendar;
 
         Flux::modal('user-form')->show();
     }
@@ -131,6 +138,7 @@ new #[Title('User accounts')] class extends Component {
             'role' => ['required', Rule::enum(UserRole::class)],
             'password' => [$this->editingId === null ? 'required' : 'nullable', 'string', Password::defaults()],
             'isActive' => ['boolean'],
+            'keepsCalendar' => ['boolean'],
         ]);
 
         $attributes = [
@@ -138,6 +146,7 @@ new #[Title('User accounts')] class extends Component {
             'email' => $validated['email'],
             'role' => $validated['role'],
             'is_active' => $validated['isActive'],
+            'can_manage_calendar' => $validated['keepsCalendar'],
         ];
 
         if ($validated['password'] !== '') {
@@ -183,7 +192,7 @@ new #[Title('User accounts')] class extends Component {
 
     public function resetForm(): void
     {
-        $this->reset('editingId', 'employeeId', 'name', 'email', 'role', 'password', 'isActive');
+        $this->reset('editingId', 'employeeId', 'name', 'email', 'role', 'password', 'isActive', 'keepsCalendar');
         $this->resetValidation();
     }
 }; ?>
@@ -284,6 +293,17 @@ new #[Title('User accounts')] class extends Component {
                     <flux:switch wire:model="isActive" />
                     <flux:label>{{ __('Can sign in') }}</flux:label>
                 </flux:field>
+
+                <div class="md:col-span-2">
+                    <flux:field variant="inline">
+                        <flux:switch wire:model="keepsCalendar" />
+                        <flux:label>{{ __('Can add to the office calendar') }}</flux:label>
+                    </flux:field>
+
+                    <flux:text size="sm">
+                        {{ __('HR and admin can already. Turn this on for the one employee who keeps the calendar with them.') }}
+                    </flux:text>
+                </div>
 
                 <flux:input class="md:col-span-2" wire:model="password" :label="__('Password')" type="password"
                     :description="$editingId === null
