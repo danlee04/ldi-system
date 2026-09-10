@@ -109,9 +109,9 @@ select:focus[data-flux-control] {
 /*
  * The sign-in page.
  *
- * Ruled like a form, faint enough to be a surface rather than a picture,
- * and faded out at the edges so it never competes with the one thing
- * anybody came here to do.
+ * Ruled like a form, faint enough to be a surface rather than a picture.
+ * When the office supplies a photograph of the building, that takes over
+ * and the ruling steps aside.
  */
 .gate {
     --gate-rule: rgb(255 255 255 / 0.06);
@@ -119,10 +119,6 @@ select:focus[data-flux-control] {
     position: relative;
 }
 
-/*
- * A layer of its own. The mask belongs to the ruling, and a mask on the
- * container would fade the form sitting on top of it as well.
- */
 .gate::before {
     content: '';
     position: absolute;
@@ -139,16 +135,23 @@ select:focus[data-flux-control] {
 }
 
 /*
- * One orchestrated arrival rather than an effect on each piece: the mark,
- * then the form, then the line beneath it, a beat apart.
+ * The building, dimmed and softened so the card stays the thing being
+ * read. A photograph at full strength behind a form is a photograph you
+ * have to fight to fill in.
  */
+.gate-photo::before {
+    background-image: var(--gate-photo);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    mask-image: none;
+    filter: brightness(0.45) saturate(0.9) blur(2px);
+}
+
 .gate-rise {
     animation: gate-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.gate-rise-1 { animation-delay: 0.05s; }
-.gate-rise-2 { animation-delay: 0.18s; }
-.gate-rise-3 { animation-delay: 0.34s; }
 
 @keyframes gate-rise {
     from { opacity: 0; transform: translateY(0.75rem); }
