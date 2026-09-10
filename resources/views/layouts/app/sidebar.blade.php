@@ -6,12 +6,14 @@
 </head>
 
 <body class="min-h-screen bg-white dark:bg-zinc-800">
-    <flux:sidebar sticky collapsible="mobile"
+    <flux:sidebar sticky collapsible
         class="w-64 print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.header>
             <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
-            <livewire:notifications />
-            <flux:sidebar.collapse class="lg:hidden" />
+
+            {{-- No breakpoint on it: the sidebar folds to its icons on a
+                 desktop as well as stashing itself on a phone. --}}
+            <flux:sidebar.collapse />
         </flux:sidebar.header>
 
         <flux:sidebar.nav>
@@ -26,7 +28,7 @@
             </flux:sidebar.item>
 
             @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
-                <flux:sidebar.group :heading="__('My work')" class="grid">
+                <x-sidebar-group :heading="__('My work')">
                     {{-- Both of these need an employee record behind them,
                              so an administrative account is not offered a
                              profile or a PDS it would only be refused. --}}
@@ -64,11 +66,11 @@
                             {{ __('Approvals') }}
                         </flux:sidebar.item>
                     @endif
-                </flux:sidebar.group>
+                </x-sidebar-group>
             @endif
 
             @if (auth()->user()->role !== App\Enums\UserRole::Employee)
-                <flux:sidebar.group :heading="__('Organization')" class="grid">
+                <x-sidebar-group :heading="__('Organization')">
                     <flux:sidebar.item icon="users" :href="route('employees.index')"
                         :current="request()->routeIs('employees.*')" wire:navigate>
                         {{ __('Employees') }}
@@ -85,11 +87,11 @@
                             {{ __('Reports') }}
                         </flux:sidebar.item>
                     @endif
-                </flux:sidebar.group>
+                </x-sidebar-group>
             @endif
 
             @if (auth()->user()->isAdminOrHr())
-                <flux:sidebar.group :heading="__('Setup')" class="grid">
+                <x-sidebar-group :heading="__('Setup')">
                     <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
                         :current="request()->routeIs('setup.divisions')" wire:navigate>
                         {{ __('Divisions') }}
@@ -116,7 +118,7 @@
                             {{ __('User accounts') }}
                         </flux:sidebar.item>
                     @endif
-                </flux:sidebar.group>
+                </x-sidebar-group>
             @endif
         </flux:sidebar.nav>
 

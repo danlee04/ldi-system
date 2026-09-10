@@ -9,8 +9,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Open Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --font-display: 'Roboto', var(--font-sans);
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -75,21 +74,6 @@
         --color-chart-1: #3987e5;
         --color-chart-2: #d95926;
         --color-chart-3: #199e70;
-    }
-}
-
-@layer base {
-    /*
-     * Flux draws a heading as a div carrying data-flux-heading rather than
-     * an h-tag, so both have to be named or half the headings keep the
-     * body face.
-     */
-    h1,
-    h2,
-    h3,
-    h4,
-    [data-flux-heading] {
-        font-family: var(--font-display);
     }
 }
 

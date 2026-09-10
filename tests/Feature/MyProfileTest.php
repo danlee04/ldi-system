@@ -263,11 +263,14 @@ test('the sidebar shows the photograph once there is one, and initials before', 
     Storage::fake('public');
 
     $employee = profileEmployee();
-    // The initials in the sidebar come off the account, which is what a
-    // sign-in is named by.
-    $initials = auth()->user()->initials();
 
-    Livewire::test('profile-avatar')->assertSee($initials);
+    // Two letters are asserted for, not against: a random wire:id in the
+    // markup will contain any given pair often enough to make an
+    // assertDontSee on initials flaky. What replaces them is the picture,
+    // so that is what the second half looks for.
+    Livewire::test('profile-avatar')
+        ->assertSee(auth()->user()->initials())
+        ->assertDontSee('<img', false);
 
     Livewire::test('pages::my-profile')
         ->set('photo', UploadedFile::fake()->image('me.jpg', 400, 400))
@@ -275,7 +278,7 @@ test('the sidebar shows the photograph once there is one, and initials before', 
 
     Livewire::test('profile-avatar')
         ->assertSee($employee->refresh()->photo_path)
-        ->assertDontSee($initials);
+        ->assertSee('<img', false);
 });
 
 test('a page draws the photograph on both profile buttons', function () {
