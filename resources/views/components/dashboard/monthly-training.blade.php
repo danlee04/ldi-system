@@ -1,4 +1,4 @@
-@props(['months', 'peak', 'divisions', 'month', 'year'])
+@props(['months', 'peak', 'divisions', 'years', 'month', 'year'])
 
 @php
     // A month asked for on its own would be a single bar, so picking one
@@ -8,7 +8,7 @@
 
     $heading = $drilled
         ? __('Training completed in :month', [
-            'month' => \Carbon\CarbonImmutable::create($year, $month, 1)->format('F'),
+            'month' => \Carbon\CarbonImmutable::create($year, $month, 1)->format('F Y'),
         ])
         : __('Training completed each month');
 
@@ -30,11 +30,17 @@
             </flux:select>
 
             <flux:select size="sm" class="w-36" wire:model.live="chartMonth">
-                <flux:select.option value="">{{ __('Whole of :year', ['year' => $year]) }}</flux:select.option>
+                <flux:select.option value="">{{ __('All months') }}</flux:select.option>
                 @foreach (range(1, 12) as $number)
                     <flux:select.option :value="$number">
                         {{ \Carbon\CarbonImmutable::create($year, $number, 1)->format('F') }}
                     </flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select size="sm" class="w-28" wire:model.live="chartYear">
+                @foreach ($years as $option)
+                    <flux:select.option :value="$option">{{ $option }}</flux:select.option>
                 @endforeach
             </flux:select>
         </div>
@@ -53,19 +59,37 @@
             @if ($months === [])
                 <flux:text size="sm">{{ __('Nothing was completed here.') }}</flux:text>
             @else
-                {{-- One series, so one hue and no legend — the heading names
-                     it. The bars are plain divs: nothing here needs a
-                     charting library, and a div prints. --}}
+                {{-- Two series on one scale, never two scales: attendances
+                     outnumber plans many times over, and that gap is the
+                     truth of the year rather than a fault in the drawing.
+                     The bars are plain divs — nothing here needs a charting
+                     library, and a div prints. --}}
                 <div class="flex h-64 items-end gap-1">
                     @foreach ($months as $row)
-                        <div class="flex h-full flex-1 flex-col justify-end gap-1"
-                            title="{{ $row['label'] }}: {{ $row['attendances'] }}">
-                            <div class="text-center text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
-                                {{ $row['attendances'] > 0 ? $row['attendances'] : '' }}
-                            </div>
+                        <div class="flex h-full flex-1 flex-col justify-end gap-1">
+                            <div class="flex flex-1 items-end gap-px">
+                                <div class="flex h-full flex-1 flex-col justify-end gap-1"
+                                    title="{{ $row['label'] }} — {{ __('completed') }}: {{ $row['attendances'] }}">
+                                    <div class="text-center text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+                                        {{ $row['attendances'] > 0 ? $row['attendances'] : '' }}
+                                    </div>
 
-                            <div class="rounded-t bg-[var(--color-accent)]"
-                                style="height: {{ max(2, round($row['attendances'] / $peak * 100)) }}%"></div>
+                                    <div class="rounded-t bg-(--color-chart-1)"
+                                        style="height: {{ max(2, round($row['attendances'] / $peak * 100)) }}%"></div>
+                                </div>
+
+                                @unless ($drilled)
+                                    <div class="flex h-full flex-1 flex-col justify-end gap-1"
+                                        title="{{ $row['label'] }} — {{ __('LDI trainings') }}: {{ $row['plans'] }}">
+                                        <div class="text-center text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+                                            {{ $row['plans'] > 0 ? $row['plans'] : '' }}
+                                        </div>
+
+                                        <div class="rounded-t bg-(--color-brand-accent)"
+                                            style="height: {{ max(2, round($row['plans'] / $peak * 100)) }}%"></div>
+                                    </div>
+                                @endunless
+                            </div>
                         </div>
                     @endforeach
                 </div>
@@ -79,4 +103,18 @@
             @endif
         </div>
     </div>
+
+    @unless ($drilled)
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-zinc-200 pt-3 dark:border-white/10">
+            @foreach ([
+                ['label' => __('Training completed'), 'colour' => 'var(--color-chart-1)'],
+                ['label' => __('LDI trainings held'), 'colour' => 'var(--color-brand-accent)'],
+            ] as $entry)
+                <div class="flex items-center gap-2">
+                    <span class="size-3 rounded-xs" aria-hidden="true" style="background: {{ $entry['colour'] }}"></span>
+                    <flux:text size="sm">{{ $entry['label'] }}</flux:text>
+                </div>
+            @endforeach
+        </div>
+    @endunless
 </flux:card>

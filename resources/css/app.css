@@ -70,10 +70,53 @@
         --color-accent-content: #60a5fa;
         --color-accent-foreground: var(--color-white);
 
+        /*
+         * A step down for the dark surface. The brand green sits at
+         * lightness 0.724 there, past the 0.67 a chart mark may reach
+         * before it starts glowing off the ground.
+         */
+        --color-brand-accent: #22a884;
+
         /* The same three hues stepped for the dark surface, not flipped. */
         --color-chart-1: #3987e5;
         --color-chart-2: #d95926;
         --color-chart-3: #199e70;
+    }
+}
+
+@layer base {
+    /*
+     * Cards and tables sit on the page rather than being drawn on it. The
+     * shadow is small and low-contrast on purpose: it separates a panel
+     * from the ground without turning the screen into a stack of floating
+     * slabs, and it steps up on the dark surface where a soft grey shadow
+     * would disappear.
+     */
+    [data-flux-card],
+    ui-table-scroll-area:has(> [data-flux-table]) {
+        box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 12px rgb(16 24 40 / 0.06);
+    }
+
+    .dark [data-flux-card],
+    .dark ui-table-scroll-area:has(> [data-flux-table]) {
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 20px rgb(0 0 0 / 0.28);
+    }
+
+    /*
+     * A table has no surface of its own — it sits straight on the page and
+     * a shadow under it lifts nothing. Flux's scroll area is the piece that
+     * wraps it and already clips its overflow, so that is what becomes the
+     * sheet the rows are printed on.
+     */
+    ui-table-scroll-area:has(> [data-flux-table]) {
+        background: var(--color-white);
+        border: 1px solid var(--color-zinc-200);
+        border-radius: var(--radius-xl);
+    }
+
+    .dark ui-table-scroll-area:has(> [data-flux-table]) {
+        background: rgb(255 255 255 / 0.1);
+        border-color: rgb(255 255 255 / 0.1);
     }
 }
 

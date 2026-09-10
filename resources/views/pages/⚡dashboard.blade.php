@@ -31,6 +31,8 @@ new #[Title('Dashboard')] class extends Component {
 
     public function mount(): void
     {
+        $this->chartYear = $this->chartYear > 0 ? $this->chartYear : $this->year();
+
         $user = auth()->user();
         $employee = $user->employee;
 
@@ -191,8 +193,8 @@ new #[Title('Dashboard')] class extends Component {
         $report = app(TrainingByMonthReport::class);
 
         return $this->chartMonth === null
-            ? $report->handle($this->year(), $this->chartDivision)
-            : $report->forMonth($this->year(), $this->chartMonth, $this->chartDivision);
+            ? $report->handle($this->chartYear, $this->chartDivision)
+            : $report->forMonth($this->chartYear, $this->chartMonth, $this->chartDivision);
     }
 
     #[Computed]
@@ -202,8 +204,12 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
-     * The two ways the chart can be narrowed. Both live in the link, so a
-     * head can send somebody a division's year.
+     * The three ways the chart can be narrowed. All of them live in the
+     * link, so a head can send somebody a division's year.
+     *
+     * The chart's year is its own: the cards and the panels beside it
+     * report on the year that is running, and a chart looking back at 2025
+     * should not quietly change what they say.
      */
     #[Url]
     public ?int $chartDivision = null;
@@ -211,14 +217,48 @@ new #[Title('Dashboard')] class extends Component {
     #[Url]
     public ?int $chartMonth = null;
 
+    #[Url]
+    public int $chartYear = 0;
+
     public function updatedChartDivision(): void
     {
-        unset($this->months, $this->monthPeak);
+        $this->forgetChart();
     }
 
     public function updatedChartMonth(): void
     {
+        $this->forgetChart();
+    }
+
+    public function updatedChartYear(): void
+    {
+        $this->forgetChart();
+    }
+
+    private function forgetChart(): void
+    {
         unset($this->months, $this->monthPeak);
+    }
+
+    /**
+     * Every year with something in it, and the one that is running even
+     * when nothing has been recorded in it yet.
+     *
+     * @return list<int>
+     */
+    #[Computed]
+    public function chartYears(): array
+    {
+        $years = TrainingRecord::query()
+            ->where('status', TrainingStatus::Approved)
+            ->pluck('date_end')
+            ->map(fn (CarbonImmutable $date): int => $date->year)
+            ->push($this->year())
+            ->unique()
+            ->sortDesc()
+            ->values();
+
+        return $years->all();
     }
 
     /**
@@ -561,7 +601,8 @@ new #[Title('Dashboard')] class extends Component {
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
             <div class="space-y-6">
                 <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak"
-                    :divisions="$this->chartDivisions" :month="$this->chartMonth" :year="$this->year()" />
+                    :divisions="$this->chartDivisions" :years="$this->chartYears"
+                    :month="$this->chartMonth" :year="$this->chartYear" />
 
                 {{-- Two small panels of the same kind of question: what the
                      year was made of, and who it reached. --}}

@@ -373,3 +373,16 @@ test('the calendar says what its colours mean', function () {
         ->assertSee('Holiday')
         ->assertSee('Deadline');
 });
+
+test('the calendar reddens the weekend and fills today', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $html = Livewire::test('pages::calendar')->html();
+
+    expect($html)
+        // Saturday and Sunday, the way an office calendar marks them.
+        ->toContain('text-red-600')
+        // Today is the whole box, tinted rather than filled so a bar
+        // sitting in it is still readable.
+        ->toContain('bg-brand-primary/12');
+});

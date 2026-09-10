@@ -68,7 +68,9 @@ new class extends Component {
 --}}
 <div class="relative inline-flex" wire:poll.60s>
     <flux:dropdown position="bottom" align="end">
-        <flux:button variant="subtle" size="sm" icon="bell" square />
+        {{-- A tinted tile rather than a bare glyph: it is the one control
+             in the header, and it has to look like one. --}}
+        <flux:button variant="primary" icon="bell" square class="size-10 rounded-lg" />
 
         <flux:menu class="w-80">
             <div class="flex items-center justify-between px-2 py-1.5">
@@ -125,7 +127,7 @@ new class extends Component {
 
     @if ($this->count > 0)
         <span
-            class="pointer-events-none absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+            class="pointer-events-none absolute -end-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-none text-white ring-2 ring-white dark:ring-zinc-900">
             {{ $this->count > 99 ? '99+' : $this->count }}
         </span>
     @endif

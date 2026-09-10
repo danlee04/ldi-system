@@ -19,8 +19,10 @@
         'gap-0.5 text-[10px]' => $compact,
         'gap-1 text-xs' => ! $compact,
     ])>
-        @foreach ([__('Sun'), __('Mon'), __('Tue'), __('Wed'), __('Thu'), __('Fri'), __('Sat')] as $weekday)
-            <div>{{ $weekday }}</div>
+        @foreach ([__('Sun'), __('Mon'), __('Tue'), __('Wed'), __('Thu'), __('Fri'), __('Sat')] as $index => $weekday)
+            {{-- Saturday and Sunday in red, the way an office calendar
+                 marks the days nobody is in. --}}
+            <div @class(['text-red-600 dark:text-red-400' => $index === 0 || $index === 6])>{{ $weekday }}</div>
         @endforeach
     </div>
 
@@ -35,7 +37,7 @@
                         'min-h-24' => ! $compact,
                         'bg-zinc-50 dark:bg-white/2' => $cell['day'] === null,
                         'border border-zinc-200 dark:border-white/10' => $cell['day'] !== null && ! $cell['date']->isToday(),
-                        'border border-[var(--color-accent)] bg-zinc-50 dark:bg-white/5' => $cell['day'] !== null && $cell['date']->isToday(),
+                        'border border-(--color-accent) bg-brand-primary/12 dark:bg-brand-primary/25' => $cell['day'] !== null && $cell['date']->isToday(),
                     ])></div>
             @endforeach
 
@@ -43,7 +45,16 @@
                 @if ($cell['day'] !== null)
                     <div @class(['flex items-center justify-between pt-0.5', 'px-0.5' => $compact, 'px-1' => ! $compact])
                         style="grid-column: {{ $index + 1 }}; grid-row: 1;">
-                        <span @class(['tabular-nums', 'text-[10px]' => $compact, 'text-xs' => ! $compact])>{{ $cell['day'] }}</span>
+                        {{-- The whole box carries today, tinted rather than
+                             filled: what sits in the box is a bar, and a
+                             solid day behind it would swallow it. --}}
+                        <span @class([
+                            'tabular-nums',
+                            'text-[10px]' => $compact,
+                            'text-xs' => ! $compact,
+                            'font-semibold text-(--color-accent-content)' => $cell['date']->isToday(),
+                            'text-red-600 dark:text-red-400' => ! $cell['date']->isToday() && $cell['date']->isWeekend(),
+                        ])>{{ $cell['day'] }}</span>
 
                         @if ($onAdd)
                             {{-- A plain button, because a flux:button here

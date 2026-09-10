@@ -565,3 +565,91 @@ test('a month with nothing in it says so instead of drawing an empty chart', fun
         ->set('chartMonth', 7)
         ->assertSee('Nothing was completed here.');
 });
+
+test('the chart has its own year, and moving it leaves the cards alone', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $division = Division::factory()->create();
+    $section = Section::factory()->create(['division_id' => $division->id]);
+    $employee = Employee::factory()->create(['section_id' => $section->id]);
+
+    TrainingRecord::factory()->approved()->for($employee)->create([
+        'date_start' => now()->subYear()->startOfYear()->addMonths(1),
+        'date_end' => now()->subYear()->startOfYear()->addMonths(1)->addDays(2),
+    ]);
+
+    $component = Livewire::test('pages::dashboard');
+
+    // Nothing this year, so the chart is empty until the year moves.
+    expect(collect($component->instance()->months)->sum('attendances'))->toBe(0);
+
+    $component->set('chartYear', now()->year - 1);
+
+    expect(collect($component->instance()->months)->sum('attendances'))->toBe(1)
+        // The cards still report on the year that is running.
+        ->and($component->instance()->year())->toBe(now()->year)
+        ->and($component->instance()->coverageTotal['covered'])->toBe(0);
+});
+
+test('the year to pick from includes the running one even with nothing in it', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    expect(Livewire::test('pages::dashboard')->instance()->chartYears)->toBe([now()->year]);
+});
+
+test('the monthly chart counts the plans that ran alongside the attendances', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $when = now()->startOfYear()->addMonths(3);
+
+    LdiTraining::factory()->count(2)->create([
+        'date_start' => $when,
+        'date_end' => $when->copy()->addDays(2),
+    ]);
+
+    TrainingRecord::factory()->approved()->create([
+        'date_start' => $when,
+        'date_end' => $when->copy()->addDays(2),
+    ]);
+
+    $april = Livewire::test('pages::dashboard')->instance()->months[3];
+
+    expect($april['attendances'])->toBe(1)
+        ->and($april['plans'])->toBe(2);
+});
+
+test('a division sees the plans it actually sent somebody to', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $when = now()->startOfYear()->addMonths(3);
+    $division = Division::factory()->create();
+    $section = Section::factory()->create(['division_id' => $division->id]);
+    $employee = Employee::factory()->create(['section_id' => $section->id]);
+
+    $attended = LdiTraining::factory()->create(['date_start' => $when, 'date_end' => $when->copy()->addDays(2)]);
+    LdiTraining::factory()->create(['date_start' => $when, 'date_end' => $when->copy()->addDays(2)]);
+
+    TrainingRecord::factory()->approved()->for($employee)->create([
+        'ldi_training_id' => $attended->id,
+        'date_start' => $when,
+        'date_end' => $when->copy()->addDays(2),
+    ]);
+
+    $component = Livewire::test('pages::dashboard');
+
+    // Both plans belong to the agency's year.
+    expect($component->instance()->months[3]['plans'])->toBe(2);
+
+    $component->set('chartDivision', $division->id);
+
+    // Only one of them reached this division.
+    expect($component->instance()->months[3]['plans'])->toBe(1);
+});
+
+test('the chart names its two series', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Training completed')
+        ->assertSee('LDI trainings held');
+});
