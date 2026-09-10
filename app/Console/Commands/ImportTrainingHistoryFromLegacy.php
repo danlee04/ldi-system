@@ -222,7 +222,7 @@ class ImportTrainingHistoryFromLegacy extends Command
                 'ld_type_other' => $ldTypeOther,
                 'conducted_by' => $row->facilitator ?: 'Not stated',
                 'location' => $row->location ?: null,
-                'expenses' => $row->expenses,
+                'expenses' => $this->otherExpenses($row),
                 'registration_fee' => $row->registration_fee,
                 'tev' => $row->tev,
                 'cpd_units' => $row->cpd_units !== null ? (float) $row->cpd_units : null,
@@ -244,6 +244,21 @@ class ImportTrainingHistoryFromLegacy extends Command
     {
         return User::query()->where('role', UserRole::Hr)->value('id')
             ?? User::query()->where('role', UserRole::Admin)->value('id');
+    }
+
+    /**
+     * What a legacy row spent beyond registration and travel.
+     *
+     * Its `expenses` column is the total of those two, not a third
+     * category — it equals them in all 1,002 rows — so copying it into
+     * this app's Other expenses counted the same money twice. Only a
+     * genuine remainder belongs there, and there never is one.
+     */
+    private function otherExpenses(stdClass $row): ?float
+    {
+        $other = (float) $row->expenses - ((float) $row->registration_fee + (float) $row->tev);
+
+        return $other >= 0.01 ? round($other, 2) : null;
     }
 
     /**

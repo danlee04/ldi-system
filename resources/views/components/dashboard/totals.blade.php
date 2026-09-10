@@ -1,4 +1,4 @@
-@props(['employees', 'plans', 'funding', 'year'])
+@props(['employees', 'plans', 'funding', 'spend', 'year'])
 
 <div class="grid gap-4 lg:grid-cols-3">
     <flux:card class="space-y-3">
@@ -31,31 +31,41 @@
         </div>
     </flux:card>
 
+    {{-- The headline is what was spent. What was set aside sits under it,
+         because the office is asked both questions about the same year. --}}
     <flux:card class="space-y-3">
-        <flux:text size="sm">{{ __('Total funding in :year', ['year' => $year]) }}</flux:text>
-        <flux:heading size="xl" class="tabular-nums">{{ number_format($funding['total'], 2) }}</flux:heading>
+        <flux:text size="sm">{{ __('Total expenses in :year', ['year' => $year]) }}</flux:text>
+        <flux:heading size="xl" class="tabular-nums">{{ number_format($spend['total'], 2) }}</flux:heading>
 
         <div class="space-y-1 border-t border-zinc-200 pt-3 dark:border-white/10">
             <div class="flex items-baseline justify-between gap-2 text-sm">
-                <span>{{ __('From HR') }}</span>
+                <span>{{ __('Registration') }}</span>
+                <span class="tabular-nums">{{ number_format($spend['registration'], 2) }}</span>
+            </div>
+
+            <div class="flex items-baseline justify-between gap-2 text-sm">
+                <span>{{ __('Travel expenses') }}</span>
+                <span class="tabular-nums">{{ number_format($spend['tev'], 2) }}</span>
+            </div>
+
+            @if ($spend['other'] > 0)
+                <div class="flex items-baseline justify-between gap-2 text-sm">
+                    <span>{{ __('Other expenses') }}</span>
+                    <span class="tabular-nums">{{ number_format($spend['other'], 2) }}</span>
+                </div>
+            @endif
+        </div>
+
+        <div class="space-y-1 border-t border-zinc-200 pt-3 dark:border-white/10">
+            <div class="flex items-baseline justify-between gap-2 text-sm">
+                <span>{{ __('Funded by HR') }}</span>
                 <span class="tabular-nums">{{ number_format($funding['hr'], 2) }}</span>
             </div>
 
             <div class="flex items-baseline justify-between gap-2 text-sm">
-                <span>{{ __('From other funds') }}</span>
+                <span>{{ __('Funded by other sources') }}</span>
                 <span class="tabular-nums">{{ number_format($funding['other'], 2) }}</span>
             </div>
         </div>
-
-        @if ($funding['rows'] !== [])
-            <div class="space-y-1 border-t border-zinc-200 pt-3 dark:border-white/10">
-                @foreach ($funding['rows'] as $row)
-                    <div class="flex items-baseline justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        <span class="truncate" title="{{ $row['label'] }}">{{ $row['label'] }}</span>
-                        <span class="tabular-nums">{{ number_format($row['amount'], 2) }}</span>
-                    </div>
-                @endforeach
-            </div>
-        @endif
     </flux:card>
 </div>

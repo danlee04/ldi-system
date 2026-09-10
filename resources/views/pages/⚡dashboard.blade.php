@@ -169,7 +169,7 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
-     * @return array{total: float, hr: float, other: float, rows: list<array{label: string, amount: float}>}
+     * @return array{total: float, hr: float, other: float}
      */
     #[Computed]
     public function fundingTotals(): array
@@ -499,7 +499,7 @@ new #[Title('Dashboard')] class extends Component {
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
                 <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals"
-                    :funding="$this->fundingTotals" :year="$this->year()" />
+                    :funding="$this->fundingTotals" :spend="$this->spend" :year="$this->year()" />
 
                 <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak"
                     :year="$this->year()" />

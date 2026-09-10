@@ -258,3 +258,42 @@ test('it refuses to run when no employee has been imported', function () {
 
     $this->artisan('ldi:import-training-history')->assertFailed();
 });
+
+test('the legacy total does not land in Other expenses a second time', function () {
+    Employee::factory()->create(['first_name' => 'Maria', 'last_name' => 'Cruz']);
+    User::factory()->hr()->create();
+
+    DB::table('legacy_employees')->insert(['employee_id' => 7, 'firstname' => 'Maria', 'lastname' => 'Cruz']);
+    DB::table('legacy_trainings')->insert([
+        'training_id' => 1, 'employee_id' => 7, 'training_title' => 'Records Management Seminar',
+        'date_start' => '2025-03-02', 'date_end' => '2025-03-04', 'training_hours' => 24,
+        'type_of_ld' => 'Technical', 'facilitator' => 'Civil Service Commission',
+        // Its `expenses` is the whole cost, which is the two beside it.
+        'registration_fee' => 1500, 'tev' => 2000, 'expenses' => 3500, 'status' => 'approved',
+    ]);
+
+    $this->artisan('ldi:import-training-history')->assertSuccessful();
+
+    $record = TrainingRecord::first();
+
+    expect($record->expenses)->toBeNull()
+        ->and((float) $record->registration_fee + (float) $record->tev + (float) $record->expenses)
+        ->toBe(3500.0);
+});
+
+test('a real third expense survives the import', function () {
+    Employee::factory()->create(['first_name' => 'Maria', 'last_name' => 'Cruz']);
+    User::factory()->hr()->create();
+
+    DB::table('legacy_employees')->insert(['employee_id' => 7, 'firstname' => 'Maria', 'lastname' => 'Cruz']);
+    DB::table('legacy_trainings')->insert([
+        'training_id' => 1, 'employee_id' => 7, 'training_title' => 'Records Management Seminar',
+        'date_start' => '2025-03-02', 'date_end' => '2025-03-04', 'training_hours' => 24,
+        'type_of_ld' => 'Technical', 'facilitator' => 'Civil Service Commission',
+        'registration_fee' => 1500, 'tev' => 2000, 'expenses' => 4200, 'status' => 'approved',
+    ]);
+
+    $this->artisan('ldi:import-training-history')->assertSuccessful();
+
+    expect((float) TrainingRecord::first()->expenses)->toBe(700.0);
+});

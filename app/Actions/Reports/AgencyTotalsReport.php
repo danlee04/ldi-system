@@ -70,13 +70,16 @@ class AgencyTotalsReport
      * cost, and never a share worked out from one.
      *
      * The agency's own budget is separated from everything else, because
-     * that is the split the office is asked about.
+     * that is the split the office is asked about. The funds beyond it are
+     * not named here — they are one figure on the card, and the LDI plans
+     * are where a particular fund is looked up.
      *
-     * @return array{total: float, hr: float, other: float, rows: list<array{label: string, amount: float}>}
+     * @return array{total: float, hr: float, other: float}
      */
     public function fundingBySource(int $year): array
     {
-        $amounts = [];
+        $hr = 0.0;
+        $total = 0.0;
 
         foreach (LdiTraining::query()->whereYear('date_start', $year)->get() as $plan) {
             foreach ([$plan->budget_source, $plan->other_budget_source] as $source) {
@@ -84,28 +87,19 @@ class AgencyTotalsReport
                     continue;
                 }
 
-                $amounts[$source] = ($amounts[$source] ?? 0.0) + $plan->fundedBy($source);
+                $funded = $plan->fundedBy($source);
+                $total += $funded;
+
+                if ($source === self::HR_SOURCE) {
+                    $hr += $funded;
+                }
             }
-        }
-
-        $amounts = array_filter($amounts, fn (float $amount): bool => $amount > 0);
-
-        arsort($amounts);
-
-        $hr = (float) ($amounts[self::HR_SOURCE] ?? 0);
-        $total = (float) array_sum($amounts);
-
-        $rows = [];
-
-        foreach ($amounts as $label => $amount) {
-            $rows[] = ['label' => (string) $label, 'amount' => $amount];
         }
 
         return [
             'total' => $total,
             'hr' => $hr,
             'other' => $total - $hr,
-            'rows' => $rows,
         ];
     }
 

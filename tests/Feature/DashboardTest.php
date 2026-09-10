@@ -371,7 +371,7 @@ test('one fund with no amount stated carries the whole budget', function () {
     expect(Livewire::test('pages::dashboard')->instance()->fundingTotals['hr'])->toBe(19000.0);
 });
 
-test('a fund that put in nothing is left off the card', function () {
+test('a fund that put in nothing adds nothing to the card', function () {
     $this->actingAs(User::factory()->hr()->create());
 
     LdiTraining::factory()->create([
@@ -381,7 +381,10 @@ test('a fund that put in nothing is left off the card', function () {
         'budget_source' => 'Funded Nothing',
     ]);
 
-    expect(Livewire::test('pages::dashboard')->instance()->fundingTotals['rows'])->toBe([]);
+    $funding = Livewire::test('pages::dashboard')->instance()->fundingTotals;
+
+    expect($funding['total'])->toBe(0.0)
+        ->and($funding['other'])->toBe(0.0);
 });
 
 test('the three cards are shown to hr and not to an employee', function () {
@@ -389,7 +392,7 @@ test('the three cards are shown to hr and not to an employee', function () {
 
     Livewire::test('pages::dashboard')
         ->assertSee('Total employees')
-        ->assertSee('From HR');
+        ->assertSee('Funded by HR');
 
     $user = User::factory()->employee()->create();
     Employee::factory()->create(['user_id' => $user->id]);
@@ -398,5 +401,36 @@ test('the three cards are shown to hr and not to an employee', function () {
 
     Livewire::test('pages::dashboard')
         ->assertDontSee('Total employees')
-        ->assertDontSee('From HR');
+        ->assertDontSee('Funded by HR');
+});
+
+test('the expenses card leads with what was spent, not what was set aside', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $plan = LdiTraining::factory()->create([
+        'date_start' => now(),
+        'date_end' => now(),
+        'budget' => 19000,
+        'budget_source' => 'Human Resource',
+        'budget_amount' => 6000,
+        'other_budget_source' => 'WFP- Hospital Income',
+        'other_budget_amount' => 13000,
+    ]);
+
+    TrainingRecord::factory()->approved()->create([
+        'ldi_training_id' => $plan->id,
+        'date_start' => now(),
+        'date_end' => now(),
+        'registration_fee' => 6000,
+        'tev' => 4200,
+        'expenses' => null,
+    ]);
+
+    Livewire::test('pages::dashboard')
+        // Spent, in its two parts.
+        ->assertSee('10,200.00')
+        ->assertSee('6,000.00')
+        ->assertSee('4,200.00')
+        // Set aside, which is a larger and separate figure.
+        ->assertSee('13,000.00');
 });
