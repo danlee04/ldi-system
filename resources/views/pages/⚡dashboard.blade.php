@@ -6,6 +6,7 @@ use App\Models\LdiTraining;
 use App\Actions\Reports\TrainingByMonthReport;
 use App\Actions\Reports\CoverageByDivisionReport;
 use App\Actions\Calendar\BuildCalendarMonth;
+use App\Actions\Training\CountPendingDecisions;
 use App\Enums\ActivityType;
 use App\Models\Activity;
 use App\Actions\Reports\AgencyTotalsReport;
@@ -13,9 +14,11 @@ use App\Actions\Reports\ApprovalsAgingReport;
 use App\Enums\TrainingStatus;
 use App\Models\Division;
 use App\Models\Employee;
+use App\Models\Section;
 use App\Models\EmployeeEligibility;
 use App\Models\TrainingRecord;
 use App\Workflow\ApprovalRouter;
+use App\Workflow\HeadedTeam;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -378,6 +381,210 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
+     * The team a head is responsible for, or null for everybody who heads
+     * nothing. Read from the designation, as the approvals queue is.
+     */
+    #[Computed]
+    public function team(): ?HeadedTeam
+    {
+        return HeadedTeam::for(auth()->user());
+    }
+
+    /**
+     * A head's view of their people. HR and admin already see the whole
+     * agency, so one who also heads a section keeps the whole rather than
+     * being handed a slice of it.
+     */
+    #[Computed]
+    public function seesTeam(): bool
+    {
+        return ! $this->seesAgency && $this->team !== null;
+    }
+
+    /**
+     * @return list<int>
+     */
+    #[Computed]
+    public function teamEmployeeIds(): array
+    {
+        if ($this->team === null) {
+            return [];
+        }
+
+        return $this->team->employees()->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
+    }
+
+    /**
+     * The year's approved training on the team, which the four figures and
+     * the untrained list are all counted from.
+     *
+     * @return Collection<int, TrainingRecord>
+     */
+    #[Computed]
+    public function teamApproved(): Collection
+    {
+        return TrainingRecord::query()
+            ->where('status', TrainingStatus::Approved)
+            ->whereYear('date_end', $this->year())
+            ->whereIn('employee_id', $this->teamEmployeeIds)
+            ->get();
+    }
+
+    /**
+     * @return array{people: int, covered: int, percentage: int, waiting: int, hours: int}
+     */
+    #[Computed]
+    public function teamTotals(): array
+    {
+        $people = count($this->teamEmployeeIds);
+        $covered = $this->teamApproved->pluck('employee_id')->unique()->count();
+
+        return [
+            'people' => $people,
+            'covered' => $covered,
+            'percentage' => $people === 0 ? 0 : (int) round($covered / $people * 100),
+            'waiting' => $this->teamDecisions->count(),
+            'hours' => (int) $this->teamApproved->sum('hours'),
+        ];
+    }
+
+    /**
+     * What is waiting on this head, oldest first. The same list the sidebar
+     * badge counts, so the two never disagree.
+     *
+     * @return Collection<int, TrainingRecord>
+     */
+    #[Computed]
+    public function teamDecisions(): Collection
+    {
+        return app(CountPendingDecisions::class)->records(auth()->user());
+    }
+
+    /**
+     * The people on the team with nothing approved that ended this year —
+     * the list a head can act on, which a percentage is not.
+     *
+     * @return Collection<int, Employee>
+     */
+    #[Computed]
+    public function teamUntrained(): Collection
+    {
+        if ($this->team === null) {
+            return collect();
+        }
+
+        return $this->team->employees()
+            ->whereNotIn('id', $this->teamApproved->pluck('employee_id')->unique()->all())
+            ->with('section')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+    }
+
+    /**
+     * A division head's people, section by section. A section head's team
+     * is one section, which would make this one bar, so they do not get it.
+     *
+     * @return list<array{division: string, employees: int, covered: int, percentage: float}>
+     */
+    #[Computed]
+    public function teamCoverage(): array
+    {
+        if ($this->team === null || ! $this->team->headsDivision()) {
+            return [];
+        }
+
+        $covered = $this->teamApproved->pluck('employee_id')->unique()->flip();
+        $rows = [];
+
+        $people = $this->team->employees()->with('section')->get()
+            ->groupBy(fn (Employee $employee): string => $employee->section?->name ?? __('No section'))
+            ->sortKeys();
+
+        foreach ($people as $section => $members) {
+            $trained = $members->filter(fn (Employee $employee): bool => $covered->has($employee->getKey()))->count();
+
+            $rows[] = [
+                'division' => (string) $section,
+                'employees' => $members->count(),
+                'covered' => $trained,
+                'percentage' => round($trained / $members->count() * 100, 1),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Eligibility that has lapsed or is about to, on the team only.
+     *
+     * @return Collection<int, EmployeeEligibility>
+     */
+    #[Computed]
+    public function teamEligibilityAlerts(): Collection
+    {
+        return EmployeeEligibility::query()
+            ->whereIn('employee_id', $this->teamEmployeeIds)
+            ->whereNotNull('date_of_validity')
+            ->where('date_of_validity', '<=', today()->addYear())
+            ->with('employee', 'eligibility')
+            ->orderBy('date_of_validity')
+            ->get();
+    }
+
+    /**
+     * A division head can narrow the chart to one of their sections.
+     */
+    #[Url]
+    public ?int $teamSection = null;
+
+    public function updatedTeamSection(): void
+    {
+        unset($this->teamMonths, $this->teamMonthPeak);
+    }
+
+    /**
+     * @return Collection<int, Section>
+     */
+    #[Computed]
+    public function teamSections(): Collection
+    {
+        if ($this->team === null || ! $this->team->headsDivision()) {
+            return collect();
+        }
+
+        return Section::query()->whereIn('division_id', $this->team->divisionIds)->orderBy('name')->get();
+    }
+
+    /**
+     * @return list<array{key: int, label: string, attendances: int, plans: int}>
+     */
+    #[Computed]
+    public function teamMonths(): array
+    {
+        $ids = $this->teamEmployeeIds;
+
+        // Narrowed to one section, but only ever inside the team: a section
+        // id from the link cannot widen a head's view past their own people.
+        if ($this->teamSection !== null) {
+            $ids = Employee::query()
+                ->whereIn('id', $ids)
+                ->where('section_id', $this->teamSection)
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all();
+        }
+
+        return app(TrainingByMonthReport::class)->handle($this->chartYear, null, $ids);
+    }
+
+    #[Computed]
+    public function teamMonthPeak(): int
+    {
+        return app(TrainingByMonthReport::class)->peak($this->teamMonths);
+    }
+
+    /**
      * The month the calendar is showing, as an offset from this one so the
      * component holds a number rather than a date it has to re-parse.
      */
@@ -485,6 +692,133 @@ new #[Title('Dashboard')] class extends Component {
             <livewire:notifications />
         </div>
     </div>
+
+    @if ($this->seesTeam)
+        {{-- A head's own people, first: the page is where they come to see
+             how the team is doing. Their own record follows underneath,
+             because a head is an employee too. --}}
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <flux:heading size="lg">{{ __('My team') }}</flux:heading>
+            <flux:text size="sm">{{ $this->team->name }}</flux:text>
+        </div>
+
+        <x-dashboard.figures :cards="[
+            [
+                'icon' => 'users',
+                'label' => __('My people'),
+                'value' => number_format($this->teamTotals['people']),
+                'support' => $this->team->headsDivision()
+                    ? trans_choice('across :count section|across :count sections', $this->teamSections->count(), ['count' => $this->teamSections->count()])
+                    : __('in the section'),
+            ],
+            [
+                'icon' => 'check-badge',
+                'label' => __('Trained in :year', ['year' => $this->year()]),
+                'value' => $this->teamTotals['percentage'].'%',
+                'support' => __(':covered of :people people', [
+                    'covered' => $this->teamTotals['covered'],
+                    'people' => $this->teamTotals['people'],
+                ]),
+            ],
+            [
+                'icon' => 'inbox-stack',
+                'label' => __('Waiting for my decision'),
+                'value' => number_format($this->teamTotals['waiting']),
+                'support' => __('Open approvals'),
+                'href' => route('approvals'),
+            ],
+            [
+                'icon' => 'clock',
+                'label' => __('Hours of training in :year', ['year' => $this->year()]),
+                'value' => number_format($this->teamTotals['hours']),
+                'support' => __('approved and finished'),
+            ],
+        ]" />
+
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
+            <div class="space-y-6">
+                <x-dashboard.monthly-training :months="$this->teamMonths" :peak="$this->teamMonthPeak"
+                    :divisions="$this->teamSections" filter-model="teamSection" :filter-all="__('All sections')"
+                    :years="$this->chartYears" :month="null" :year="$this->chartYear" :drillable="false" />
+
+                <div @class(['grid gap-6', 'xl:grid-cols-2' => $this->teamCoverage !== []])>
+                    @if ($this->teamCoverage !== [])
+                        <x-dashboard.coverage :rows="$this->teamCoverage" :year="$this->year()" :heading="__('Training coverage by section')" />
+                    @endif
+
+                    <flux:card class="space-y-3">
+                        <div class="flex flex-wrap items-baseline justify-between gap-2">
+                            <flux:heading size="lg">{{ __('Not trained yet this year') }}</flux:heading>
+                            <flux:text size="sm">
+                                {{ __(':count of :people', [
+                                    'count' => $this->teamUntrained->count(),
+                                    'people' => $this->teamTotals['people'],
+                                ]) }}
+                            </flux:text>
+                        </div>
+
+                        @if ($this->teamUntrained->isEmpty())
+                            <flux:text size="sm">{{ __('Everybody on the team has finished something this year.') }}</flux:text>
+                        @else
+                            <div class="max-h-80 divide-y divide-zinc-200 overflow-y-auto dark:divide-white/10">
+                                @foreach ($this->teamUntrained as $person)
+                                    <div class="flex items-baseline justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                                        <div class="w-56 truncate text-sm" title="{{ $person->full_name }}">
+                                            @can('view', $person)
+                                                <flux:link :href="route('employees.show', $person)" wire:navigate>
+                                                    {{ $person->listing_name }}
+                                                </flux:link>
+                                            @else
+                                                {{ $person->listing_name }}
+                                            @endcan
+                                        </div>
+
+                                        <div class="min-w-0 truncate text-xs text-zinc-600 dark:text-zinc-300"
+                                            title="{{ $person->section?->name }}">
+                                            {{ $person->section?->name ?? '—' }}
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </flux:card>
+                </div>
+
+                <flux:card class="space-y-3">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <flux:heading size="lg">{{ __('Waiting for my decision') }}</flux:heading>
+                        <flux:link :href="route('approvals')" wire:navigate>{{ __('Open approvals') }}</flux:link>
+                    </div>
+
+                    @if ($this->teamDecisions->isEmpty())
+                        <flux:text size="sm">{{ __('Nothing is waiting on you.') }}</flux:text>
+                    @else
+                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
+                            @foreach ($this->teamDecisions->take(8) as $record)
+                                <div class="flex flex-wrap items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                                    <div class="min-w-0">
+                                        <div class="truncate text-sm" title="{{ $record->title }}">{{ $record->title }}</div>
+                                        <div class="text-xs text-zinc-600 dark:text-zinc-300">
+                                            {{ $record->employee->listing_name }}
+                                        </div>
+                                    </div>
+
+                                    <flux:text size="sm" class="shrink-0">{{ $record->created_at->diffForHumans() }}</flux:text>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </flux:card>
+            </div>
+
+            <div class="space-y-6">
+                <x-dashboard.calendar :calendar="$this->calendar" />
+                <x-dashboard.eligibility-alerts :lines="$this->teamEligibilityAlerts" />
+            </div>
+        </div>
+
+        <flux:separator :text="__('My own')" />
+    @endif
 
     @if ($this->eligibilityAlerts->isNotEmpty())
         <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('Check your eligibility')">

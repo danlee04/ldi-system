@@ -1,4 +1,19 @@
-@props(['months', 'peak', 'divisions', 'years', 'month', 'year'])
+@props([
+    'months',
+    'peak',
+    'divisions',
+    'years',
+    'month',
+    'year',
+    /** What the first select narrows by: divisions for HR, a head's own
+        sections for a division head, nothing at all for a section head. */
+    'filterModel' => 'chartDivision',
+    'filterAll' => null,
+    /** Whether a month can be picked to turn the chart on its side. A
+        head's chart cannot: the side view is by division, and a head has
+        at most one. */
+    'drillable' => true,
+])
 
 @php
     // A month asked for on its own would be a single bar, so picking one
@@ -22,21 +37,25 @@
         <flux:heading size="lg">{{ $heading }}</flux:heading>
 
         <div class="flex flex-wrap items-center gap-2">
-            <flux:select size="sm" class="w-44" wire:model.live="chartDivision">
-                <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
-                @foreach ($divisions as $division)
-                    <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            @if ($divisions->isNotEmpty())
+                <flux:select size="sm" class="w-44" wire:model.live="{{ $filterModel }}">
+                    <flux:select.option value="">{{ $filterAll ?? __('All divisions') }}</flux:select.option>
+                    @foreach ($divisions as $division)
+                        <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
 
-            <flux:select size="sm" class="w-36" wire:model.live="chartMonth">
-                <flux:select.option value="">{{ __('All months') }}</flux:select.option>
-                @foreach (range(1, 12) as $number)
-                    <flux:select.option :value="$number">
-                        {{ \Carbon\CarbonImmutable::create($year, $number, 1)->format('F') }}
-                    </flux:select.option>
-                @endforeach
-            </flux:select>
+            @if ($drillable)
+                <flux:select size="sm" class="w-36" wire:model.live="chartMonth">
+                    <flux:select.option value="">{{ __('All months') }}</flux:select.option>
+                    @foreach (range(1, 12) as $number)
+                        <flux:select.option :value="$number">
+                            {{ \Carbon\CarbonImmutable::create($year, $number, 1)->format('F') }}
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
 
             <flux:select size="sm" class="w-28" wire:model.live="chartYear">
                 @foreach ($years as $option)

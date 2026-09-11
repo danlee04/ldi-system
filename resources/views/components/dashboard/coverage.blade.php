@@ -1,8 +1,8 @@
-@props(['rows', 'year'])
+@props(['rows', 'year', 'heading' => null])
 
 <flux:card class="space-y-4">
     <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <flux:heading size="lg">{{ __('Training coverage by division') }}</flux:heading>
+        <flux:heading size="lg">{{ $heading ?? __('Training coverage by division') }}</flux:heading>
         <flux:text size="sm">{{ $year }}</flux:text>
     </div>
 

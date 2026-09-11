@@ -19,16 +19,20 @@ use Illuminate\Database\Eloquent\Builder;
 class TrainingByMonthReport
 {
     /**
+     * A head's chart passes the people on their team as `$employeeIds`, which
+     * narrows both series to them; HR's leaves it null and sees everybody.
+     *
+     * @param  list<int>|null  $employeeIds
      * @return list<array{key: int, label: string, attendances: int, plans: int}>
      */
-    public function handle(int $year, ?int $divisionId = null): array
+    public function handle(int $year, ?int $divisionId = null, ?array $employeeIds = null): array
     {
-        $counts = $this->approved($year, $divisionId)
+        $counts = $this->approved($year, $divisionId, $employeeIds)
             ->get()
             ->groupBy(fn (TrainingRecord $record): int => $record->date_end->month)
             ->map->count();
 
-        $plans = $this->plansByMonth($year, $divisionId);
+        $plans = $this->plansByMonth($year, $divisionId, $employeeIds);
 
         $rows = [];
 
@@ -52,15 +56,20 @@ class TrainingByMonthReport
      * somebody to. Otherwise the same twenty-seven plans would sit behind
      * every division's year and say nothing about any of them.
      *
+     * @param  list<int>|null  $employeeIds
      * @return array<int, int>
      */
-    private function plansByMonth(int $year, ?int $divisionId): array
+    private function plansByMonth(int $year, ?int $divisionId, ?array $employeeIds = null): array
     {
         $counts = LdiTraining::query()
             ->whereYear('date_start', $year)
             ->when($divisionId !== null, fn (Builder $query) => $query->whereHas(
                 'trainingRecords.employee',
                 fn (Builder $employee) => $employee->where('division_id', $divisionId),
+            ))
+            ->when($employeeIds !== null, fn (Builder $query) => $query->whereHas(
+                'trainingRecords',
+                fn (Builder $record) => $record->whereIn('employee_id', $employeeIds),
             ))
             ->get()
             ->groupBy(fn (LdiTraining $plan): int => $plan->date_start->month)
@@ -129,11 +138,13 @@ class TrainingByMonthReport
     }
 
     /**
+     * @param  list<int>|null  $employeeIds
      * @return Builder<TrainingRecord>
      */
-    private function approved(int $year, ?int $divisionId): Builder
+    private function approved(int $year, ?int $divisionId, ?array $employeeIds = null): Builder
     {
         return TrainingRecord::query()
+            ->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employee_id', $employeeIds))
             ->where('status', TrainingStatus::Approved)
             ->whereYear('date_end', $year)
             ->when($divisionId !== null, fn (Builder $query) => $query->whereHas(
