@@ -139,9 +139,15 @@ sinasadyang ise-set up. Ang mga idinagdag ng Sync ay tumatanggap ng parehong abi
 
 ### 4.4 Rating ng supervisor
 
-Ang magre-rate ay hinahanap sa oras ng pag-rate gamit ang `ApprovalRouter::approverFor()`:
-`SectionHead`, kung wala ay `DivisionHead`, kung wala pa rin ay **HR**. Hindi kailanman ang sarili. Kapag
-napalitan ang head habang bukas ang cycle, sa bagong head na lalabas.
+Ang magre-rate ay hinahanap sa oras ng pag-rate, sa parehong tuntunin ng `ApprovalRouter::approverFor()`:
+`SectionHead`, kung wala ay `DivisionHead`, kung wala pa rin ay **HR**. Hindi kailanman ang sarili, at
+hindi ang head na inactive. Kapag napalitan ang head habang bukas ang cycle, sa bagong head na lalabas.
+
+Nasa `App\Workflow\LdnaRater` ang tuntunin. Hindi nito tinatawag ang router nang isa-isa: ang router ay
+nagku-query ng head sa bawat tao, at ang badge sa sidebar ay binibilang sa bawat page load — 268 query
+para sa HR. Binabasa ng `LdnaRater` ang parehong mga column mula sa naka-eager-load na section at
+division, at kinukuha nang minsan ang listahan ng aktibong empleyado. **May test na nagpapatunay na
+magkatugma ang `LdnaRater` at ang `ApprovalRouter`** sa bawat sangay, para hindi sila magkahiwalay.
 
 - Kita ng supervisor ang `required_level` at ang `self_level` (kung naka-submit na)
 - **Makakapag-rate kahit hindi pa nakakapag-submit ang empleyado**, para hindi maipit ang gap
@@ -192,7 +198,9 @@ pero hindi binibilang sa report.
 ### 5.3 Setup → Positions (dagdag)
 
 Bagong icon button sa bawat hilera, **Competencies**. Bubukas ang modal na nakalista ang lahat ng aktibong
-Technical: may checkbox at antas sa bawat isa. Ito ang sumusulat sa `competency_position`.
+Technical, bawat isa may iisang select: *Not needed*, Basic, Intermediate, Advanced, Superior. (Iisang
+kontrol sa halip na checkbox at antas: walang paraan para makapili ng antas nang hindi naka-check, o
+ma-check nang walang antas.) Ito ang sumusulat sa `competency_position`.
 
 ### 5.4 LDNA (HR) — `pages::ldna.index` at `pages::ldna.show`
 
@@ -277,8 +285,12 @@ Tinatawag ng bawat action ang policy, kaya iisa ang tuntunin sa page at sa actio
 - `app/Actions/Ldna/`:
   - `BuildCompetencyProfile` — ang listahan at required ng isang tao; ginagamit ng pagbuo, ng Sync, at ng
     Refresh
+  - `EnrolInLdnaCycle` — gumagawa ng assessment at ng mga rating ng isang tao; ginagamit ng pagbuo at
+    ng Sync
   - `OpenLdnaCycle`, `SyncLdnaCycle`, `RefreshLdnaAssessment`
   - `SaveSelfRating`, `SaveSupervisorRating` — may `submit` na flag
+  - `CountLdnaRatingsDue` — ang badge sa sidebar
+- `app/Workflow/LdnaRater.php` — kung sino ang magre-rate (§4.4)
 - `app/Policies/LdnaAssessmentPolicy.php`
 - `app/Notifications/LdnaCycleOpened.php`, `app/Notifications/SelfRatingSubmitted.php`
 - `app/Actions/Reports/LdnaGapReport.php`
