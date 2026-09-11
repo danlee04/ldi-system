@@ -3,6 +3,7 @@
 use App\Models\Division;
 use App\Models\Employee;
 use App\Models\EmployeeEligibility;
+use App\Models\LdiTraining;
 use App\Models\Section;
 use App\Models\TrainingRecord;
 use App\Models\User;
@@ -252,4 +253,36 @@ test('an employee who heads nothing still sees their own record', function () {
     Livewire::test('pages::dashboard')
         ->assertSee('My pending trainings')
         ->assertSee('Where my submissions stand');
+});
+
+test('a head gets quick stats counted over their own people', function () {
+    ['section' => $section] = sectionHead();
+
+    $mine = Employee::factory()->create(['section_id' => $section->id]);
+
+    $plan = LdiTraining::factory()->create([
+        'date_start' => now()->startOfYear()->addMonth(),
+        'date_end' => now()->startOfYear()->addMonth()->addDays(2),
+    ]);
+
+    TrainingRecord::factory()->approved()->for($mine)->create([
+        'ldi_training_id' => $plan->id,
+        'date_start' => now()->startOfYear()->addMonth(),
+        'date_end' => now()->startOfYear()->addMonth()->addDays(2),
+        'cpd_units' => 4.5,
+    ]);
+
+    // A plan nobody on the team went to, and a stranger on the same terms.
+    LdiTraining::factory()->create(['date_start' => now(), 'date_end' => now()]);
+    Employee::factory()->create(['section_id' => Section::factory()->create()->id]);
+
+    $stats = Livewire::test('pages::dashboard')
+        ->assertSee('Quick stats')
+        ->assertSee('LDI trainings attended in '.now()->year)
+        ->instance()->teamQuickStats;
+
+    // The head and one other, both on the factory's permanent terms.
+    expect(array_sum($stats['statuses']))->toBe(2)
+        ->and($stats['plans'])->toBe(1)
+        ->and($stats['extra'][0]['value'])->toBe('4.5');
 });

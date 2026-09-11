@@ -533,6 +533,36 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
+     * The same quick stats HR sees, counted over the team: who is on what
+     * terms, the plans they went to, and the CPD units they earned.
+     *
+     * @return array{statuses: array<string, int>, plans: int, extra: list<array{icon: string, label: string, value: string}>}
+     */
+    #[Computed]
+    public function teamQuickStats(): array
+    {
+        if ($this->team === null) {
+            return ['statuses' => [], 'plans' => 0, 'extra' => []];
+        }
+
+        $units = (float) $this->teamApproved->sum('cpd_units');
+
+        return [
+            'statuses' => $this->team->employees()->get()
+                ->groupBy(fn (Employee $employee): string => $employee->employment_status->label())
+                ->map->count()
+                ->sortDesc()
+                ->all(),
+            'plans' => $this->teamApproved->whereNotNull('ldi_training_id')->pluck('ldi_training_id')->unique()->count(),
+            'extra' => [[
+                'icon' => 'academic-cap',
+                'label' => __('CPD units in :year', ['year' => $this->year()]),
+                'value' => rtrim(rtrim(number_format($units, 1), '0'), '.'),
+            ]],
+        ];
+    }
+
+    /**
      * A division head can narrow the chart to one of their sections.
      */
     #[Url]
@@ -813,6 +843,8 @@ new #[Title('Dashboard')] class extends Component {
 
             <div class="space-y-6">
                 <x-dashboard.calendar :calendar="$this->calendar" />
+                <x-dashboard.quick-stats :stats="$this->teamQuickStats" :year="$this->year()"
+                    :plans-label="__('LDI trainings attended in :year', ['year' => $this->year()])" />
                 <x-dashboard.eligibility-alerts :lines="$this->teamEligibilityAlerts" />
             </div>
         </div>

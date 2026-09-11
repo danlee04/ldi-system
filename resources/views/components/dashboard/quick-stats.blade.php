@@ -1,4 +1,10 @@
-@props(['stats', 'year'])
+@props([
+    'stats',
+    'year',
+    /** A head counts the plans their people went to, not every plan the
+        agency ran, so the row says which it is. */
+    'plansLabel' => null,
+])
 
 @php
     // Headcount by the terms people are employed on, then the year's plans.
@@ -13,9 +19,12 @@
         ->values()
         ->push([
             'icon' => 'calendar-days',
-            'label' => __('LDI plans in :year', ['year' => $year]),
+            'label' => $plansLabel ?? __('LDI plans in :year', ['year' => $year]),
             'value' => number_format($stats['plans']),
-        ]);
+        ])
+        // Anything a particular dashboard wants to add after the plans,
+        // already shaped as a row.
+        ->merge($stats['extra'] ?? []);
 @endphp
 
 <flux:card class="space-y-4">
