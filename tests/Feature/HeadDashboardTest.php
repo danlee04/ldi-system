@@ -232,3 +232,24 @@ test('a division head reads coverage by section, not by division', function () {
         ->assertSee('Training coverage by section')
         ->assertDontSee('Training coverage by division');
 });
+
+test('a head is not shown their own record on the dashboard', function () {
+    sectionHead();
+
+    // It lives on My profile and My trainings; the dashboard is the team's.
+    Livewire::test('pages::dashboard')
+        ->assertDontSee('My own')
+        ->assertDontSee('My pending trainings')
+        ->assertDontSee('Where my submissions stand');
+});
+
+test('an employee who heads nothing still sees their own record', function () {
+    $user = User::factory()->employee()->create();
+    Employee::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('My pending trainings')
+        ->assertSee('Where my submissions stand');
+});

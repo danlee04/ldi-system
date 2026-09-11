@@ -816,114 +816,117 @@ new #[Title('Dashboard')] class extends Component {
                 <x-dashboard.eligibility-alerts :lines="$this->teamEligibilityAlerts" />
             </div>
         </div>
-
-        <flux:separator :text="__('My own')" />
     @endif
 
-    @if ($this->eligibilityAlerts->isNotEmpty())
-        <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('Check your eligibility')">
-            <div class="space-y-1">
-                @foreach ($this->eligibilityAlerts as $line)
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span>{{ $line->name() }}</span>
-                        <x-eligibility-expiry :date="$line->date_of_validity" />
-                    </div>
-                @endforeach
-            </div>
-        </flux:callout>
-    @endif
-
-    <div class="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(13rem,100%),1fr))]">
-        @if ($this->employee)
-            <flux:card class="space-y-1">
-                <flux:text size="sm">{{ __('My pending trainings') }}</flux:text>
-                <flux:heading size="xl" class="tabular-nums">{{ $myPending }}</flux:heading>
-                <flux:link :href="route('trainings.mine')" wire:navigate>{{ __('View mine') }}</flux:link>
-            </flux:card>
-
-            <flux:card class="space-y-1">
-                <flux:text size="sm">{{ __('My approved trainings') }}</flux:text>
-                <flux:heading size="xl" class="tabular-nums">{{ $myApproved }}</flux:heading>
-                <flux:text size="sm">
-                    {{ __(':count this year', ['count' => $this->approvedThisYear]) }}
-                </flux:text>
-            </flux:card>
-
-            <flux:card class="space-y-1">
-                <flux:text size="sm">{{ __('CPD units this year') }}</flux:text>
-                <flux:heading size="xl" class="tabular-nums">
-                    {{ rtrim(rtrim(number_format($this->cpdUnits, 1), '0'), '.') }}
-                </flux:heading>
-            </flux:card>
+    {{-- A head's own record is not repeated here: the page is theirs for
+         the team. Their PDS, eligibility and CPD are on My profile, and
+         their submissions and where they stand are on My trainings. --}}
+    @unless ($this->seesTeam)
+        @if ($this->eligibilityAlerts->isNotEmpty())
+            <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('Check your eligibility')">
+                <div class="space-y-1">
+                    @foreach ($this->eligibilityAlerts as $line)
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span>{{ $line->name() }}</span>
+                            <x-eligibility-expiry :date="$line->date_of_validity" />
+                        </div>
+                    @endforeach
+                </div>
+            </flux:callout>
         @endif
 
-    </div>
+        <div class="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(13rem,100%),1fr))]">
+            @if ($this->employee)
+                <flux:card class="space-y-1">
+                    <flux:text size="sm">{{ __('My pending trainings') }}</flux:text>
+                    <flux:heading size="xl" class="tabular-nums">{{ $myPending }}</flux:heading>
+                    <flux:link :href="route('trainings.mine')" wire:navigate>{{ __('View mine') }}</flux:link>
+                </flux:card>
 
-    @if ($this->employee)
-        <div class="grid gap-4 lg:grid-cols-2">
-            <flux:card class="space-y-4">
-                <div class="flex flex-wrap items-baseline justify-between gap-2">
-                    <flux:heading size="lg">{{ __('My PDS') }}</flux:heading>
-
+                <flux:card class="space-y-1">
+                    <flux:text size="sm">{{ __('My approved trainings') }}</flux:text>
+                    <flux:heading size="xl" class="tabular-nums">{{ $myApproved }}</flux:heading>
                     <flux:text size="sm">
-                        {{ __(':filled of :total sections started', [
-                            'filled' => count($this->pdsSections) - count($this->pdsMissing),
-                            'total' => count($this->pdsSections),
-                        ]) }}
+                        {{ __(':count this year', ['count' => $this->approvedThisYear]) }}
                     </flux:text>
-                </div>
+                </flux:card>
 
-                <div class="flex items-center gap-3">
-                    <flux:progress :value="$this->pdsPercentage" class="flex-1" />
-                    <span class="text-sm tabular-nums">{{ $this->pdsPercentage }}%</span>
-                </div>
+                <flux:card class="space-y-1">
+                    <flux:text size="sm">{{ __('CPD units this year') }}</flux:text>
+                    <flux:heading size="xl" class="tabular-nums">
+                        {{ rtrim(rtrim(number_format($this->cpdUnits, 1), '0'), '.') }}
+                    </flux:heading>
+                </flux:card>
+            @endif
 
-                @if ($this->pdsMissing === [])
-                    <flux:text size="sm">{{ __('Every section has something in it.') }}</flux:text>
-                @else
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($this->pdsMissing as $section)
-                            <flux:badge color="zinc">{{ $section['number'] }}. {{ $section['label'] }}</flux:badge>
-                        @endforeach
-                    </div>
-                @endif
-
-                <div>
-                    <flux:button size="sm" variant="primary" :href="route('my-pds')" wire:navigate>
-                        {{ __('Fill it in') }}
-                    </flux:button>
-                </div>
-            </flux:card>
-
-            <flux:card class="space-y-4">
-                <flux:heading size="lg">{{ __('Where my submissions stand') }}</flux:heading>
-
-                @if ($this->mySubmissions->isEmpty())
-                    <flux:text size="sm">
-                        {{ __('Nothing is waiting on anybody. Record a training under My trainings.') }}
-                    </flux:text>
-                @else
-                    <div class="divide-y divide-zinc-200 dark:divide-white/10">
-                        @foreach ($this->mySubmissions as $record)
-                            <div class="space-y-1 py-3 first:pt-0 last:pb-0">
-                                <flux:heading class="break-words">{{ $record->title }}</flux:heading>
-
-                                <flux:text size="sm">
-                                    {{ __('With :approver', ['approver' => $this->waitingOn($record)]) }}
-                                </flux:text>
-
-                                <flux:text size="sm">
-                                    {{ trans_choice('Waiting :count day|Waiting :count days', $this->daysWaiting($record), [
-                                        'count' => $this->daysWaiting($record),
-                                    ]) }}
-                                </flux:text>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </flux:card>
         </div>
-    @endif
+
+        @if ($this->employee)
+            <div class="grid gap-4 lg:grid-cols-2">
+                <flux:card class="space-y-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <flux:heading size="lg">{{ __('My PDS') }}</flux:heading>
+
+                        <flux:text size="sm">
+                            {{ __(':filled of :total sections started', [
+                                'filled' => count($this->pdsSections) - count($this->pdsMissing),
+                                'total' => count($this->pdsSections),
+                            ]) }}
+                        </flux:text>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <flux:progress :value="$this->pdsPercentage" class="flex-1" />
+                        <span class="text-sm tabular-nums">{{ $this->pdsPercentage }}%</span>
+                    </div>
+
+                    @if ($this->pdsMissing === [])
+                        <flux:text size="sm">{{ __('Every section has something in it.') }}</flux:text>
+                    @else
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($this->pdsMissing as $section)
+                                <flux:badge color="zinc">{{ $section['number'] }}. {{ $section['label'] }}</flux:badge>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div>
+                        <flux:button size="sm" variant="primary" :href="route('my-pds')" wire:navigate>
+                            {{ __('Fill it in') }}
+                        </flux:button>
+                    </div>
+                </flux:card>
+
+                <flux:card class="space-y-4">
+                    <flux:heading size="lg">{{ __('Where my submissions stand') }}</flux:heading>
+
+                    @if ($this->mySubmissions->isEmpty())
+                        <flux:text size="sm">
+                            {{ __('Nothing is waiting on anybody. Record a training under My trainings.') }}
+                        </flux:text>
+                    @else
+                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
+                            @foreach ($this->mySubmissions as $record)
+                                <div class="space-y-1 py-3 first:pt-0 last:pb-0">
+                                    <flux:heading class="break-words">{{ $record->title }}</flux:heading>
+
+                                    <flux:text size="sm">
+                                        {{ __('With :approver', ['approver' => $this->waitingOn($record)]) }}
+                                    </flux:text>
+
+                                    <flux:text size="sm">
+                                        {{ trans_choice('Waiting :count day|Waiting :count days', $this->daysWaiting($record), [
+                                            'count' => $this->daysWaiting($record),
+                                        ]) }}
+                                    </flux:text>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </flux:card>
+            </div>
+        @endif
+    @endunless
 
     @if ($this->seesAgency)
         <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals" :coverage="$this->coverageTotal" :funding="$this->fundingTotals" :spend="$this->spend"
