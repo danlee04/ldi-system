@@ -358,9 +358,9 @@ new #[Title('Employees')] class extends Component {
             <flux:table.column>{{ __('Section') }}</flux:table.column>
             <flux:table.column>{{ __('Position') }}</flux:table.column>
             <flux:table.column>{{ __('Status') }}</flux:table.column>
-            <flux:table.column>{{ __('CPD Units (:year)', ['year' => $this->year]) }}</flux:table.column>
+            <flux:table.column>{{ __('CPD :year', ['year' => $this->year]) }}</flux:table.column>
             <flux:table.column>{{ __('Eligibility') }}</flux:table.column>
-            <flux:table.column>{{ __('Eligibility Expiry') }}</flux:table.column>
+            <flux:table.column>{{ __('Expires') }}</flux:table.column>
             @if ($this->canManage)
                 <flux:table.column>{{ __('Action') }}</flux:table.column>
             @endif
@@ -370,7 +370,7 @@ new #[Title('Employees')] class extends Component {
             @forelse ($this->employees as $employee)
                 <flux:table.row :key="$employee->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
-                        <div class="w-56 truncate" title="{{ $employee->full_name }}">
+                        <div class="w-48 truncate" title="{{ $employee->full_name }}">
                             <flux:link :href="route('employees.show', $employee)" wire:navigate>
                                 {{ $employee->listing_name }}
                             </flux:link>
@@ -378,19 +378,19 @@ new #[Title('Employees')] class extends Component {
                     </flux:table.cell>
                     <flux:table.cell>{{ $employee->division?->code ?? '—' }}</flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-36 truncate" title="{{ $employee->section?->name }}">
+                        <div class="w-32 truncate" title="{{ $employee->section?->name }}">
                             {{ $employee->section?->name ?? '—' }}
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-36 truncate" title="{{ $employee->position?->title }}">
+                        <div class="w-32 truncate" title="{{ $employee->position?->title }}">
                             {{ $employee->position?->title ?? '—' }}
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>{{ $employee->employment_status->label() }}</flux:table.cell>
                     <flux:table.cell>{{ $employee->cpd_units_for_year ?? 0 }}</flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-28 truncate" title="{{ $employee->eligibilities->map->name()->join(', ') }}">
+                        <div class="w-24 truncate" title="{{ $employee->eligibilities->map->name()->join(', ') }}">
                             {{ $employee->eligibilitySummary() }}
                         </div>
                     </flux:table.cell>
@@ -399,15 +399,22 @@ new #[Title('Employees')] class extends Component {
                     </flux:table.cell>
                     @if ($this->canManage)
                         <flux:table.cell>
+                            {{-- Icons rather than words: two labelled buttons
+                                 in the ninth column were what pushed the table
+                                 past the edge of the screen. Each still says
+                                 what it does, to a pointer and a screen reader. --}}
                             <div class="flex gap-1">
-                                <flux:button size="sm" variant="ghost"
-                                    wire:click="editEmployee({{ $employee->id }})">
-                                    {{ __('Edit') }}
-                                </flux:button>
-                                <flux:button size="sm" variant="danger"
-                                    wire:click="confirmDelete({{ $employee->id }})">
-                                    {{ __('Delete') }}
-                                </flux:button>
+                                <flux:tooltip :content="__('Edit')">
+                                    <flux:button size="sm" variant="ghost" icon="pencil-square" square
+                                        :aria-label="__('Edit :name', ['name' => $employee->listing_name])"
+                                        wire:click="editEmployee({{ $employee->id }})" />
+                                </flux:tooltip>
+
+                                <flux:tooltip :content="__('Delete')">
+                                    <flux:button size="sm" variant="danger" icon="trash" square
+                                        :aria-label="__('Delete :name', ['name' => $employee->listing_name])"
+                                        wire:click="confirmDelete({{ $employee->id }})" />
+                                </flux:tooltip>
                             </div>
                         </flux:table.cell>
                     @endif

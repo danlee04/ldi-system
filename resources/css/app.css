@@ -206,3 +206,22 @@ select:focus[data-flux-control] {
         animation: none;
     }
 }
+
+/*
+ * Flux draws a table flush with the page: the first and last columns carry
+ * no side padding (`first:ps-0`, `last:pe-0`) so the text lines up with the
+ * heading above it. On a sheet of its own that puts the first name against
+ * the border and cuts the last column at the edge, so inside the sheet they
+ * get the inset a card has.
+ *
+ * Deliberately outside every @layer. Flux's padding lives in the utilities
+ * layer, and a later layer beats an earlier one whatever the specificity —
+ * the same rule inside @layer base loses to `first:ps-0` without a trace.
+ */
+ui-table-scroll-area:has(> [data-flux-table]) :is(th, td):first-child {
+    padding-inline-start: 1.25rem;
+}
+
+ui-table-scroll-area:has(> [data-flux-table]) :is(th, td):last-child {
+    padding-inline-end: 1.25rem;
+}
