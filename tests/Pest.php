@@ -1,5 +1,12 @@
 <?php
 
+use App\Actions\Ldna\OpenLdnaCycle;
+use App\Enums\ProficiencyLevel;
+use App\Models\Competency;
+use App\Models\Employee;
+use App\Models\LdnaAssessment;
+use App\Models\LdnaCycle;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +51,23 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Opens LDNA for the coming year, today inside its window, with one core
+ * competency asked of everybody at Intermediate.
+ */
+function openLdna(): LdnaCycle
 {
-    // ..
+    Competency::factory()->core(ProficiencyLevel::Intermediate)->withIndicators()->create(['name' => 'Delivering service excellence']);
+
+    return app(OpenLdnaCycle::class)->handle(
+        User::factory()->hr()->create(),
+        now()->year + 1,
+        today()->subDay(),
+        today()->addMonth(),
+    );
+}
+
+function assessmentOf(Employee $employee, LdnaCycle $cycle): LdnaAssessment
+{
+    return $cycle->assessments()->where('employee_id', $employee->id)->firstOrFail();
 }

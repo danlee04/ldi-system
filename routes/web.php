@@ -28,6 +28,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('ldi', 'pages::ldi.index')->name('ldi.index');
     Route::livewire('ldi/{plan}', 'pages::ldi.show')->name('ldi.show');
 
+    Route::livewire('ldna', 'pages::ldna.index')->name('ldna.index');
+    Route::livewire('ldna/mine', 'pages::ldna.mine')->name('ldna.mine');
+    // Every other ldna/... page goes above this line: ldna/{cycle} would
+    // otherwise match it first.
+    Route::livewire('ldna/{cycle}', 'pages::ldna.show')->name('ldna.show');
+
     Route::livewire('employees', 'pages::employees.index')->name('employees.index');
     Route::livewire('employees/{employee}', 'pages::employees.show')->name('employees.show');
     Route::get('employees/{employee}/pds.xlsx', [PersonalDataSheetController::class, 'show'])->name('employees.pds');
@@ -35,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('setup/divisions', 'pages::setup.divisions')->name('setup.divisions');
     Route::livewire('setup/sections', 'pages::setup.sections')->name('setup.sections');
     Route::livewire('setup/positions', 'pages::setup.positions')->name('setup.positions');
+    Route::livewire('setup/competencies', 'pages::setup.competencies')->name('setup.competencies');
     Route::livewire('setup/budget-caps', 'pages::setup.budget-caps')->name('setup.budget-caps');
     Route::livewire('setup/users', 'pages::setup.users')->name('setup.users');
 });

@@ -53,6 +53,13 @@
                         </flux:sidebar.item>
                     @endif
 
+                    @if (auth()->user()->employee !== null)
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('ldna.mine')"
+                            :current="request()->routeIs('ldna.mine')" wire:navigate>
+                            {{ __('My LDNA') }}
+                        </flux:sidebar.item>
+                    @endif
+
                     @if (auth()->user()->decidesOnTrainings())
                         {{-- The count sits here rather than on the dashboard,
                                  so it is in front of the approver on every page
@@ -82,6 +89,11 @@
                             {{ __('LDI trainings') }}
                         </flux:sidebar.item>
 
+                        <flux:sidebar.item icon="chart-bar-square" :href="route('ldna.index')"
+                            :current="request()->routeIs('ldna.index', 'ldna.show')" wire:navigate>
+                            {{ __('LDNA') }}
+                        </flux:sidebar.item>
+
                         <flux:sidebar.item icon="chart-bar" :href="route('reports')"
                             :current="request()->routeIs('reports')" wire:navigate>
                             {{ __('Reports') }}
@@ -105,6 +117,11 @@
                     <flux:sidebar.item icon="identification" :href="route('setup.positions')"
                         :current="request()->routeIs('setup.positions')" wire:navigate>
                         {{ __('Positions') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="puzzle-piece" :href="route('setup.competencies')"
+                        :current="request()->routeIs('setup.competencies')" wire:navigate>
+                        {{ __('Competencies') }}
                     </flux:sidebar.item>
 
                     <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')"

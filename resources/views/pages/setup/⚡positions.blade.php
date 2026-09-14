@@ -1,10 +1,15 @@
 <?php
 
+use App\Enums\CompetencyType;
+use App\Enums\ProficiencyLevel;
+use App\Models\Competency;
 use App\Models\Position;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -27,6 +32,11 @@ new #[Title('Positions')] class extends Component {
     public string $itemNumber = '';
 
     public ?int $salaryGrade = null;
+
+    public ?int $competencyPositionId = null;
+
+    /** @var array<int, string> the level each technical competency is asked at, '' when the position does not need it */
+    public array $positionLevels = [];
 
     public function mount(): void
     {
@@ -56,7 +66,7 @@ new #[Title('Positions')] class extends Component {
                 $query->where(fn (Builder $match) => $match->where('title', 'like', $term)->orWhere('item_number', 'like', $term));
             })
             ->when($this->filterSalaryGrade !== null, fn (Builder $query) => $query->where('salary_grade', $this->filterSalaryGrade))
-            ->withCount('employees')
+            ->withCount(['employees', 'competencies'])
             ->orderBy('title')
             ->paginate(15);
     }
@@ -127,6 +137,81 @@ new #[Title('Positions')] class extends Component {
         Flux::toast(variant: 'success', text: __('Position saved.'));
     }
 
+    /**
+     * Every technical competency still in use, which is what the modal
+     * offers. An inactive one is left off, and so is left alone on save.
+     *
+     * @return Collection<int, Competency>
+     */
+    #[Computed]
+    public function technicalCompetencies(): Collection
+    {
+        return Competency::query()
+            ->active()
+            ->where('type', CompetencyType::Technical)
+            ->orderBy('name')
+            ->get();
+    }
+
+    #[Computed]
+    public function competencyPosition(): ?Position
+    {
+        return $this->competencyPositionId === null ? null : Position::find($this->competencyPositionId);
+    }
+
+    public function editCompetencies(int $id): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $position = Position::findOrFail($id);
+
+        $this->resetValidation();
+
+        $set = DB::table('competency_position')
+            ->where('position_id', $position->id)
+            ->pluck('required_level', 'competency_id');
+
+        $this->competencyPositionId = $position->id;
+        $this->positionLevels = $this->technicalCompetencies
+            ->mapWithKeys(fn (Competency $competency): array => [$competency->id => (string) ($set[$competency->id] ?? '')])
+            ->all();
+
+        unset($this->competencyPosition);
+
+        Flux::modal('position-competencies')->show();
+    }
+
+    public function saveCompetencies(): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $position = Position::findOrFail($this->competencyPositionId);
+
+        $this->validate(['positionLevels.*' => ['nullable', Rule::enum(ProficiencyLevel::class)]]);
+
+        DB::transaction(function () use ($position): void {
+            foreach ($this->technicalCompetencies as $competency) {
+                $level = $this->positionLevels[$competency->id] ?? '';
+
+                if ($level === '') {
+                    $position->competencies()->detach($competency->id);
+
+                    continue;
+                }
+
+                $position->competencies()->syncWithoutDetaching([$competency->id => ['required_level' => $level]]);
+            }
+        });
+
+        $this->reset('competencyPositionId', 'positionLevels');
+
+        unset($this->positions);
+
+        Flux::modal('position-competencies')->close();
+
+        Flux::toast(variant: 'success', text: __('Competencies saved.'));
+    }
+
     public function resetForm(): void
     {
         $this->reset('editingId', 'title', 'itemNumber', 'salaryGrade');
@@ -159,6 +244,7 @@ new #[Title('Positions')] class extends Component {
             <flux:table.column>{{ __('Item number') }}</flux:table.column>
             <flux:table.column>{{ __('Salary grade') }}</flux:table.column>
             <flux:table.column>{{ __('Employees') }}</flux:table.column>
+            <flux:table.column>{{ __('Technical') }}</flux:table.column>
             <flux:table.column />
         </flux:table.columns>
 
@@ -171,15 +257,24 @@ new #[Title('Positions')] class extends Component {
                     <flux:table.cell>{{ $position->item_number ?? '—' }}</flux:table.cell>
                     <flux:table.cell>{{ $position->salary_grade ?? '—' }}</flux:table.cell>
                     <flux:table.cell>{{ $position->employees_count }}</flux:table.cell>
+                    <flux:table.cell>{{ $position->competencies_count }}</flux:table.cell>
                     <flux:table.cell>
-                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $position->id }})">
-                            {{ __('Edit') }}
-                        </flux:button>
+                        <div class="flex justify-end gap-1">
+                            <flux:tooltip :content="__('Technical competencies')">
+                                <flux:button size="sm" variant="ghost" icon="puzzle-piece" square
+                                    wire:click="editCompetencies({{ $position->id }})"
+                                    :aria-label="__('Technical competencies')" />
+                            </flux:tooltip>
+
+                            <flux:button size="sm" variant="ghost" wire:click="edit({{ $position->id }})">
+                                {{ __('Edit') }}
+                            </flux:button>
+                        </div>
                     </flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>
-                    <flux:table.cell colspan="5">{{ __('No positions yet.') }}</flux:table.cell>
+                    <flux:table.cell colspan="6">{{ __('No positions yet.') }}</flux:table.cell>
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
@@ -208,6 +303,43 @@ new #[Title('Positions')] class extends Component {
                 <flux:button type="submit" variant="primary">
                     {{ $editingId === null ? __('Add') : __('Save changes') }}
                 </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="position-competencies" class="md:w-4xl md:max-w-[calc(100vw-4rem)]">
+        <form wire:submit="saveCompetencies" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Technical competencies') }}</flux:heading>
+                <flux:text>{{ $this->competencyPosition?->title }}</flux:text>
+            </div>
+
+            @if ($this->technicalCompetencies->isEmpty())
+                <flux:callout icon="puzzle-piece" variant="secondary">
+                    {{ __('There are no technical competencies yet. Add them in Setup → Competencies.') }}
+                </flux:callout>
+            @else
+                <div class="grid gap-4 md:grid-cols-2">
+                    @foreach ($this->technicalCompetencies as $competency)
+                        <flux:select wire:key="position-level-{{ $competency->id }}"
+                            wire:model="positionLevels.{{ $competency->id }}" :label="$competency->name">
+                            <flux:select.option value="">{{ __('Not needed') }}</flux:select.option>
+                            @foreach (ProficiencyLevel::cases() as $level)
+                                <flux:select.option :value="$level->value">{{ $level->label() }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    @endforeach
+                </div>
+            @endif
+
+            <div class="flex gap-2">
+                <flux:spacer />
+
+                <flux:modal.close>
+                    <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button type="submit" variant="primary">{{ __('Save changes') }}</flux:button>
             </div>
         </form>
     </flux:modal>

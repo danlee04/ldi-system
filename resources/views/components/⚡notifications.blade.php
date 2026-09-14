@@ -91,13 +91,26 @@ new class extends Component {
                     wire:click="open('{{ $notification->id }}')"
                     class="block w-full cursor-pointer px-2 py-2 text-left hover:bg-zinc-100 dark:hover:bg-white/5">
                     <div class="truncate text-sm font-medium">
-                        @if (($notification->data['kind'] ?? '') === 'awaiting')
-                            {{ __('Awaiting your decision') }}
-                        @elseif (($notification->data['decision'] ?? '') === 'rejected')
-                            {{ __('Your training was rejected') }}
-                        @else
-                            {{ __('Your training was approved') }}
-                        @endif
+                        @switch($notification->data['kind'] ?? '')
+                            @case('awaiting')
+                                {{ __('Awaiting your decision') }}
+                            @break
+
+                            @case('ldna_opened')
+                                {{ __('Needs assessment is open') }}
+                            @break
+
+                            @case('ldna_self_rated')
+                                {{ __('Ready for your rating') }}
+                            @break
+
+                            @default
+                                @if (($notification->data['decision'] ?? '') === 'rejected')
+                                    {{ __('Your training was rejected') }}
+                                @else
+                                    {{ __('Your training was approved') }}
+                                @endif
+                        @endswitch
                     </div>
 
                     <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
@@ -110,6 +123,12 @@ new class extends Component {
                     @if (filled($notification->data['reason'] ?? ''))
                         <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
                             {{ $notification->data['reason'] }}
+                        </div>
+                    @endif
+
+                    @if (filled($notification->data['window'] ?? ''))
+                        <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ $notification->data['window'] }}
                         </div>
                     @endif
 

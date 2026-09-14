@@ -185,6 +185,16 @@ class Employee extends Model
     }
 
     /**
+     * Whether they are named head of a section or a division. The
+     * designation, not the account's role, is what makes somebody a head.
+     */
+    public function isDesignatedHead(): bool
+    {
+        return Section::query()->where('section_head_employee_id', $this->getKey())->exists()
+            || Division::query()->where('division_head_employee_id', $this->getKey())->exists();
+    }
+
+    /**
      * @return Attribute<string, never>
      */
     protected function fullName(): Attribute
