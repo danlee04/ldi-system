@@ -21,7 +21,11 @@
         </flux:sidebar.item>
     @endif
 
-    <form method="POST" action="{{ route('logout') }}" class="w-full">
+    {{-- Flux wraps every sidebar item in a <ui-tooltip>. The one above is a
+         direct child of this column and stretches to it; this one sits
+         inside the form, where it shrinks to the words unless it is told
+         to fill the line. --}}
+    <form method="POST" action="{{ route('logout') }}" class="w-full [&>ui-tooltip]:block">
         @csrf
 
         <flux:sidebar.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
