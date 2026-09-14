@@ -47,7 +47,10 @@
     }
 @endphp
 
-<flux:card class="space-y-4">
+{{-- The card fills its half of the row so it ends level with the coverage
+     panel beside it. The ring takes whatever height is spare and stays in
+     the middle of it; the names stay put at the foot. --}}
+<flux:card class="flex h-full flex-col gap-4">
     <div class="flex flex-wrap items-baseline justify-between gap-2">
         <flux:heading size="lg">{{ __('Type of learning and development') }}</flux:heading>
         <flux:text size="sm">{{ $year }}</flux:text>
@@ -56,7 +59,11 @@
     @if ($rows === [])
         <flux:text size="sm">{{ __('No approved training ended this year yet.') }}</flux:text>
     @else
-        <div class="flex flex-wrap items-center gap-6">
+        {{-- The ring on the left, the names on the right. The card is half of
+             a column that also carries the right rail, so the ring is kept
+             small: at any more than this the names lose the width they need
+             and "Supervisory" is cut to "S…". --}}
+        <div class="flex flex-1 items-center gap-4">
             <div class="relative shrink-0">
                 <svg viewBox="0 0 42 42" class="size-36 -rotate-90" role="img"
                     aria-label="{{ __('Attendances by type of learning and development') }}">
@@ -75,17 +82,19 @@
             </div>
 
             {{-- The names carry the identity; the colour only ties a name to
-                 its slice. --}}
-            <div class="min-w-0 flex-1 space-y-2">
+                 its slice. The count and the share sit under the name rather
+                 than beside it — this column is about 180px, and a name and
+                 two figures on one line would cut the name. --}}
+            <div class="min-w-0 flex-1 divide-y divide-zinc-200 dark:divide-white/10">
                 @foreach ($slices as $slice)
-                    <div class="flex items-baseline gap-2 text-sm">
-                        <span class="mt-1.5 size-2.5 shrink-0 rounded-xs" aria-hidden="true"
+                    <div class="flex items-center gap-2.5 py-1.5 text-sm first:pt-0 last:pb-0">
+                        <span class="size-2.5 shrink-0 rounded-xs" aria-hidden="true"
                             style="background: {{ $slice['colour'] }}"></span>
 
                         <span class="min-w-0 flex-1 truncate" title="{{ $slice['label'] }}">{{ $slice['label'] }}</span>
 
                         <span class="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-300">
-                            {{ $slice['attendances'] }} — {{ $slice['share'] }}%
+                            {{ $slice['attendances'] }} · {{ $slice['share'] }}%
                         </span>
                     </div>
                 @endforeach
