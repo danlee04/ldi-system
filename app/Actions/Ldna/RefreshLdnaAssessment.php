@@ -18,6 +18,9 @@ class RefreshLdnaAssessment
      * now asks. One they no longer have goes. A new one arrives unrated,
      * which reopens anything submitted, since it is no longer whole.
      *
+     * This action takes no User to check, so the caller must already have
+     * confirmed HR or admin before calling it.
+     *
      * @throws ValidationException once the cycle has closed
      */
     public function handle(LdnaAssessment $assessment): void

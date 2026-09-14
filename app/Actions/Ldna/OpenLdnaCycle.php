@@ -27,6 +27,8 @@ class OpenLdnaCycle
      */
     public function handle(User $by, int $year, CarbonImmutable $opensOn, CarbonImmutable $closesOn): LdnaCycle
     {
+        abort_unless($by->isAdminOrHr(), 403);
+
         if (! Competency::query()->active()->exists()) {
             throw ValidationException::withMessages([
                 'year' => __('Add at least one active competency in Setup before opening a cycle.'),

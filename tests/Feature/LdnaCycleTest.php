@@ -10,6 +10,7 @@ use App\Models\Section;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * @return array<int, string> the required level copied in, keyed by competency id
@@ -122,6 +123,16 @@ test('a competency somebody was rated on cannot be deleted', function () {
     Livewire::test('pages::setup.competencies')->call('delete', $competency->id);
 
     expect(Competency::find($competency->id))->not->toBeNull();
+});
+
+test('a plain employee cannot open a cycle', function () {
+    Competency::factory()->core()->create();
+    $employee = User::factory()->employee()->create();
+
+    expect(fn () => app(OpenLdnaCycle::class)->handle($employee, 2027, today()->subDay(), today()->addMonth()))
+        ->toThrow(HttpException::class);
+
+    expect(LdnaCycle::count())->toBe(0);
 });
 
 test('a competency nobody was rated on can be deleted', function () {

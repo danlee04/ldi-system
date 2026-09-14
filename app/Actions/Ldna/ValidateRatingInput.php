@@ -49,4 +49,23 @@ class ValidateRatingInput
             return ($column === 'self_level' ? $rating->self_level : $rating->supervisor_level) !== null;
         });
     }
+
+    /**
+     * @param  Collection<int, LdnaRating>  $ratings  keyed by id
+     * @param  array<int, string|null>  $remarks  keyed by rating id
+     *
+     * @throws ValidationException
+     */
+    public function remarks(Collection $ratings, array $remarks): void
+    {
+        foreach ($remarks as $ratingId => $remark) {
+            if (! $ratings->has($ratingId)) {
+                throw ValidationException::withMessages(['levels' => __('That competency is not part of this assessment.')]);
+            }
+
+            if (mb_strlen((string) $remark) > 2000) {
+                throw ValidationException::withMessages(['remarks' => __('Keep each remark under 2,000 characters.')]);
+            }
+        }
+    }
 }

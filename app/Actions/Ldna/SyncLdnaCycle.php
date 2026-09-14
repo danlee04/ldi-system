@@ -19,6 +19,9 @@ class SyncLdnaCycle
      * cycle — somebody hired, or brought back, since it was set up. The
      * assessments already there are not touched.
      *
+     * This action takes no User to check, so the caller must already have
+     * confirmed HR or admin before calling it.
+     *
      * @return int how many were added
      *
      * @throws ValidationException once the cycle has closed

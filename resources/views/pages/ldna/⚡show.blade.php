@@ -2,11 +2,13 @@
 
 use App\Actions\Ldna\RefreshLdnaAssessment;
 use App\Actions\Ldna\SyncLdnaCycle;
+use App\Actions\Reports\LdnaGapReport;
 use App\Enums\CompetencyType;
 use App\Models\Division;
 use App\Models\Employee;
 use App\Models\LdnaAssessment;
 use App\Models\LdnaCycle;
+use App\Models\Section;
 use App\Workflow\LdnaRater;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,9 +29,24 @@ new #[Title('LDNA')] class extends Component {
     #[Url]
     public string $filterStatus = '';
 
+    /** progress, or gaps */
+    #[Url]
+    public string $tab = 'progress';
+
+    #[Url]
+    public ?int $gapDivision = null;
+
+    #[Url]
+    public ?int $gapSection = null;
+
+    /** The competency whose people are showing in the gaps table. */
+    public ?int $expanded = null;
+
     public string $closesOn = '';
 
     public ?int $refreshingId = null;
+
+    private ?LdnaRater $rater = null;
 
     public function mount(LdnaCycle $cycle): void
     {
@@ -76,7 +93,7 @@ new #[Title('LDNA')] class extends Component {
     #[Computed]
     public function raters(): array
     {
-        $rater = app(LdnaRater::class);
+        $rater = $this->rater();
 
         $raterIds = $this->assessments->mapWithKeys(
             fn (LdnaAssessment $assessment): array => [$assessment->id => $rater->raterIdFor($assessment->employee)],
@@ -90,6 +107,32 @@ new #[Title('LDNA')] class extends Component {
         return $raterIds
             ->map(fn (?int $id): string => $id === null ? __('HR') : (string) ($names[$id] ?? __('HR')))
             ->all();
+    }
+
+    /**
+     * The assessments HR rates itself — nobody above the person — by id.
+     *
+     * @return array<int, true>
+     */
+    #[Computed]
+    public function hrRates(): array
+    {
+        $rater = $this->rater();
+
+        return $this->assessments
+            ->filter(fn (LdnaAssessment $assessment): bool => $rater->raterIdFor($assessment->employee) === null)
+            ->mapWithKeys(fn (LdnaAssessment $assessment): array => [$assessment->id => true])
+            ->all();
+    }
+
+    /**
+     * The one LdnaRater used by both raters() and hrRates(), so the two do
+     * not each run their own active-employee query. Never a singleton
+     * (see .ai/rules/ldna.md), so it is memoised per-request here instead.
+     */
+    private function rater(): LdnaRater
+    {
+        return $this->rater ??= app(LdnaRater::class);
     }
 
     /**
@@ -138,6 +181,39 @@ new #[Title('LDNA')] class extends Component {
         return $this->refreshingId === null ? null : LdnaAssessment::with('employee')->find($this->refreshingId);
     }
 
+    public function updatedGapDivision(): void
+    {
+        // A section from another division would narrow to nobody.
+        $this->gapSection = null;
+        $this->expanded = null;
+    }
+
+    /**
+     * @return list<array{competency_id: int, competency: string, type: CompetencyType, rated: int, with_gap: int, percentage: float, average_gap: float, plans: int, people: list<array{employee: string, section: string, required: \App\Enums\ProficiencyLevel, rating: \App\Enums\ProficiencyLevel|null, gap: int}>}>
+     */
+    #[Computed]
+    public function gaps(): array
+    {
+        return app(LdnaGapReport::class)->handle($this->cycle, $this->gapDivision, $this->gapSection);
+    }
+
+    /**
+     * @return Collection<int, Section>
+     */
+    #[Computed]
+    public function gapSections(): Collection
+    {
+        return Section::query()
+            ->when($this->gapDivision !== null, fn (Builder $query) => $query->where('division_id', $this->gapDivision))
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function toggle(int $competencyId): void
+    {
+        $this->expanded = $this->expanded === $competencyId ? null : $competencyId;
+    }
+
     public function confirmSync(): void
     {
         abort_unless(auth()->user()->isAdminOrHr(), 403);
@@ -153,7 +229,7 @@ new #[Title('LDNA')] class extends Component {
 
         $added = $sync->handle($this->cycle);
 
-        unset($this->assessments, $this->raters, $this->progress);
+        unset($this->assessments, $this->raters, $this->hrRates, $this->progress);
 
         Flux::modal('ldna-sync')->close();
 
@@ -185,7 +261,7 @@ new #[Title('LDNA')] class extends Component {
 
         $this->refreshingId = null;
 
-        unset($this->assessments, $this->raters, $this->progress, $this->refreshing);
+        unset($this->assessments, $this->raters, $this->hrRates, $this->progress, $this->refreshing);
 
         Flux::modal('ldna-refresh')->close();
 
@@ -241,6 +317,18 @@ new #[Title('LDNA')] class extends Component {
         </div>
     </div>
 
+    {{-- Flux's tabs are a Pro component, so these are two plain buttons. --}}
+    <div class="flex gap-2 print:hidden">
+        <flux:button size="sm" :variant="$tab === 'progress' ? 'primary' : 'ghost'" wire:click="$set('tab', 'progress')">
+            {{ __('Progress') }}
+        </flux:button>
+
+        <flux:button size="sm" :variant="$tab === 'gaps' ? 'primary' : 'ghost'" wire:click="$set('tab', 'gaps')">
+            {{ __('Gaps') }}
+        </flux:button>
+    </div>
+
+    @if ($tab === 'progress')
     <div class="space-y-6">
             <x-dashboard.figures :cards="[
                 [
@@ -331,6 +419,12 @@ new #[Title('LDNA')] class extends Component {
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="flex justify-end gap-1">
+                                    @if (array_key_exists($assessment->id, $this->hrRates))
+                                        <flux:button size="sm" variant="ghost" :href="route('ldna.rate', $assessment)" wire:navigate>
+                                            {{ __('Rate') }}
+                                        </flux:button>
+                                    @endif
+
                                     @unless ($cycle->hasClosed())
                                         <flux:tooltip :content="__('Refresh from their position now')">
                                             <flux:button size="sm" variant="ghost" icon="arrow-path" square
@@ -349,6 +443,106 @@ new #[Title('LDNA')] class extends Component {
                 </flux:table.rows>
             </flux:table>
     </div>
+    @else
+        <div class="space-y-6">
+            <div class="hidden print:block">
+                <flux:heading size="xl">{{ __('LDNA :year — gaps', ['year' => $cycle->year]) }}</flux:heading>
+            </div>
+
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center print:hidden">
+                <flux:select size="sm" class="lg:w-64" wire:model.live="gapDivision">
+                    <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
+                    @foreach ($this->divisions as $division)
+                        <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:select size="sm" class="lg:w-64" wire:model.live="gapSection">
+                    <flux:select.option value="">{{ __('All sections') }}</flux:select.option>
+                    @foreach ($this->gapSections as $section)
+                        <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:spacer />
+
+                <flux:button size="sm" icon="printer" x-on:click="window.print()">{{ __('Print') }}</flux:button>
+            </div>
+
+            @if ($this->gaps === [])
+                <flux:callout icon="chart-bar-square" variant="secondary">
+                    {{ __('Nobody here has been rated by a supervisor yet.') }}
+                </flux:callout>
+            @else
+                <flux:table>
+                    <flux:table.columns>
+                        <flux:table.column>{{ __('Competency') }}</flux:table.column>
+                        <flux:table.column>{{ __('Type') }}</flux:table.column>
+                        <flux:table.column class="text-right">{{ __('Rated') }}</flux:table.column>
+                        <flux:table.column class="text-right">{{ __('Short') }}</flux:table.column>
+                        <flux:table.column class="text-right">%</flux:table.column>
+                        <flux:table.column class="text-right">{{ __('Avg. levels short') }}</flux:table.column>
+                        <flux:table.column>{{ __('LDI plans in :year', ['year' => $cycle->year]) }}</flux:table.column>
+                    </flux:table.columns>
+
+                    <flux:table.rows>
+                        @foreach ($this->gaps as $row)
+                            @php($unanswered = $row['with_gap'] > 0 && $row['plans'] === 0)
+
+                            <flux:table.row :key="'gap-'.$row['competency_id']"
+                                :class="$unanswered ? 'bg-amber-50 dark:bg-amber-500/10' : ''">
+                                <flux:table.cell>
+                                    {{-- A button, not a link: it opens the names under the row. --}}
+                                    <button type="button" wire:click="toggle({{ $row['competency_id'] }})"
+                                        class="block w-72 cursor-pointer truncate text-left text-(--color-accent-content)"
+                                        title="{{ $row['competency'] }}" @disabled($row['with_gap'] === 0)>
+                                        {{ $row['competency'] }}
+                                    </button>
+                                </flux:table.cell>
+                                <flux:table.cell>{{ $row['type']->label() }}</flux:table.cell>
+                                <flux:table.cell class="text-right tabular-nums">{{ $row['rated'] }}</flux:table.cell>
+                                <flux:table.cell class="text-right tabular-nums">{{ $row['with_gap'] }}</flux:table.cell>
+                                <flux:table.cell class="text-right tabular-nums">{{ number_format($row['percentage'], 1) }}</flux:table.cell>
+                                <flux:table.cell class="text-right tabular-nums">{{ number_format($row['average_gap'], 1) }}</flux:table.cell>
+                                <flux:table.cell>
+                                    @if ($unanswered)
+                                        {{-- Said in words as well as colour. --}}
+                                        <flux:badge size="sm" color="amber" icon="exclamation-triangle">{{ __('No plan') }}</flux:badge>
+                                    @else
+                                        <span class="tabular-nums">{{ $row['plans'] }}</span>
+                                    @endif
+                                </flux:table.cell>
+                            </flux:table.row>
+
+                            @if ($expanded === $row['competency_id'])
+                                <flux:table.row :key="'gap-people-'.$row['competency_id']">
+                                    <flux:table.cell colspan="7">
+                                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
+                                            @foreach ($row['people'] as $person)
+                                                <div class="flex flex-wrap items-baseline justify-between gap-3 py-2">
+                                                    <div class="w-64 truncate text-sm" title="{{ $person['employee'] }}">{{ $person['employee'] }}</div>
+                                                    <div class="w-48 truncate text-xs text-zinc-600 dark:text-zinc-300" title="{{ $person['section'] }}">{{ $person['section'] }}</div>
+                                                    <div class="text-xs tabular-nums">
+                                                        {{ __(':rating of :required required', [
+                                                            'rating' => $person['rating']?->label(),
+                                                            'required' => $person['required']->label(),
+                                                        ]) }}
+                                                    </div>
+                                                    <flux:badge size="sm" color="amber">
+                                                        {{ trans_choice('{1} 1 level short|[2,*] :count levels short', $person['gap'], ['count' => $person['gap']]) }}
+                                                    </flux:badge>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @endif
+                        @endforeach
+                    </flux:table.rows>
+                </flux:table>
+            @endif
+        </div>
+    @endif
 
     <flux:modal name="ldna-sync" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <div class="space-y-6">

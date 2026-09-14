@@ -83,6 +83,16 @@ class Competency extends Model
     }
 
     /**
+     * The LDI plans that set out to build it.
+     *
+     * @return BelongsToMany<LdiTraining, $this>
+     */
+    public function ldiTrainings(): BelongsToMany
+    {
+        return $this->belongsToMany(LdiTraining::class)->withTimestamps();
+    }
+
+    /**
      * What the competency reads as at the given level.
      */
     public function indicatorFor(ProficiencyLevel $level): ?string

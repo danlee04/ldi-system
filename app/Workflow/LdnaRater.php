@@ -17,6 +17,9 @@ use App\Models\User;
  * rather than asking the router, which looks each head up again: one query
  * per person, and the sidebar badge counts everybody HR rates on every
  * page. LdnaRaterTest holds the two to the same answer.
+ *
+ * Memoises the active-employee set per instance, so it must never be bound
+ * as a singleton.
  */
 final class LdnaRater
 {

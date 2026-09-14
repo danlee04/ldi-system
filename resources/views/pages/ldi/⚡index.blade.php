@@ -1,13 +1,16 @@
 <?php
 
+use App\Enums\CompetencyType;
 use App\Enums\LdType;
 use App\Models\BudgetCap;
+use App\Models\Competency;
 use App\Models\LdiTraining;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -73,6 +76,14 @@ new #[Title('LDI trainings')] class extends Component {
     public string $other_budget_source = '';
 
     public ?float $other_budget_amount = null;
+
+    /**
+     * The competencies the plan addresses. Strings, because that is what a
+     * checkbox sends back, and Flux ticks a box only when the two match.
+     *
+     * @var list<string>
+     */
+    public array $competencyIds = [];
 
     public function mount(): void
     {
@@ -174,6 +185,10 @@ new #[Title('LDI trainings')] class extends Component {
         $this->location = (string) $plan->location;
         $this->target_attendees = $plan->target_attendees;
         [$this->budget_amount, $this->other_budget_source, $this->other_budget_amount] = $this->splitFunds($plan);
+        $this->competencyIds = $plan->competencies()
+            ->pluck('competencies.id')
+            ->map(fn (mixed $id): string => (string) $id)
+            ->all();
 
         Flux::modal('ldi-form')->show();
     }
@@ -199,30 +214,40 @@ new #[Title('LDI trainings')] class extends Component {
             'budget_amount' => ['nullable', 'numeric', 'min:0'],
             'other_budget_source' => ['nullable', 'string', 'max:255', 'required_with:other_budget_amount'],
             'other_budget_amount' => ['nullable', 'numeric', 'min:0', 'required_with:other_budget_source'],
+            'competencyIds' => ['array'],
+            'competencyIds.*' => ['integer', Rule::exists('competencies', 'id')],
         ]);
 
-        LdiTraining::updateOrCreate(
-            ['id' => $this->editingId],
-            [
-                ...$validated,
-                'type_of_training' => $validated['type_of_training'] ?: null,
-                'training_communication' => $validated['training_communication'] ?: null,
-                'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
-                'location' => $validated['location'] ?: null,
-                // HR is named only when it actually put something in, so a
-                // plan it did not fund does not land against its cap.
-                'budget_source' => $this->budget_amount === null ? null : self::HR_SOURCE,
-                'budget' => $this->totalBudget ?: null,
-                'budget_amount' => $validated['budget_amount'],
-                'other_budget_source' => $validated['other_budget_source'] ?: null,
-                'other_budget_amount' => $validated['other_budget_amount'],
-                'created_by' => auth()->id(),
-            ],
-        );
+        // Not a column: kept out of the attributes and synced on its own.
+        $competencyIds = array_map('intval', $validated['competencyIds'] ?? []);
+        unset($validated['competencyIds']);
+
+        DB::transaction(function () use ($validated, $competencyIds): void {
+            $plan = LdiTraining::updateOrCreate(
+                ['id' => $this->editingId],
+                [
+                    ...$validated,
+                    'type_of_training' => $validated['type_of_training'] ?: null,
+                    'training_communication' => $validated['training_communication'] ?: null,
+                    'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
+                    'location' => $validated['location'] ?: null,
+                    // HR is named only when it actually put something in, so a
+                    // plan it did not fund does not land against its cap.
+                    'budget_source' => $this->budget_amount === null ? null : self::HR_SOURCE,
+                    'budget' => $this->totalBudget ?: null,
+                    'budget_amount' => $validated['budget_amount'],
+                    'other_budget_source' => $validated['other_budget_source'] ?: null,
+                    'other_budget_amount' => $validated['other_budget_amount'],
+                    'created_by' => auth()->id(),
+                ],
+            );
+
+            $plan->competencies()->sync($competencyIds);
+        });
 
         $this->resetForm();
 
-        unset($this->plans, $this->years);
+        unset($this->plans, $this->years, $this->competencyChoices);
 
         Flux::modal('ldi-form')->close();
 
@@ -272,6 +297,22 @@ new #[Title('LDI trainings')] class extends Component {
     {
         return (float) ($this->budget_amount ?? 0) + (float) ($this->other_budget_amount ?? 0);
     }
+
+    /**
+     * What a plan can be tagged with: every active competency, plus any
+     * retired one it already carries, so an edit does not drop it unseen.
+     *
+     * @return Collection<int, Competency>
+     */
+    #[Computed]
+    public function competencyChoices(): Collection
+    {
+        return Competency::query()
+            ->where(fn (Builder $query) => $query->where('is_active', true)->orWhereIn('id', $this->competencyIds))
+            ->orderBy('name')
+            ->get();
+    }
+
     /**
      * A saved plan's funds, as the form holds them.
      *
@@ -302,7 +343,7 @@ new #[Title('LDI trainings')] class extends Component {
     }
     public function resetForm(): void
     {
-        $this->reset('editingId', 'title', 'development_partner', 'facilitator', 'type_of_training', 'training_communication', 'date_start', 'date_end', 'hours', 'cpd_units', 'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget_amount', 'other_budget_source', 'other_budget_amount');
+        $this->reset('editingId', 'title', 'development_partner', 'facilitator', 'type_of_training', 'training_communication', 'date_start', 'date_end', 'hours', 'cpd_units', 'ld_type', 'ld_type_other', 'location', 'target_attendees', 'budget_amount', 'other_budget_source', 'other_budget_amount', 'competencyIds');
         $this->resetValidation();
     }
 }; ?>
@@ -476,6 +517,31 @@ new #[Title('LDI trainings')] class extends Component {
                             icon="banknotes">
                             {{ $this->budgetHint }}
                         </flux:callout>
+                    </div>
+                @endif
+
+                <div class="md:col-span-2">
+                    <flux:separator :text="__('Competencies it addresses')" />
+                </div>
+
+                @if ($this->competencyChoices->isEmpty())
+                    <flux:text class="md:col-span-2" size="sm">
+                        {{ __('No competencies yet. HR adds them in Setup → Competencies.') }}
+                    </flux:text>
+                @else
+                    <div class="grid gap-4 md:col-span-2 md:grid-cols-3">
+                        @foreach (CompetencyType::cases() as $type)
+                            @php($choices = $this->competencyChoices->where('type', $type))
+
+                            @continue($choices->isEmpty())
+
+                            <flux:checkbox.group wire:model="competencyIds" :label="$type->label()">
+                                @foreach ($choices as $competency)
+                                    <flux:checkbox :value="(string) $competency->id" :label="$competency->name"
+                                        wire:key="competency-choice-{{ $competency->id }}" />
+                                @endforeach
+                            </flux:checkbox.group>
+                        @endforeach
                     </div>
                 @endif
             </div>

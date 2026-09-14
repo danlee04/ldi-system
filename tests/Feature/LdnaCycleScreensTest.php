@@ -7,6 +7,8 @@ use App\Models\LdnaCycle;
 use App\Models\Position;
 use App\Models\Section;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 test('hr sets up a cycle from the screen', function () {
@@ -65,6 +67,45 @@ test('progress shows who rates each person', function () {
     expect($raters[assessmentOf($staff, $cycle)->id])->toBe($head->listing_name)
         // The head has nobody above them in this division, so HR rates them.
         ->and($raters[assessmentOf($head, $cycle)->id])->toBe('HR');
+});
+
+test('the show screen shares one LdnaRater between raters and hrRates', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $section = Section::factory()->create();
+    $head = Employee::factory()->for($section)->create();
+    $section->update(['section_head_employee_id' => $head->id]);
+    Employee::factory()->for($section)->create();
+
+    $cycle = openLdna();
+
+    $activeEmployeeQueries = 0;
+
+    DB::listen(function (QueryExecuted $query) use (&$activeEmployeeQueries): void {
+        if (str_contains($query->sql, 'select "id" from "employees" where "is_active"')) {
+            $activeEmployeeQueries++;
+        }
+    });
+
+    Livewire::test('pages::ldna.show', ['cycle' => $cycle]);
+
+    // One LdnaRater, shared by raters() and hrRates(), so the active-employee
+    // set it memoises is only ever queried once per render.
+    expect($activeEmployeeQueries)->toBe(1);
+});
+
+test('the print heading only claims gaps on the gaps tab', function () {
+    $this->actingAs(User::factory()->hr()->create());
+    Employee::factory()->create();
+    $cycle = openLdna();
+
+    Livewire::test('pages::ldna.show', ['cycle' => $cycle])
+        ->set('tab', 'progress')
+        ->assertDontSee("LDNA {$cycle->year} — gaps");
+
+    Livewire::test('pages::ldna.show', ['cycle' => $cycle])
+        ->set('tab', 'gaps')
+        ->assertSee("LDNA {$cycle->year} — gaps");
 });
 
 test('progress flags a position with no technical competency and a person with no account', function () {

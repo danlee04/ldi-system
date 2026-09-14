@@ -68,10 +68,13 @@ class SaveSelfRating
     private function tellRater(LdnaAssessment $assessment): void
     {
         $raterId = $this->rater->raterIdFor($assessment->employee);
+        $raterUserId = $raterId === null ? null : Employee::query()->whereKey($raterId)->value('user_id');
 
-        $recipients = $raterId === null
+        // Nobody rates them, or the one who does has no account to tell:
+        // either way the submission must not go untold, so HR hears it.
+        $recipients = $raterUserId === null
             ? User::query()->where('role', UserRole::Hr)->where('is_active', true)->get()
-            : User::query()->where('is_active', true)->whereKey(Employee::query()->whereKey($raterId)->value('user_id'))->get();
+            : User::query()->where('is_active', true)->whereKey($raterUserId)->get();
 
         Notification::send($recipients, new SelfRatingSubmitted($assessment));
     }

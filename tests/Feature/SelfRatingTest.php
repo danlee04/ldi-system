@@ -94,6 +94,24 @@ test('hr is told when nobody else rates them', function () {
     expect(selfRatedNotices($hr->fresh()))->toBe(1);
 });
 
+test('hr is told when the section head who rates them has no account', function () {
+    $hr = User::factory()->hr()->create();
+
+    $section = Section::factory()->create();
+    $head = Employee::factory()->for($section)->create(['user_id' => null]);
+    $section->update(['section_head_employee_id' => $head->id]);
+
+    $employee = Employee::factory()->for($section)->create(['user_id' => User::factory()->employee()->create()->id]);
+
+    Competency::factory()->core(ProficiencyLevel::Advanced)->withIndicators()->create(['name' => 'Exemplifying integrity']);
+    $cycle = openLdna();
+    $assessment = assessmentOf($employee, $cycle);
+
+    app(SaveSelfRating::class)->handle($employee->user, $assessment, everyRatingAt($assessment, 'basic'), submit: true);
+
+    expect(selfRatedNotices($hr->fresh()))->toBe(1);
+});
+
 test('once submitted a level can be changed but not cleared', function () {
     ['employee' => $employee, 'assessment' => $assessment] = selfRater();
     $save = app(SaveSelfRating::class);

@@ -72,6 +72,16 @@
                             wire:navigate>
                             {{ __('Approvals') }}
                         </flux:sidebar.item>
+
+                        {{-- The same people approve and rate, so the same test
+                             decides who is offered it. --}}
+                        @php($ldnaDue = app(App\Actions\Ldna\CountLdnaRatingsDue::class)->handle(auth()->user()))
+
+                        <flux:sidebar.item icon="clipboard-document-check" :href="route('ldna.ratings')"
+                            :current="request()->routeIs('ldna.ratings', 'ldna.rate')"
+                            :badge="$ldnaDue > 0 ? $ldnaDue : null" badge-color="amber" wire:navigate>
+                            {{ __('LDNA ratings') }}
+                        </flux:sidebar.item>
                     @endif
                 </x-sidebar-group>
             @endif
