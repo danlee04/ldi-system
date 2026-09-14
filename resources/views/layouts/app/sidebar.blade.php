@@ -6,8 +6,10 @@
 </head>
 
 <body class="min-h-screen bg-white dark:bg-zinc-800">
+    {{-- The nav carries the Center's blue as a surface. Flux's own item
+         colours are repainted for it in app.css, outside every layer. --}}
     <flux:sidebar sticky collapsible
-        class="w-64 print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        class="w-64 print:hidden border-e border-white/10 bg-(--color-sidebar)">
         <flux:sidebar.header>
             <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
 

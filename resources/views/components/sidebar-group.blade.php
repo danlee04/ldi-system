@@ -6,7 +6,8 @@
      when there is no room for words, and the items stay as their icons. --}}
 <div {{ $attributes->class('flex flex-col') }}>
     <div class="px-3 py-2 in-data-flux-sidebar-collapsed-desktop:hidden">
-        <div class="text-sm leading-none font-medium text-zinc-500 dark:text-zinc-400">{{ $heading }}</div>
+        {{-- On the sidebar's blue, so it is set light in both themes. --}}
+        <div class="text-sm leading-none font-medium text-white/80">{{ $heading }}</div>
     </div>
 
     {{ $slot }}

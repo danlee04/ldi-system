@@ -62,6 +62,17 @@
      */
     --color-gate-desk: #0f1720;
     --color-gate-paper: #eef1f5;
+
+    /*
+     * The sidebar is the one panel that carries the Center's blue as a
+     * surface rather than as an accent, so the nav reads as the system's
+     * own furniture and the page beside it stays white.
+     *
+     * A tenth of black on the brand blue: the same colour to the eye, and
+     * the headroom that puts every label on it over 4.5:1. The brand blue
+     * neat leaves a group heading at 3.1:1.
+     */
+    --color-sidebar: color-mix(in oklab, var(--color-brand-primary) 90%, black);
 }
 
 @layer theme {
@@ -76,6 +87,12 @@
          * before it starts glowing off the ground.
          */
         --color-brand-accent: #22a884;
+
+        /*
+         * A step down for the dark page. The same blue that reads as the
+         * Center's on white glares beside a dark body.
+         */
+        --color-sidebar: #1b3faa;
 
         /* The same three hues stepped for the dark surface, not flipped. */
         --color-chart-1: #3987e5;
@@ -224,4 +241,79 @@ ui-table-scroll-area:has(> [data-flux-table]) :is(th, td):first-child {
 
 ui-table-scroll-area:has(> [data-flux-table]) :is(th, td):last-child {
     padding-inline-end: 1.25rem;
+}
+
+/*
+ * The sidebar on the Center's blue.
+ *
+ * Flux paints its nav for a pale surface — zinc text, a white current item,
+ * zinc borders — and those classes live in @layer utilities, so a repaint
+ * has to sit outside every layer to win, the same reason the table padding
+ * above does. Everything here is scoped to the sidebar element; the mobile
+ * header keeps Flux's own colours.
+ */
+[data-flux-sidebar] {
+    /* Flux paints the current item with this token. */
+    --color-accent-content: var(--color-white);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-item] {
+    color: rgb(255 255 255 / 0.88);
+    border-color: transparent;
+}
+
+[data-flux-sidebar] [data-flux-sidebar-item]:hover {
+    background-color: rgb(255 255 255 / 0.12);
+    color: var(--color-white);
+}
+
+/* The page you are on: a lit panel, not a white card. */
+[data-flux-sidebar] [data-flux-sidebar-item][data-current] {
+    background-color: rgb(255 255 255 / 0.16);
+    border-color: rgb(255 255 255 / 0.24);
+    color: var(--color-white);
+}
+
+/* The Center's name beside the seal, and the collapse toggle. */
+[data-flux-sidebar] [data-flux-sidebar-brand] > div {
+    color: var(--color-white);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-collapse] button,
+[data-flux-sidebar] [data-flux-sidebar-collapse] svg {
+    color: rgb(255 255 255 / 0.8);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-collapse] button:hover {
+    background-color: rgb(255 255 255 / 0.12);
+    color: var(--color-white);
+}
+
+/* The account button at the foot of the nav: name and chevron on the blue. */
+[data-flux-sidebar] [data-flux-sidebar-profile] span,
+[data-flux-sidebar] [data-flux-sidebar-profile] svg {
+    color: rgb(255 255 255 / 0.88);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-profile]:hover {
+    background-color: rgb(255 255 255 / 0.12);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-profile]:hover span,
+[data-flux-sidebar] [data-flux-sidebar-profile]:hover svg {
+    color: var(--color-white);
+}
+
+/*
+ * The count beside Approvals and LDNA ratings.
+ *
+ * Flux's amber badge is a quarter-strength amber wash with amber-700 type,
+ * drawn for a white nav. Over the blue it turns into a muddy box with a
+ * number nobody can read, so on this surface it becomes a solid amber chip
+ * with near-black type — the same amber the rest of the app uses for
+ * something waiting on you, at a strength the blue can carry.
+ */
+[data-flux-sidebar] [data-flux-navlist-badge] {
+    background-color: var(--color-amber-400);
+    color: var(--color-zinc-950);
 }
