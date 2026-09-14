@@ -18,28 +18,35 @@
             <flux:sidebar.collapse />
         </flux:sidebar.header>
 
+        {{-- Grouped by the thing being worked on rather than by who may see
+             it: everything of a person's own together, everything about
+             training together, everything about the needs assessment
+             together. Each group is shown when at least one of its items is,
+             so nobody is given an empty heading. --}}
         <flux:sidebar.nav>
-            <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
-                wire:navigate>
-                {{ __('Dashboard') }}
-            </flux:sidebar.item>
+            <x-sidebar-group :heading="__('Overview')">
+                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
+                    wire:navigate>
+                    {{ __('Dashboard') }}
+                </flux:sidebar.item>
 
-            <flux:sidebar.item icon="calendar-days" :href="route('calendar')" :current="request()->routeIs('calendar')"
-                wire:navigate>
-                {{ __('Calendar') }}
-            </flux:sidebar.item>
+                <flux:sidebar.item icon="calendar-days" :href="route('calendar')"
+                    :current="request()->routeIs('calendar')" wire:navigate>
+                    {{ __('Calendar') }}
+                </flux:sidebar.item>
+            </x-sidebar-group>
 
-            @if (auth()->user()->hasOwnTrainings() || auth()->user()->decidesOnTrainings())
-                <x-sidebar-group :heading="__('My work')">
-                    {{-- Both of these need an employee record behind them,
-                             so an administrative account is not offered a
-                             profile or a PDS it would only be refused. --}}
-                    @if (auth()->user()->employee !== null)
-                        <flux:sidebar.item icon="user" :href="route('my-profile')"
-                            :current="request()->routeIs('my-profile')" wire:navigate>
-                            {{ __('My profile') }}
-                        </flux:sidebar.item>
-                    @endif
+            {{-- All four need an employee record behind them, so an
+                 administrative account is not offered a profile it would
+                 only be refused. --}}
+            @if (auth()->user()->employee !== null)
+                {{-- My profile is not here: it sits at the foot of the nav,
+                     beside the name it is about. --}}
+                <x-sidebar-group :heading="__('Mine')">
+                    <flux:sidebar.item icon="identification" :href="route('my-pds')"
+                        :current="request()->routeIs('my-pds')" wire:navigate>
+                        {{ __('My PDS') }}
+                    </flux:sidebar.item>
 
                     @if (auth()->user()->hasOwnTrainings())
                         <flux:sidebar.item icon="academic-cap" :href="route('trainings.mine')"
@@ -48,41 +55,61 @@
                         </flux:sidebar.item>
                     @endif
 
-                    @if (auth()->user()->employee !== null)
-                        <flux:sidebar.item icon="identification" :href="route('my-pds')"
-                            :current="request()->routeIs('my-pds')" wire:navigate>
-                            {{ __('My PDS') }}
+                    <flux:sidebar.item icon="clipboard-document-list" :href="route('ldna.mine')"
+                        :current="request()->routeIs('ldna.mine')" wire:navigate>
+                        {{ __('My LDNA') }}
+                    </flux:sidebar.item>
+                </x-sidebar-group>
+            @endif
+
+            {{-- Whoever decides on a training is HR, admin, or a designated
+                 head, which is the same test the approvals queue uses. --}}
+            @if (auth()->user()->decidesOnTrainings())
+                <x-sidebar-group :heading="__('Training')">
+                    {{-- The count sits here rather than on the dashboard, so it
+                         is in front of the approver on every page instead of
+                         only on the one they land on. --}}
+                    @php($pendingDecisions = app(App\Actions\Training\CountPendingDecisions::class)->handle(auth()->user()))
+
+                    <flux:sidebar.item icon="check-badge" :href="route('approvals')"
+                        :current="request()->routeIs('approvals')"
+                        :badge="$pendingDecisions > 0 ? $pendingDecisions : null" badge-color="amber" wire:navigate>
+                        {{ __('Approvals') }}
+                    </flux:sidebar.item>
+
+                    @if (auth()->user()->isAdminOrHr())
+                        <flux:sidebar.item icon="presentation-chart-bar" :href="route('ldi.index')"
+                            :current="request()->routeIs('ldi.*')" wire:navigate>
+                            {{ __('LDI trainings') }}
+                        </flux:sidebar.item>
+
+                        <flux:sidebar.item icon="chart-bar" :href="route('reports')"
+                            :current="request()->routeIs('reports')" wire:navigate>
+                            {{ __('Reports') }}
                         </flux:sidebar.item>
                     @endif
+                </x-sidebar-group>
 
-                    @if (auth()->user()->employee !== null)
-                        <flux:sidebar.item icon="clipboard-document-list" :href="route('ldna.mine')"
-                            :current="request()->routeIs('ldna.mine')" wire:navigate>
-                            {{ __('My LDNA') }}
-                        </flux:sidebar.item>
-                    @endif
+                <x-sidebar-group :heading="__('LDNA')">
+                    {{-- The same people approve and rate, so the same test
+                         decides who is offered it. --}}
+                    @php($ldnaDue = app(App\Actions\Ldna\CountLdnaRatingsDue::class)->handle(auth()->user()))
 
-                    @if (auth()->user()->decidesOnTrainings())
-                        {{-- The count sits here rather than on the dashboard,
-                                 so it is in front of the approver on every page
-                                 instead of only on the one they land on. --}}
-                        @php($pendingDecisions = app(App\Actions\Training\CountPendingDecisions::class)->handle(auth()->user()))
+                    <flux:sidebar.item icon="clipboard-document-check" :href="route('ldna.ratings')"
+                        :current="request()->routeIs('ldna.ratings', 'ldna.rate')"
+                        :badge="$ldnaDue > 0 ? $ldnaDue : null" badge-color="amber" wire:navigate>
+                        {{ __('LDNA ratings') }}
+                    </flux:sidebar.item>
 
-                        <flux:sidebar.item icon="check-badge" :href="route('approvals')"
-                            :current="request()->routeIs('approvals')"
-                            :badge="$pendingDecisions > 0 ? $pendingDecisions : null" badge-color="amber"
-                            wire:navigate>
-                            {{ __('Approvals') }}
+                    @if (auth()->user()->isAdminOrHr())
+                        <flux:sidebar.item icon="chart-bar-square" :href="route('ldna.index')"
+                            :current="request()->routeIs('ldna.index', 'ldna.show')" wire:navigate>
+                            {{ __('Cycles') }}
                         </flux:sidebar.item>
 
-                        {{-- The same people approve and rate, so the same test
-                             decides who is offered it. --}}
-                        @php($ldnaDue = app(App\Actions\Ldna\CountLdnaRatingsDue::class)->handle(auth()->user()))
-
-                        <flux:sidebar.item icon="clipboard-document-check" :href="route('ldna.ratings')"
-                            :current="request()->routeIs('ldna.ratings', 'ldna.rate')"
-                            :badge="$ldnaDue > 0 ? $ldnaDue : null" badge-color="amber" wire:navigate>
-                            {{ __('LDNA ratings') }}
+                        <flux:sidebar.item icon="puzzle-piece" :href="route('setup.competencies')"
+                            :current="request()->routeIs('setup.competencies')" wire:navigate>
+                            {{ __('Competencies') }}
                         </flux:sidebar.item>
                     @endif
                 </x-sidebar-group>
@@ -95,20 +122,22 @@
                         {{ __('Employees') }}
                     </flux:sidebar.item>
 
+                    {{-- The shape of the office, which is what the roster is
+                         read against — the same subject, so the same group. --}}
                     @if (auth()->user()->isAdminOrHr())
-                        <flux:sidebar.item icon="presentation-chart-bar" :href="route('ldi.index')"
-                            :current="request()->routeIs('ldi.*')" wire:navigate>
-                            {{ __('LDI trainings') }}
+                        <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
+                            :current="request()->routeIs('setup.divisions')" wire:navigate>
+                            {{ __('Divisions') }}
                         </flux:sidebar.item>
 
-                        <flux:sidebar.item icon="chart-bar-square" :href="route('ldna.index')"
-                            :current="request()->routeIs('ldna.index', 'ldna.show')" wire:navigate>
-                            {{ __('LDNA') }}
+                        <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')"
+                            :current="request()->routeIs('setup.sections')" wire:navigate>
+                            {{ __('Sections') }}
                         </flux:sidebar.item>
 
-                        <flux:sidebar.item icon="chart-bar" :href="route('reports')"
-                            :current="request()->routeIs('reports')" wire:navigate>
-                            {{ __('Reports') }}
+                        <flux:sidebar.item icon="identification" :href="route('setup.positions')"
+                            :current="request()->routeIs('setup.positions')" wire:navigate>
+                            {{ __('Positions') }}
                         </flux:sidebar.item>
                     @endif
                 </x-sidebar-group>
@@ -116,26 +145,6 @@
 
             @if (auth()->user()->isAdminOrHr())
                 <x-sidebar-group :heading="__('Setup')">
-                    <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
-                        :current="request()->routeIs('setup.divisions')" wire:navigate>
-                        {{ __('Divisions') }}
-                    </flux:sidebar.item>
-
-                    <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')"
-                        :current="request()->routeIs('setup.sections')" wire:navigate>
-                        {{ __('Sections') }}
-                    </flux:sidebar.item>
-
-                    <flux:sidebar.item icon="identification" :href="route('setup.positions')"
-                        :current="request()->routeIs('setup.positions')" wire:navigate>
-                        {{ __('Positions') }}
-                    </flux:sidebar.item>
-
-                    <flux:sidebar.item icon="puzzle-piece" :href="route('setup.competencies')"
-                        :current="request()->routeIs('setup.competencies')" wire:navigate>
-                        {{ __('Competencies') }}
-                    </flux:sidebar.item>
-
                     <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')"
                         :current="request()->routeIs('setup.budget-caps')" wire:navigate>
                         {{ __('Budget caps') }}
@@ -153,7 +162,7 @@
 
         <flux:spacer />
 
-        <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
+        <x-desktop-user-menu class="hidden lg:flex" :name="auth()->user()->name" />
     </flux:sidebar>
 
     <!-- Mobile User Menu -->
@@ -189,11 +198,13 @@
 
                 <flux:menu.separator />
 
-                <flux:menu.radio.group>
-                    <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                        {{ __('Settings') }}
-                    </flux:menu.item>
-                </flux:menu.radio.group>
+                @if (auth()->user()->employee !== null)
+                    <flux:menu.radio.group>
+                        <flux:menu.item :href="route('my-profile')" icon="user-circle" wire:navigate>
+                            {{ __('My profile') }}
+                        </flux:menu.item>
+                    </flux:menu.radio.group>
+                @endif
 
                 <flux:menu.separator />
 

@@ -1,10 +1,13 @@
 <?php
 
 use App\Actions\Pds\PersonalDataSheetProgress;
+use App\Concerns\PasswordValidationRules;
 use App\Enums\TrainingStatus;
 use App\Models\Employee;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -19,12 +22,18 @@ use Livewire\WithFileUploads;
  * under Settings — this page points at both rather than duplicating them.
  */
 new #[Title('My profile')] class extends Component {
-    use WithFileUploads;
+    use PasswordValidationRules, WithFileUploads;
 
     /**
      * The picture being chosen, before it is saved.
      */
     public ?TemporaryUploadedFile $photo = null;
+
+    public string $current_password = '';
+
+    public string $password = '';
+
+    public string $password_confirmation = '';
 
     public function mount(): void
     {
@@ -47,6 +56,42 @@ new #[Title('My profile')] class extends Component {
     public function previewUrl(): ?string
     {
         return $this->photo?->isPreviewable() ? $this->photo->temporaryUrl() : null;
+    }
+
+    /**
+     * The password is the one thing on this page they may change
+     * themselves. Their name and the rest of the 201 file are HR's.
+     */
+    public function changePassword(): void
+    {
+        $this->reset('current_password', 'password', 'password_confirmation');
+        $this->resetValidation();
+
+        Flux::modal('change-password')->show();
+    }
+
+    public function updatePassword(): void
+    {
+        try {
+            $validated = $this->validate([
+                'current_password' => $this->currentPasswordRules(),
+                'password' => $this->passwordRules(),
+            ]);
+        } catch (ValidationException $exception) {
+            // A refused attempt must not leave the old password sitting in
+            // the form for the next person at the desk.
+            $this->reset('current_password', 'password', 'password_confirmation');
+
+            throw $exception;
+        }
+
+        Auth::user()->update(['password' => $validated['password']]);
+
+        $this->reset('current_password', 'password', 'password_confirmation');
+
+        Flux::modal('change-password')->close();
+
+        Flux::toast(variant: 'success', text: __('Password changed.'));
     }
 
     public function choosePhoto(): void
@@ -217,8 +262,8 @@ new #[Title('My profile')] class extends Component {
                 </flux:heading>
             </div>
 
-            <flux:button size="sm" variant="ghost" icon="cog-6-tooth" :href="route('profile.edit')" wire:navigate>
-                {{ __('Account settings') }}
+            <flux:button size="sm" variant="ghost" icon="key" wire:click="changePassword">
+                {{ __('Change password') }}
             </flux:button>
         </div>
     </flux:card>
@@ -344,6 +389,36 @@ new #[Title('My profile')] class extends Component {
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="photo,savePhoto">
                     {{ __('Save') }}
                 </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="change-password" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
+        <form wire:submit="updatePassword" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Change password') }}</flux:heading>
+                <flux:text>{{ __('Your name and the rest of your record are HR\'s to change. This is yours.') }}</flux:text>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+                <flux:input class="md:col-span-2" wire:model="current_password" :label="__('Current password')"
+                    type="password" autocomplete="current-password" required />
+
+                <flux:input wire:model="password" :label="__('New password')" type="password"
+                    autocomplete="new-password" required />
+
+                <flux:input wire:model="password_confirmation" :label="__('Confirm new password')" type="password"
+                    autocomplete="new-password" required />
+            </div>
+
+            <div class="flex gap-2">
+                <flux:spacer />
+
+                <flux:modal.close>
+                    <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button type="submit" variant="primary">{{ __('Change password') }}</flux:button>
             </div>
         </form>
     </flux:modal>

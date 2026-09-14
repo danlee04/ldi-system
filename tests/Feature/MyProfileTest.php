@@ -292,12 +292,12 @@ test('a page draws the photograph on both profile buttons', function () {
 
     $path = $employee->refresh()->photo_path;
 
-    // The layout carries two of them — the sidebar's, which is what a
-    // desktop shows, and the mobile header's. Both, plus the two avatars
-    // inside their menus, make four.
+    // Three: the one at the foot of the sidebar, the mobile header's, and
+    // the one inside the mobile menu. The sidebar's is a plain row beside
+    // the name rather than a menu, so it carries no second copy.
     $html = $this->get(route('dashboard'))->assertOk()->getContent();
 
-    expect(substr_count($html, $path))->toBe(4);
+    expect(substr_count($html, $path))->toBe(3);
 });
 
 test('the sidebar profile button carries the photograph', function () {
@@ -352,4 +352,45 @@ test('the profile button is a direct child of its dropdown, so the name truncate
 
     expect($withoutComments)->toMatch('/<ui-dropdown[^>]*>\s*<button/')
         ->and($html)->toContain('Mary Jane E. Lao Guico');
+});
+
+test('an employee changes their own password from their profile', function () {
+    $employee = profileEmployee();
+
+    Livewire::test('pages::my-profile')
+        ->call('changePassword')
+        ->set('current_password', 'password')
+        ->set('password', 'a-much-longer-secret')
+        ->set('password_confirmation', 'a-much-longer-secret')
+        ->call('updatePassword')
+        ->assertHasNoErrors();
+
+    expect(Hash::check('a-much-longer-secret', $employee->user->refresh()->password))->toBeTrue();
+});
+
+test('the current password has to be right, and a refused attempt keeps nothing', function () {
+    $employee = profileEmployee();
+
+    $component = Livewire::test('pages::my-profile')
+        ->call('changePassword')
+        ->set('current_password', 'not-the-password')
+        ->set('password', 'a-much-longer-secret')
+        ->set('password_confirmation', 'a-much-longer-secret')
+        ->call('updatePassword')
+        ->assertHasErrors('current_password');
+
+    expect(Hash::check('password', $employee->user->refresh()->password))->toBeTrue()
+        // Nothing typed is left sitting in the form for the next person.
+        ->and($component->get('current_password'))->toBe('')
+        ->and($component->get('password'))->toBe('');
+});
+
+test('the sidebar names them and offers the profile and the way out', function () {
+    $employee = profileEmployee();
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee($employee->personal_name)
+        ->assertSee('My profile')
+        ->assertSee('Log out');
 });

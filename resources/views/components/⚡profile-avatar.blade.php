@@ -22,6 +22,12 @@ new class extends Component {
      */
     public bool $sidebar = false;
 
+    /**
+     * The face on its own, with nothing to open. The foot of the sidebar is
+     * three plain rows now, so the avatar there is not a trigger.
+     */
+    public bool $plain = false;
+
     #[On('photo-updated')]
     public function refresh(): void
     {
@@ -41,7 +47,9 @@ new class extends Component {
      `[ui-dropdown>&]:w-full`, which only matches while the button is a
      direct child of the dropdown — wrap it and the button sizes to the
      name instead, pushing the sidebar wider than the screen. --}}
-@if ($sidebar)
+@if ($plain)
+    <flux:avatar size="sm" :src="$photo" :initials="$initials" :name="$name" />
+@elseif ($sidebar)
     <flux:sidebar.profile :avatar="$photo" :initials="$initials" :name="$name"
         icon:trailing="chevrons-up-down" data-test="sidebar-menu-button" />
 @else

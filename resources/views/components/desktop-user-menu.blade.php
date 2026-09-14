@@ -1,35 +1,32 @@
-<flux:dropdown position="bottom" align="start">
-    <livewire:profile-avatar :name="auth()->user()->employee?->personal_name ?? auth()->user()->name" :sidebar="true" />
+{{-- The foot of the nav: who is signed in, the one page about them, and
+     the way out. It was a dropdown; three plain rows say the same thing
+     without asking anybody to open anything. --}}
+{{-- The caller supplies `hidden lg:flex`, so the direction and the gap are
+     all this adds: `flex` here would fight the `hidden` that keeps the foot
+     off a phone, and one of the two would win at random. --}}
+<div {{ $attributes->class('w-full flex-col gap-1') }}>
+    <div class="flex items-center gap-2 px-2 py-1.5 in-data-flux-sidebar-collapsed-desktop:px-0 in-data-flux-sidebar-collapsed-desktop:justify-center">
+        <livewire:profile-avatar :plain="true" :name="auth()->user()->employee?->personal_name ?? auth()->user()->name" />
 
-    <flux:menu>
-        <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-            <flux:avatar
-                :src="auth()->user()->employee?->photoUrl()"
-                :name="auth()->user()->employee?->personal_name ?? auth()->user()->name"
-                :initials="auth()->user()->initials()"
-            />
-            <div class="grid flex-1 text-start text-sm leading-tight">
-                <flux:heading class="truncate">{{ auth()->user()->employee?->personal_name ?? auth()->user()->name }}</flux:heading>
-                <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-            </div>
+        <div class="min-w-0 flex-1 truncate text-sm font-medium text-white in-data-flux-sidebar-collapsed-desktop:hidden"
+            title="{{ auth()->user()->employee?->personal_name ?? auth()->user()->name }}">
+            {{ auth()->user()->employee?->personal_name ?? auth()->user()->name }}
         </div>
-        <flux:menu.separator />
-        <flux:menu.radio.group>
-            <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                {{ __('Settings') }}
-            </flux:menu.item>
-            <form method="POST" action="{{ route('logout') }}" class="w-full">
-                @csrf
-                <flux:menu.item
-                    as="button"
-                    type="submit"
-                    icon="arrow-right-start-on-rectangle"
-                    class="w-full cursor-pointer"
-                    data-test="logout-button"
-                >
-                    {{ __('Log out') }}
-                </flux:menu.item>
-            </form>
-        </flux:menu.radio.group>
-    </flux:menu>
-</flux:dropdown>
+    </div>
+
+    @if (auth()->user()->employee !== null)
+        <flux:sidebar.item icon="user-circle" :href="route('my-profile')"
+            :current="request()->routeIs('my-profile')" wire:navigate>
+            {{ __('My profile') }}
+        </flux:sidebar.item>
+    @endif
+
+    <form method="POST" action="{{ route('logout') }}" class="w-full">
+        @csrf
+
+        <flux:sidebar.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
+            class="w-full cursor-pointer" data-test="logout-button">
+            {{ __('Log out') }}
+        </flux:sidebar.item>
+    </form>
+</div>
