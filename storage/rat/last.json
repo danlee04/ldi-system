@@ -1,24 +1,25 @@
 {
-  "generated_at": "2026-09-09T07:23:13+00:00",
+  "generated_at": "2026-09-14T08:08:36+00:00",
   "stats": {
-    "routes": 4,
-    "files": 256,
+    "routes": 5,
+    "files": 324,
     "by_type": {
-      "Other": 233,
+      "Other": 295,
       "Controller": 4,
-      "Model": 17,
+      "Model": 23,
       "Service": 2
     },
     "graph": {
-      "nodes": 260,
-      "edges": 421,
+      "nodes": 327,
+      "edges": 525,
       "by_type": {
-        "Route": 4,
+        "Route": 5,
         "Controller": 4,
-        "Other": 227,
-        "Model": 18,
+        "Other": 286,
+        "Model": 24,
         "Database": 1,
-        "Service": 6
+        "Service": 6,
+        "Filesystem": 1
       }
     },
     "findings": {
@@ -60,11 +61,21 @@
   "graph": {
     "nodes": [
       {
+        "id": "route:GET:/",
+        "type": "Route",
+        "name": "GET /",
+        "file": "routes\\web.php",
+        "line": 9,
+        "meta": {
+          "action": "fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'))->name('home'"
+        }
+      },
+      {
         "id": "route:GET:my-pds.xlsx",
         "type": "Route",
         "name": "GET my-pds.xlsx",
         "file": "routes\\web.php",
-        "line": 17,
+        "line": 21,
         "meta": {
           "action": "PersonalDataSheetController@mine"
         }
@@ -82,7 +93,7 @@
         "type": "Route",
         "name": "GET reports/doh-ldi",
         "file": "routes\\web.php",
-        "line": 22,
+        "line": 26,
         "meta": {
           "action": "DohLdiReportController"
         }
@@ -100,7 +111,7 @@
         "type": "Route",
         "name": "GET employees/{employee}/pds.xlsx",
         "file": "routes\\web.php",
-        "line": 29,
+        "line": 41,
         "meta": {
           "action": "PersonalDataSheetController@show"
         }
@@ -110,10 +121,26 @@
         "type": "Route",
         "name": "GET .well-known/passkey-endpoints",
         "file": "routes\\settings.php",
-        "line": 21,
+        "line": 19,
         "meta": {
           "action": "Closure"
         }
+      },
+      {
+        "id": "other:BuildCalendarMonth",
+        "type": "Other",
+        "name": "BuildCalendarMonth",
+        "file": "app\\Actions\\Calendar\\BuildCalendarMonth.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:BuildMonthGrid",
+        "type": "Other",
+        "name": "BuildMonthGrid",
+        "file": "app\\Actions\\Calendar\\BuildMonthGrid.php",
+        "line": 1,
+        "meta": {}
       },
       {
         "id": "other:CreateNewUser",
@@ -136,6 +163,86 @@
         "type": "Other",
         "name": "ResetUserPassword",
         "file": "app\\Actions\\Fortify\\ResetUserPassword.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:BuildCompetencyProfile",
+        "type": "Other",
+        "name": "BuildCompetencyProfile",
+        "file": "app\\Actions\\Ldna\\BuildCompetencyProfile.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "db:DB",
+        "type": "Database",
+        "name": "DB",
+        "file": "",
+        "line": 0,
+        "meta": {}
+      },
+      {
+        "id": "other:CountLdnaRatingsDue",
+        "type": "Other",
+        "name": "CountLdnaRatingsDue",
+        "file": "app\\Actions\\Ldna\\CountLdnaRatingsDue.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:EnrolInLdnaCycle",
+        "type": "Other",
+        "name": "EnrolInLdnaCycle",
+        "file": "app\\Actions\\Ldna\\EnrolInLdnaCycle.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:OpenLdnaCycle",
+        "type": "Other",
+        "name": "OpenLdnaCycle",
+        "file": "app\\Actions\\Ldna\\OpenLdnaCycle.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:RefreshLdnaAssessment",
+        "type": "Other",
+        "name": "RefreshLdnaAssessment",
+        "file": "app\\Actions\\Ldna\\RefreshLdnaAssessment.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:SaveSelfRating",
+        "type": "Other",
+        "name": "SaveSelfRating",
+        "file": "app\\Actions\\Ldna\\SaveSelfRating.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:SaveSupervisorRating",
+        "type": "Other",
+        "name": "SaveSupervisorRating",
+        "file": "app\\Actions\\Ldna\\SaveSupervisorRating.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:SyncLdnaCycle",
+        "type": "Other",
+        "name": "SyncLdnaCycle",
+        "file": "app\\Actions\\Ldna\\SyncLdnaCycle.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:ValidateRatingInput",
+        "type": "Other",
+        "name": "ValidateRatingInput",
+        "file": "app\\Actions\\Ldna\\ValidateRatingInput.php",
         "line": 1,
         "meta": {}
       },
@@ -228,6 +335,14 @@
         "meta": {}
       },
       {
+        "id": "other:LdnaGapReport",
+        "type": "Other",
+        "name": "LdnaGapReport",
+        "file": "app\\Actions\\Reports\\LdnaGapReport.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:MonthlyActivityReport",
         "type": "Other",
         "name": "MonthlyActivityReport",
@@ -265,14 +380,6 @@
         "name": "AddLdiAttendees",
         "file": "app\\Actions\\Training\\AddLdiAttendees.php",
         "line": 1,
-        "meta": {}
-      },
-      {
-        "id": "db:DB",
-        "type": "Database",
-        "name": "DB",
-        "file": "",
-        "line": 0,
         "meta": {}
       },
       {
@@ -332,6 +439,14 @@
         "meta": {}
       },
       {
+        "id": "other:FixImportedTrainingExpenses",
+        "type": "Other",
+        "name": "FixImportedTrainingExpenses",
+        "file": "app\\Console\\Commands\\FixImportedTrainingExpenses.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:ImportTrainingHistoryFromLegacy",
         "type": "Other",
         "name": "ImportTrainingHistoryFromLegacy",
@@ -348,6 +463,14 @@
         "meta": {}
       },
       {
+        "id": "other:ActivityType",
+        "type": "Other",
+        "name": "ActivityType",
+        "file": "app\\Enums\\ActivityType.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:ApprovalDecision",
         "type": "Other",
         "name": "ApprovalDecision",
@@ -360,6 +483,14 @@
         "type": "Other",
         "name": "ApprovalLevel",
         "file": "app\\Enums\\ApprovalLevel.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:CompetencyType",
+        "type": "Other",
+        "name": "CompetencyType",
+        "file": "app\\Enums\\CompetencyType.php",
         "line": 1,
         "meta": {}
       },
@@ -404,6 +535,14 @@
         "meta": {}
       },
       {
+        "id": "other:ProficiencyLevel",
+        "type": "Other",
+        "name": "ProficiencyLevel",
+        "file": "app\\Enums\\ProficiencyLevel.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:TrainingStatus",
         "type": "Other",
         "name": "TrainingStatus",
@@ -444,10 +583,34 @@
         "meta": {}
       },
       {
+        "id": "model:Activity",
+        "type": "Model",
+        "name": "Activity",
+        "file": "app\\Models\\Activity.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "model:BudgetCap",
         "type": "Model",
         "name": "BudgetCap",
         "file": "app\\Models\\BudgetCap.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "model:Competency",
+        "type": "Model",
+        "name": "Competency",
+        "file": "app\\Models\\Competency.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "model:CompetencyIndicator",
+        "type": "Model",
+        "name": "CompetencyIndicator",
+        "file": "app\\Models\\CompetencyIndicator.php",
         "line": 1,
         "meta": {}
       },
@@ -540,6 +703,30 @@
         "meta": {}
       },
       {
+        "id": "model:LdnaAssessment",
+        "type": "Model",
+        "name": "LdnaAssessment",
+        "file": "app\\Models\\LdnaAssessment.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "model:LdnaCycle",
+        "type": "Model",
+        "name": "LdnaCycle",
+        "file": "app\\Models\\LdnaCycle.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "model:LdnaRating",
+        "type": "Model",
+        "name": "LdnaRating",
+        "file": "app\\Models\\LdnaRating.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "model:PersonalDataSheet",
         "type": "Model",
         "name": "PersonalDataSheet",
@@ -596,6 +783,22 @@
         "meta": {}
       },
       {
+        "id": "other:LdnaCycleOpened",
+        "type": "Other",
+        "name": "LdnaCycleOpened",
+        "file": "app\\Notifications\\LdnaCycleOpened.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:SelfRatingSubmitted",
+        "type": "Other",
+        "name": "SelfRatingSubmitted",
+        "file": "app\\Notifications\\SelfRatingSubmitted.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:TrainingAwaitsDecision",
         "type": "Other",
         "name": "TrainingAwaitsDecision",
@@ -612,6 +815,14 @@
         "meta": {}
       },
       {
+        "id": "other:ActivityPolicy",
+        "type": "Other",
+        "name": "ActivityPolicy",
+        "file": "app\\Policies\\ActivityPolicy.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:EmployeePolicy",
         "type": "Other",
         "name": "EmployeePolicy",
@@ -624,6 +835,14 @@
         "type": "Other",
         "name": "LdiTrainingPolicy",
         "file": "app\\Policies\\LdiTrainingPolicy.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaAssessmentPolicy",
+        "type": "Other",
+        "name": "LdnaAssessmentPolicy",
+        "file": "app\\Policies\\LdnaAssessmentPolicy.php",
         "line": 1,
         "meta": {}
       },
@@ -656,6 +875,22 @@
         "type": "Other",
         "name": "ApprovalRouter",
         "file": "app\\Workflow\\ApprovalRouter.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:HeadedTeam",
+        "type": "Other",
+        "name": "HeadedTeam",
+        "file": "app\\Workflow\\HeadedTeam.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaRater",
+        "type": "Other",
+        "name": "LdnaRater",
+        "file": "app\\Workflow\\LdnaRater.php",
         "line": 1,
         "meta": {}
       },
@@ -772,10 +1007,26 @@
         "meta": {}
       },
       {
+        "id": "other:ActivityFactory",
+        "type": "Other",
+        "name": "ActivityFactory",
+        "file": "database\\factories\\ActivityFactory.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:BudgetCapFactory",
         "type": "Other",
         "name": "BudgetCapFactory",
         "file": "database\\factories\\BudgetCapFactory.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:CompetencyFactory",
+        "type": "Other",
+        "name": "CompetencyFactory",
+        "file": "database\\factories\\CompetencyFactory.php",
         "line": 1,
         "meta": {}
       },
@@ -864,6 +1115,30 @@
         "type": "Other",
         "name": "LdiTrainingFactory",
         "file": "database\\factories\\LdiTrainingFactory.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaAssessmentFactory",
+        "type": "Other",
+        "name": "LdnaAssessmentFactory",
+        "file": "database\\factories\\LdnaAssessmentFactory.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaCycleFactory",
+        "type": "Other",
+        "name": "LdnaCycleFactory",
+        "file": "database\\factories\\LdnaCycleFactory.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaRatingFactory",
+        "type": "Other",
+        "name": "LdnaRatingFactory",
+        "file": "database\\factories\\LdnaRatingFactory.php",
         "line": 1,
         "meta": {}
       },
@@ -1188,6 +1463,86 @@
         "meta": {}
       },
       {
+        "id": "other:2026_09_10_021154_create_activities_table",
+        "type": "Other",
+        "name": "2026_09_10_021154_create_activities_table",
+        "file": "database\\migrations\\2026_09_10_021154_create_activities_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_10_021155_add_can_manage_calendar_to_users_table",
+        "type": "Other",
+        "name": "2026_09_10_021155_add_can_manage_calendar_to_users_table",
+        "file": "database\\migrations\\2026_09_10_021155_add_can_manage_calendar_to_users_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_10_030757_add_photo_to_employees_table",
+        "type": "Other",
+        "name": "2026_09_10_030757_add_photo_to_employees_table",
+        "file": "database\\migrations\\2026_09_10_030757_add_photo_to_employees_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_11_060657_create_competencies_table",
+        "type": "Other",
+        "name": "2026_09_11_060657_create_competencies_table",
+        "file": "database\\migrations\\2026_09_11_060657_create_competencies_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_11_060658_create_competency_indicators_table",
+        "type": "Other",
+        "name": "2026_09_11_060658_create_competency_indicators_table",
+        "file": "database\\migrations\\2026_09_11_060658_create_competency_indicators_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_11_060700_create_competency_position_table",
+        "type": "Other",
+        "name": "2026_09_11_060700_create_competency_position_table",
+        "file": "database\\migrations\\2026_09_11_060700_create_competency_position_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_11_062158_create_ldna_cycles_table",
+        "type": "Other",
+        "name": "2026_09_11_062158_create_ldna_cycles_table",
+        "file": "database\\migrations\\2026_09_11_062158_create_ldna_cycles_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_11_062159_create_ldna_assessments_table",
+        "type": "Other",
+        "name": "2026_09_11_062159_create_ldna_assessments_table",
+        "file": "database\\migrations\\2026_09_11_062159_create_ldna_assessments_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_11_062200_create_ldna_ratings_table",
+        "type": "Other",
+        "name": "2026_09_11_062200_create_ldna_ratings_table",
+        "file": "database\\migrations\\2026_09_11_062200_create_ldna_ratings_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:2026_09_14_021533_create_competency_ldi_training_table",
+        "type": "Other",
+        "name": "2026_09_14_021533_create_competency_ldi_training_table",
+        "file": "database\\migrations\\2026_09_14_021533_create_competency_ldi_training_table.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:DatabaseSeeder",
         "type": "Other",
         "name": "DatabaseSeeder",
@@ -1236,6 +1591,14 @@
         "meta": {}
       },
       {
+        "id": "other:month.blade",
+        "type": "Other",
+        "name": "month.blade",
+        "file": "resources\\views\\components\\calendar\\month.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:calendar.blade",
         "type": "Other",
         "name": "calendar.blade",
@@ -1256,6 +1619,14 @@
         "type": "Other",
         "name": "eligibility-alerts.blade",
         "file": "resources\\views\\components\\dashboard\\eligibility-alerts.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:figures.blade",
+        "type": "Other",
+        "name": "figures.blade",
+        "file": "resources\\views\\components\\dashboard\\figures.blade.php",
         "line": 1,
         "meta": {}
       },
@@ -1284,14 +1655,6 @@
         "meta": {}
       },
       {
-        "id": "other:spend.blade",
-        "type": "Other",
-        "name": "spend.blade",
-        "file": "resources\\views\\components\\dashboard\\spend.blade.php",
-        "line": 1,
-        "meta": {}
-      },
-      {
         "id": "other:totals.blade",
         "type": "Other",
         "name": "totals.blade",
@@ -1312,6 +1675,14 @@
         "type": "Other",
         "name": "eligibility-expiry.blade",
         "file": "resources\\views\\components\\eligibility-expiry.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:level-picker.blade",
+        "type": "Other",
+        "name": "level-picker.blade",
+        "file": "resources\\views\\components\\ldna\\level-picker.blade.php",
         "line": 1,
         "meta": {}
       },
@@ -1412,6 +1783,14 @@
         "meta": {}
       },
       {
+        "id": "other:sidebar-group.blade",
+        "type": "Other",
+        "name": "sidebar-group.blade",
+        "file": "resources\\views\\components\\sidebar-group.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:training-status.blade",
         "type": "Other",
         "name": "training-status.blade",
@@ -1424,6 +1803,14 @@
         "type": "Other",
         "name": "\u26a1notifications.blade",
         "file": "resources\\views\\components\\\u26a1notifications.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:\u26a1profile-avatar.blade",
+        "type": "Other",
+        "name": "\u26a1profile-avatar.blade",
+        "file": "resources\\views\\components\\\u26a1profile-avatar.blade.php",
         "line": 1,
         "meta": {}
       },
@@ -1504,6 +1891,14 @@
         "type": "Other",
         "name": "card.blade",
         "file": "resources\\views\\layouts\\auth\\card.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:gate.blade",
+        "type": "Other",
+        "name": "gate.blade",
+        "file": "resources\\views\\layouts\\auth\\gate.blade.php",
         "line": 1,
         "meta": {}
       },
@@ -1604,6 +1999,30 @@
         "meta": {}
       },
       {
+        "id": "other:\u26a1mine.blade",
+        "type": "Other",
+        "name": "\u26a1mine.blade",
+        "file": "resources\\views\\pages\\ldna\\\u26a1mine.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:\u26a1rate.blade",
+        "type": "Other",
+        "name": "\u26a1rate.blade",
+        "file": "resources\\views\\pages\\ldna\\\u26a1rate.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:\u26a1ratings.blade",
+        "type": "Other",
+        "name": "\u26a1ratings.blade",
+        "file": "resources\\views\\pages\\ldna\\\u26a1ratings.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:layout.blade",
         "type": "Other",
         "name": "layout.blade",
@@ -1616,14 +2035,6 @@
         "type": "Other",
         "name": "\u26a1recovery-codes.blade",
         "file": "resources\\views\\pages\\settings\\two-factor\\\u26a1recovery-codes.blade.php",
-        "line": 1,
-        "meta": {}
-      },
-      {
-        "id": "other:\u26a1appearance.blade",
-        "type": "Other",
-        "name": "\u26a1appearance.blade",
-        "file": "resources\\views\\pages\\settings\\\u26a1appearance.blade.php",
         "line": 1,
         "meta": {}
       },
@@ -1676,6 +2087,14 @@
         "meta": {}
       },
       {
+        "id": "other:\u26a1competencies.blade",
+        "type": "Other",
+        "name": "\u26a1competencies.blade",
+        "file": "resources\\views\\pages\\setup\\\u26a1competencies.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:\u26a1divisions.blade",
         "type": "Other",
         "name": "\u26a1divisions.blade",
@@ -1724,18 +2143,18 @@
         "meta": {}
       },
       {
-        "id": "other:\u26a1mine.blade",
-        "type": "Other",
-        "name": "\u26a1mine.blade",
-        "file": "resources\\views\\pages\\trainings\\\u26a1mine.blade.php",
-        "line": 1,
-        "meta": {}
-      },
-      {
         "id": "other:\u26a1approvals.blade",
         "type": "Other",
         "name": "\u26a1approvals.blade",
         "file": "resources\\views\\pages\\\u26a1approvals.blade.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:\u26a1calendar.blade",
+        "type": "Other",
+        "name": "\u26a1calendar.blade",
+        "file": "resources\\views\\pages\\\u26a1calendar.blade.php",
         "line": 1,
         "meta": {}
       },
@@ -1916,6 +2335,22 @@
         "meta": {}
       },
       {
+        "id": "other:CalendarTest",
+        "type": "Other",
+        "name": "CalendarTest",
+        "file": "tests\\Feature\\CalendarTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:CompetencySetupTest",
+        "type": "Other",
+        "name": "CompetencySetupTest",
+        "file": "tests\\Feature\\CompetencySetupTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:DashboardTest",
         "type": "Other",
         "name": "DashboardTest",
@@ -1972,6 +2407,30 @@
         "meta": {}
       },
       {
+        "id": "other:FixImportedTrainingExpensesTest",
+        "type": "Other",
+        "name": "FixImportedTrainingExpensesTest",
+        "file": "tests\\Feature\\FixImportedTrainingExpensesTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:HeadDashboardTest",
+        "type": "Other",
+        "name": "HeadDashboardTest",
+        "file": "tests\\Feature\\HeadDashboardTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:HomeRedirectTest",
+        "type": "Other",
+        "name": "HomeRedirectTest",
+        "file": "tests\\Feature\\HomeRedirectTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:HrisConnectionTest",
         "type": "Other",
         "name": "HrisConnectionTest",
@@ -2004,6 +2463,14 @@
         "meta": {}
       },
       {
+        "id": "other:LdiCompetencyTagTest",
+        "type": "Other",
+        "name": "LdiCompetencyTagTest",
+        "file": "tests\\Feature\\LdiCompetencyTagTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:LdiTrainingScreensTest",
         "type": "Other",
         "name": "LdiTrainingScreensTest",
@@ -2020,11 +2487,59 @@
         "meta": {}
       },
       {
+        "id": "other:LdnaChangesTest",
+        "type": "Other",
+        "name": "LdnaChangesTest",
+        "file": "tests\\Feature\\LdnaChangesTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaCycleScreensTest",
+        "type": "Other",
+        "name": "LdnaCycleScreensTest",
+        "file": "tests\\Feature\\LdnaCycleScreensTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaCycleTest",
+        "type": "Other",
+        "name": "LdnaCycleTest",
+        "file": "tests\\Feature\\LdnaCycleTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaGapReportTest",
+        "type": "Other",
+        "name": "LdnaGapReportTest",
+        "file": "tests\\Feature\\LdnaGapReportTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:LdnaRaterTest",
+        "type": "Other",
+        "name": "LdnaRaterTest",
+        "file": "tests\\Feature\\LdnaRaterTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:MyProfileTest",
         "type": "Other",
         "name": "MyProfileTest",
         "file": "tests\\Feature\\MyProfileTest.php",
         "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "storage:Storage",
+        "type": "Filesystem",
+        "name": "Storage",
+        "file": "",
+        "line": 0,
         "meta": {}
       },
       {
@@ -2068,10 +2583,26 @@
         "meta": {}
       },
       {
+        "id": "other:PositionCompetenciesTest",
+        "type": "Other",
+        "name": "PositionCompetenciesTest",
+        "file": "tests\\Feature\\PositionCompetenciesTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
         "id": "other:ReportsTest",
         "type": "Other",
         "name": "ReportsTest",
         "file": "tests\\Feature\\ReportsTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:SelfRatingTest",
+        "type": "Other",
+        "name": "SelfRatingTest",
+        "file": "tests\\Feature\\SelfRatingTest.php",
         "line": 1,
         "meta": {}
       },
@@ -2104,6 +2635,14 @@
         "type": "Other",
         "name": "SubmitTrainingRecordTest",
         "file": "tests\\Feature\\SubmitTrainingRecordTest.php",
+        "line": 1,
+        "meta": {}
+      },
+      {
+        "id": "other:SupervisorRatingTest",
+        "type": "Other",
+        "name": "SupervisorRatingTest",
+        "file": "tests\\Feature\\SupervisorRatingTest.php",
         "line": 1,
         "meta": {}
       },
@@ -2175,6 +2714,55 @@
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:BuildCompetencyProfile",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:EnrolInLdnaCycle",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:OpenLdnaCycle",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:OpenLdnaCycle",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:SyncLdnaCycle",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:SyncLdnaCycle",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaGapReport",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
         "meta": {}
       },
       {
@@ -2262,6 +2850,13 @@
         "meta": {}
       },
       {
+        "from": "model:Activity",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
         "from": "model:Employee",
         "to": "model:User",
         "kind": "WRITES",
@@ -2346,7 +2941,21 @@
         "meta": {}
       },
       {
+        "from": "other:ActivityFactory",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
         "from": "other:LdiTrainingFactory",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleFactory",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -2920,6 +3529,139 @@
         "meta": {}
       },
       {
+        "from": "other:2026_09_10_021154_create_activities_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_10_021154_create_activities_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_10_021155_add_can_manage_calendar_to_users_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_10_021155_add_can_manage_calendar_to_users_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_10_030757_add_photo_to_employees_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_10_030757_add_photo_to_employees_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_060657_create_competencies_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_060657_create_competencies_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_060658_create_competency_indicators_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_060658_create_competency_indicators_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_060700_create_competency_position_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_060700_create_competency_position_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_062158_create_ldna_cycles_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_062158_create_ldna_cycles_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_062159_create_ldna_assessments_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_062159_create_ldna_assessments_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_11_062200_create_ldna_ratings_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_14_021533_create_competency_ldi_training_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:2026_09_14_021533_create_competency_ldi_training_table",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
         "from": "other:DatabaseSeeder",
         "to": "model:User",
         "kind": "WRITES",
@@ -2938,6 +3680,13 @@
         "to": "route:Route",
         "kind": "DEPENDS_ON",
         "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "other:\u26a1show.blade",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
         "meta": {}
       },
       {
@@ -3018,10 +3767,17 @@
         "meta": {}
       },
       {
-        "from": "other:\u26a1users.blade",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
+        "from": "other:\u26a1positions.blade",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:\u26a1positions.blade",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
         "meta": {}
       },
       {
@@ -3036,6 +3792,20 @@
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:\u26a1users.blade",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:\u26a1my-profile.blade",
+        "to": "auth:Auth",
+        "kind": "DEPENDS_ON",
+        "label": "Auth::",
         "meta": {}
       },
       {
@@ -3095,7 +3865,49 @@
         "meta": {}
       },
       {
-        "from": "other:settings",
+        "from": "controller:web",
+        "to": "route:Route",
+        "kind": "DEPENDS_ON",
+        "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "controller:web",
+        "to": "route:Route",
+        "kind": "DEPENDS_ON",
+        "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "controller:web",
+        "to": "route:Route",
+        "kind": "DEPENDS_ON",
+        "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "controller:web",
+        "to": "route:Route",
+        "kind": "DEPENDS_ON",
+        "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "controller:web",
+        "to": "route:Route",
+        "kind": "DEPENDS_ON",
+        "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "controller:web",
+        "to": "route:Route",
+        "kind": "DEPENDS_ON",
+        "label": "Route::",
+        "meta": {}
+      },
+      {
+        "from": "controller:web",
         "to": "route:Route",
         "kind": "DEPENDS_ON",
         "label": "Route::",
@@ -3459,21 +4271,154 @@
         "meta": {}
       },
       {
-        "from": "other:DashboardTest",
+        "from": "other:CalendarTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
         "meta": {}
       },
       {
-        "from": "other:DashboardTest",
+        "from": "other:CalendarTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
         "meta": {}
       },
       {
-        "from": "other:DashboardTest",
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CalendarTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CompetencySetupTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:CompetencySetupTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -3774,140 +4719,49 @@
         "meta": {}
       },
       {
-        "from": "other:EmployeeScreensTest",
+        "from": "other:FixImportedTrainingExpensesTest",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
+        "meta": {}
+      },
+      {
+        "from": "other:FixImportedTrainingExpensesTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:HeadDashboardTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
         "meta": {}
       },
       {
-        "from": "other:EmployeeScreensTest",
+        "from": "other:HeadDashboardTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
         "meta": {}
       },
       {
-        "from": "other:EmployeeScreensTest",
+        "from": "other:HeadDashboardTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
         "meta": {}
       },
       {
-        "from": "other:EmployeeScreensTest",
+        "from": "other:HeadDashboardTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
         "meta": {}
       },
       {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
-        "to": "model:User",
-        "kind": "WRITES",
-        "label": "User",
-        "meta": {}
-      },
-      {
-        "from": "other:EmployeeScreensTest",
+        "from": "other:HomeRedirectTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -4138,6 +4992,48 @@
         "meta": {}
       },
       {
+        "from": "other:ImportTrainingHistoryFromLegacyTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:ImportTrainingHistoryFromLegacyTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:ImportTrainingHistoryFromLegacyTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:ImportTrainingHistoryFromLegacyTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:ImportTrainingHistoryFromLegacyTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:ImportTrainingHistoryFromLegacyTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
         "from": "other:ImportUserAccountsFromHrisTest",
         "to": "schema:Schema",
         "kind": "DEPENDS_ON",
@@ -4229,10 +5125,17 @@
         "meta": {}
       },
       {
-        "from": "other:LdiTrainingScreensTest",
+        "from": "other:LdiCompetencyTagTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdiCompetencyTagTest",
+        "to": "schema:Schema",
+        "kind": "DEPENDS_ON",
+        "label": "Schema::",
         "meta": {}
       },
       {
@@ -4306,7 +5209,7 @@
         "meta": {}
       },
       {
-        "from": "other:LdiTrainingTest",
+        "from": "other:LdiTrainingScreensTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -4384,6 +5287,209 @@
       },
       {
         "from": "other:LdiTrainingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdiTrainingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaChangesTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleScreensTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaCycleTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaRaterTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaRaterTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaRaterTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaRaterTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:LdnaRaterTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -4401,6 +5507,104 @@
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
+        "meta": {}
+      },
+      {
+        "from": "other:MyProfileTest",
+        "to": "storage:Storage",
+        "kind": "DEPENDS_ON",
+        "label": "Storage::",
         "meta": {}
       },
       {
@@ -4531,6 +5735,20 @@
       },
       {
         "from": "other:PersonalDataSheetTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:PositionCompetenciesTest",
+        "to": "db:DB",
+        "kind": "DEPENDS_ON",
+        "label": "DB::",
+        "meta": {}
+      },
+      {
+        "from": "other:PositionCompetenciesTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -4943,7 +6161,42 @@
         "meta": {}
       },
       {
-        "from": "other:TrainingScreensTest",
+        "from": "other:SupervisorRatingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:SupervisorRatingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:SupervisorRatingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:SupervisorRatingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:SupervisorRatingTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:SupervisorRatingTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -4985,7 +6238,7 @@
         "meta": {}
       },
       {
-        "from": "other:UserAccountScreenTest",
+        "from": "other:TrainingScreensTest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -5091,6 +6344,20 @@
       },
       {
         "from": "other:UserAccountScreenTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:UserAccountScreenTest",
+        "to": "model:User",
+        "kind": "WRITES",
+        "label": "User",
+        "meta": {}
+      },
+      {
+        "from": "other:Pest",
         "to": "model:User",
         "kind": "WRITES",
         "label": "User",
@@ -5098,15 +6365,16 @@
       }
     ],
     "stats": {
-      "nodes": 260,
-      "edges": 421,
+      "nodes": 327,
+      "edges": 525,
       "by_type": {
-        "Route": 4,
+        "Route": 5,
         "Controller": 4,
-        "Other": 227,
-        "Model": 18,
+        "Other": 286,
+        "Model": 24,
         "Database": 1,
-        "Service": 6
+        "Service": 6,
+        "Filesystem": 1
       }
     }
   }

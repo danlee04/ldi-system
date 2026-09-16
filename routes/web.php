@@ -22,7 +22,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('approvals', 'pages::approvals')->name('approvals');
 
-    Route::livewire('reports', 'pages::reports')->name('reports');
     Route::get('reports/doh-ldi', DohLdiReportController::class)->name('reports.doh-ldi');
 
     Route::livewire('ldi', 'pages::ldi.index')->name('ldi.index');

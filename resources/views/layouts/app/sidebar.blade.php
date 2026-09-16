@@ -34,6 +34,16 @@
                     :current="request()->routeIs('calendar')" wire:navigate>
                     {{ __('Calendar') }}
                 </flux:sidebar.item>
+
+                {{-- The roster is looked up as often as the dashboard is
+                     read, so it sits with the two pages everybody starts
+                     from rather than under a heading of its own. --}}
+                @if (auth()->user()->role !== App\Enums\UserRole::Employee)
+                    <flux:sidebar.item icon="users" :href="route('employees.index')"
+                        :current="request()->routeIs('employees.*')" wire:navigate>
+                        {{ __('Employees') }}
+                    </flux:sidebar.item>
+                @endif
             </x-sidebar-group>
 
             {{-- All four need an employee record behind them, so an
@@ -83,10 +93,6 @@
                             {{ __('LDI trainings') }}
                         </flux:sidebar.item>
 
-                        <flux:sidebar.item icon="chart-bar" :href="route('reports')"
-                            :current="request()->routeIs('reports')" wire:navigate>
-                            {{ __('Reports') }}
-                        </flux:sidebar.item>
                     @endif
                 </x-sidebar-group>
 
@@ -115,47 +121,35 @@
                 </x-sidebar-group>
             @endif
 
-            @if (auth()->user()->role !== App\Enums\UserRole::Employee)
+            @if (auth()->user()->isAdminOrHr())
+                {{-- The shape of the office: what the roster above is read
+                     against. --}}
                 <x-sidebar-group :heading="__('Organization')">
-                    <flux:sidebar.item icon="users" :href="route('employees.index')"
-                        :current="request()->routeIs('employees.*')" wire:navigate>
-                        {{ __('Employees') }}
+                    <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
+                        :current="request()->routeIs('setup.divisions')" wire:navigate>
+                        {{ __('Divisions') }}
                     </flux:sidebar.item>
 
-                    {{-- The shape of the office, which is what the roster is
-                         read against — the same subject, so the same group. --}}
-                    @if (auth()->user()->isAdminOrHr())
-                        <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
-                            :current="request()->routeIs('setup.divisions')" wire:navigate>
-                            {{ __('Divisions') }}
-                        </flux:sidebar.item>
+                    <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')"
+                        :current="request()->routeIs('setup.sections')" wire:navigate>
+                        {{ __('Sections') }}
+                    </flux:sidebar.item>
 
-                        <flux:sidebar.item icon="rectangle-group" :href="route('setup.sections')"
-                            :current="request()->routeIs('setup.sections')" wire:navigate>
-                            {{ __('Sections') }}
-                        </flux:sidebar.item>
-
-                        <flux:sidebar.item icon="identification" :href="route('setup.positions')"
-                            :current="request()->routeIs('setup.positions')" wire:navigate>
-                            {{ __('Positions') }}
-                        </flux:sidebar.item>
-                    @endif
+                    <flux:sidebar.item icon="identification" :href="route('setup.positions')"
+                        :current="request()->routeIs('setup.positions')" wire:navigate>
+                        {{ __('Positions') }}
+                    </flux:sidebar.item>
                 </x-sidebar-group>
             @endif
 
             @if (auth()->user()->isAdminOrHr())
+                {{-- User accounts is not here: it is an administrator's own
+                     tool, so it sits at the foot beside their name. --}}
                 <x-sidebar-group :heading="__('Setup')">
                     <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')"
                         :current="request()->routeIs('setup.budget-caps')" wire:navigate>
                         {{ __('Budget caps') }}
                     </flux:sidebar.item>
-
-                    @if (auth()->user()->role === App\Enums\UserRole::Admin)
-                        <flux:sidebar.item icon="key" :href="route('setup.users')"
-                            :current="request()->routeIs('setup.users')" wire:navigate>
-                            {{ __('User accounts') }}
-                        </flux:sidebar.item>
-                    @endif
                 </x-sidebar-group>
             @endif
         </flux:sidebar.nav>

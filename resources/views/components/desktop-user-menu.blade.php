@@ -21,6 +21,15 @@
         </flux:sidebar.item>
     @endif
 
+    {{-- Who may sign in is the administrator's own business, not a setting
+         about the office, so it sits with their name rather than in Setup. --}}
+    @if (auth()->user()->role === App\Enums\UserRole::Admin)
+        <flux:sidebar.item icon="key" :href="route('setup.users')"
+            :current="request()->routeIs('setup.users')" wire:navigate>
+            {{ __('User accounts') }}
+        </flux:sidebar.item>
+    @endif
+
     {{-- Flux wraps every sidebar item in a <ui-tooltip>. The one above is a
          direct child of this column and stretches to it; this one sits
          inside the form, where it shrinks to the words unless it is told

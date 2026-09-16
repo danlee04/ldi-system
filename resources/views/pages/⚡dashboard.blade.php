@@ -983,7 +983,7 @@ new #[Title('Dashboard')] class extends Component {
                 <flux:card class="space-y-3">
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
                         <flux:heading size="lg">{{ __('Waiting longest') }}</flux:heading>
-                        <flux:link :href="route('reports')" wire:navigate>{{ __('Full report') }}</flux:link>
+                        <flux:link :href="route('approvals')" wire:navigate>{{ __('Open approvals') }}</flux:link>
                     </div>
 
                     @if ($this->aging->isEmpty())
