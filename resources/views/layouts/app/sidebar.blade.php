@@ -121,10 +121,12 @@
                 </x-sidebar-group>
             @endif
 
+            {{-- The shape of the office and the money behind it: the things
+                 set once and then read against. User accounts is not here —
+                 it is the administrator's own tool and sits at the foot
+                 beside their name. --}}
             @if (auth()->user()->isAdminOrHr())
-                {{-- The shape of the office: what the roster above is read
-                     against. --}}
-                <x-sidebar-group :heading="__('Organization')">
+                <x-sidebar-group :heading="__('Setup')">
                     <flux:sidebar.item icon="building-office-2" :href="route('setup.divisions')"
                         :current="request()->routeIs('setup.divisions')" wire:navigate>
                         {{ __('Divisions') }}
@@ -139,13 +141,7 @@
                         :current="request()->routeIs('setup.positions')" wire:navigate>
                         {{ __('Positions') }}
                     </flux:sidebar.item>
-                </x-sidebar-group>
-            @endif
 
-            @if (auth()->user()->isAdminOrHr())
-                {{-- User accounts is not here: it is an administrator's own
-                     tool, so it sits at the foot beside their name. --}}
-                <x-sidebar-group :heading="__('Setup')">
                     <flux:sidebar.item icon="banknotes" :href="route('setup.budget-caps')"
                         :current="request()->routeIs('setup.budget-caps')" wire:navigate>
                         {{ __('Budget caps') }}

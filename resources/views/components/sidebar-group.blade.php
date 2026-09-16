@@ -6,8 +6,10 @@
      when there is no room for words, and the items stay as their icons. --}}
 <div {{ $attributes->class('flex flex-col') }}>
     <div class="px-3 py-2 in-data-flux-sidebar-collapsed-desktop:hidden">
-        {{-- On the sidebar's blue, so it is set light in both themes. --}}
-        <div class="text-sm leading-none font-medium text-white/80">{{ $heading }}</div>
+        {{-- Smaller than the items under it, so a heading is never mistaken
+             for one of them. It stays at 80% white: at 12px anything fainter
+             drops under 4.5:1 on the nav's blue. --}}
+        <div class="text-xs leading-none font-medium tracking-wide text-white/80">{{ $heading }}</div>
     </div>
 
     {{ $slot }}
