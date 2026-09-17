@@ -34,7 +34,7 @@ new #[Title('LDNA confirmations')] class extends Component {
 
 <div class="space-y-6">
     <div>
-        <flux:heading size="xl">{{ __('LDNA confirmations') }}</flux:heading>
+        <x-page-heading icon="clipboard-document-check">{{ __('LDNA confirmations') }}</x-page-heading>
 
         @if ($this->cycle)
             <flux:text>

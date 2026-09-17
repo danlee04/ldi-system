@@ -170,7 +170,7 @@ new #[Title('User accounts')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('User accounts') }}</flux:heading>
+        <x-page-heading icon="key">{{ __('User accounts') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="create">{{ __('Add account') }}</flux:button>
     </div>

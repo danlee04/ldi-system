@@ -599,7 +599,7 @@ new #[Title('My PDS')] class extends Component {
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-            <flux:heading size="xl">{{ __('My personal data sheet') }}</flux:heading>
+            <x-page-heading icon="identification">{{ __('My personal data sheet') }}</x-page-heading>
             <flux:text>{{ __('CS Form No. 212 (Revised 2026)') }}</flux:text>
         </div>
 

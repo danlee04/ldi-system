@@ -707,14 +707,7 @@ new #[Title('Dashboard')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-            <span
-                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-blue-200">
-                <flux:icon.squares-2x2 variant="mini" />
-            </span>
-
-            <flux:heading size="xl">{{ __('Dashboard') }}</flux:heading>
-        </div>
+        <x-page-heading icon="squares-2x2">{{ __('Dashboard') }}</x-page-heading>
 
         <div class="flex items-center gap-3">
             <flux:text size="sm">{{ today()->format('l, j F Y') }}</flux:text>

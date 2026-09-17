@@ -150,7 +150,7 @@ new #[Title('Sections')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Sections') }}</flux:heading>
+        <x-page-heading icon="rectangle-group">{{ __('Sections') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="create">{{ __('Add section') }}</flux:button>
     </div>

@@ -118,7 +118,7 @@ new #[Title('My LDNA')] class extends Component {
 <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <flux:heading size="xl">{{ __('My LDNA') }}</flux:heading>
+            <x-page-heading icon="clipboard-document-list">{{ __('My LDNA') }}</x-page-heading>
 
             @if ($this->cycle)
                 <flux:text>

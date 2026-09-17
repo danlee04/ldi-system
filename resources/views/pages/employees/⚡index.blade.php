@@ -325,7 +325,7 @@ new #[Title('Employees')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Employees') }}</flux:heading>
+        <x-page-heading icon="users">{{ __('Employees') }}</x-page-heading>
 
         <div class="flex items-center gap-3">
             {{-- Offered to everybody who can read the roster, not only to

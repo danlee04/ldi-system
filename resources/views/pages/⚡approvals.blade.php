@@ -170,7 +170,7 @@ new #[Title('Approvals')] class extends Component {
 }; ?>
 
 <div class="space-y-6">
-    <flux:heading size="xl">{{ __('Approvals') }}</flux:heading>
+    <x-page-heading icon="check-badge">{{ __('Approvals') }}</x-page-heading>
 
     <flux:table>
         <flux:table.columns>

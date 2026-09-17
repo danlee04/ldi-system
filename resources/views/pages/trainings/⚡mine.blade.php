@@ -43,7 +43,7 @@ new #[Title('My trainings')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('My trainings') }}</flux:heading>
+        <x-page-heading icon="academic-cap">{{ __('My trainings') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="$dispatch('add-training')">
             {{ __('Record a training') }}

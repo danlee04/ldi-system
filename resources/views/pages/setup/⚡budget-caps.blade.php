@@ -93,7 +93,7 @@ new #[Title('Budget caps')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Budget caps') }}</flux:heading>
+        <x-page-heading icon="banknotes">{{ __('Budget caps') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="create">{{ __('Add cap') }}</flux:button>
     </div>

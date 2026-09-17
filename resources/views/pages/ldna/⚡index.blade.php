@@ -82,7 +82,7 @@ new #[Title('LDNA')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('LDNA') }}</flux:heading>
+        <x-page-heading icon="chart-bar-square">{{ __('LDNA') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="create">{{ __('New cycle') }}</flux:button>
     </div>

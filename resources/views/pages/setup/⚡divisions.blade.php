@@ -123,7 +123,7 @@ new #[Title('Divisions')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Divisions') }}</flux:heading>
+        <x-page-heading icon="building-office-2">{{ __('Divisions') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="create">{{ __('Add division') }}</flux:button>
     </div>

@@ -198,7 +198,7 @@ new #[Title('Competencies')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('Competencies') }}</flux:heading>
+        <x-page-heading icon="puzzle-piece">{{ __('Competencies') }}</x-page-heading>
 
         <flux:button variant="primary" wire:click="create">{{ __('Add competency') }}</flux:button>
     </div>

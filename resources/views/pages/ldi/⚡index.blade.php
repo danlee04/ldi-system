@@ -325,7 +325,7 @@ new #[Title('LDI trainings')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <flux:heading size="xl">{{ __('LDI trainings') }}</flux:heading>
+        <x-page-heading icon="presentation-chart-bar">{{ __('LDI trainings') }}</x-page-heading>
 
         <div class="flex gap-2">
             <flux:button icon="document-text"

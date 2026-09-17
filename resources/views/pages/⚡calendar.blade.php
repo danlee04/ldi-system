@@ -352,7 +352,7 @@ new #[Title('Calendar')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <flux:heading size="xl">{{ __('Calendar') }}</flux:heading>
+        <x-page-heading icon="calendar-days">{{ __('Calendar') }}</x-page-heading>
 
         <div class="flex items-center gap-2">
             <flux:button size="sm" variant="ghost" icon="chevron-left" square
