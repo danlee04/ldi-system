@@ -5,6 +5,7 @@ use App\Enums\EmploymentStatus;
 use App\Models\Division;
 use App\Models\Employee;
 use App\Models\EmployeeEligibility;
+use App\Models\Position;
 use App\Models\Section;
 use App\Models\TrainingRecord;
 use App\Models\User;
@@ -361,4 +362,73 @@ test('an employee cannot open somebody elses profile', function () {
     $this->actingAs($user);
 
     $this->get(route('employees.show', $other))->assertForbidden();
+});
+
+test('two people cannot sit in the same plantilla item', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Employee::factory()->create(['item_number' => 'OSEC-DOHB-ADAS2-203-2014']);
+
+    Livewire::test('pages::employees.index')
+        ->call('createEmployee')
+        ->set('first_name', 'Jay Roan')
+        ->set('last_name', 'Adolfo')
+        ->set('item_number', 'OSEC-DOHB-ADAS2-203-2014')
+        ->set('employment_status', EmploymentStatus::Permanent->value)
+        ->call('saveEmployee')
+        ->assertHasErrors('item_number');
+});
+
+test('the same position under two different items is allowed', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $position = Position::factory()->create(['title' => 'Administrative Assistant II']);
+
+    Employee::factory()->for($position)->create([
+        'last_name' => 'Paloma',
+        'item_number' => 'OSEC-DOHB-ADAS2-203-2014',
+    ]);
+
+    Livewire::test('pages::employees.index')
+        ->call('createEmployee')
+        ->set('first_name', 'Jay Roan')
+        ->set('last_name', 'Adolfo')
+        ->set('positionId', $position->id)
+        ->set('item_number', 'OSEC-DOHB-ADAS2-205-2014')
+        ->set('employment_status', EmploymentStatus::Permanent->value)
+        ->call('saveEmployee')
+        ->assertHasNoErrors();
+
+    expect(Employee::where('position_id', $position->id)->count())->toBe(2);
+});
+
+test('an item is free again once the person in it leaves the roster', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $retiring = Employee::factory()->create(['item_number' => 'OSEC-DOHB-ADAS2-203-2014']);
+
+    Livewire::test('pages::employees.index')
+        ->call('confirmDelete', $retiring->id)
+        ->call('deleteEmployee');
+
+    Livewire::test('pages::employees.index')
+        ->call('createEmployee')
+        ->set('first_name', 'Jay Roan')
+        ->set('last_name', 'Adolfo')
+        ->set('item_number', 'OSEC-DOHB-ADAS2-203-2014')
+        ->set('employment_status', EmploymentStatus::Permanent->value)
+        ->call('saveEmployee')
+        ->assertHasNoErrors();
+});
+
+test('editing somebody does not collide with their own plantilla item', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $employee = Employee::factory()->create(['item_number' => 'OSEC-DOHB-ADAS2-203-2014']);
+
+    Livewire::test('pages::employees.index')
+        ->call('editEmployee', $employee->id)
+        ->set('last_name', 'Renamed')
+        ->call('saveEmployee')
+        ->assertHasNoErrors();
 });

@@ -8,6 +8,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Console/Commands/** | .ai/rules/commands.md |
 | resources/views/components/** | .ai/rules/components.md |
 | resources/css/** | .ai/rules/css.md |
+| app/Actions/Employees/**, app/Models/Employee.php, resources/views/pages/employees/** | .ai/rules/employees.md |
 | app/Enums/** | .ai/rules/enums.md |
 | ** | .ai/rules/general.md |
 | app/Actions/Ldna/**, app/Actions/Reports/LdnaGapReport.php, app/Models/Ldna*.php, app/Workflow/LdnaConfirmer.php, resources/views/pages/ldna/** | .ai/rules/ldna.md |

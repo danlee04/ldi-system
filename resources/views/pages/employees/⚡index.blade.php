@@ -231,7 +231,17 @@ new #[Title('Employees')] class extends Component {
             'suffix' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:Male,Female'],
             'positionId' => ['nullable', 'exists:positions,id'],
-            'item_number' => ['nullable', 'string', 'max:50'],
+            // One item, one person: two people can hold the same position
+            // under different items, but never the same item at once.
+            //
+            // Scoped to who is still on the roster, and not enforced by an
+            // index: somebody who retires is soft-deleted, and their item
+            // has to be free for whoever fills the seat after them. A plain
+            // unique index would hold it shut forever.
+            'item_number' => [
+                'nullable', 'string', 'max:50',
+                Rule::unique('employees', 'item_number')->ignore($this->editingId)->whereNull('deleted_at'),
+            ],
             'employeeDivisionId' => ['nullable', 'exists:divisions,id'],
             'employeeSectionId' => ['nullable', 'exists:sections,id'],
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
