@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Users\SaveUserAccount;
 use App\Enums\UserRole;
 use App\Models\Employee;
 use App\Models\User;
@@ -127,7 +128,7 @@ new #[Title('User accounts')] class extends Component {
         Flux::modal('user-form')->show();
     }
 
-    public function save(): void
+    public function save(SaveUserAccount $save): void
     {
         $this->authorizeAdmin();
 
@@ -141,25 +142,10 @@ new #[Title('User accounts')] class extends Component {
             'keepsCalendar' => ['boolean'],
         ]);
 
-        $attributes = [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'role' => $validated['role'],
-            'is_active' => $validated['isActive'],
-            'can_manage_calendar' => $validated['keepsCalendar'],
-        ];
-
-        if ($validated['password'] !== '') {
-            $attributes['password'] = $validated['password'];
-        }
-
-        if ($this->editingId === null) {
-            $attributes['email_verified_at'] = now();
-        }
-
-        $user = User::updateOrCreate(['id' => $this->editingId], $attributes);
-
-        $this->linkEmployee($user);
+        $save->handle(
+            $this->editingId === null ? null : User::findOrFail($this->editingId),
+            $validated,
+        );
 
         $this->resetForm();
 
@@ -168,21 +154,6 @@ new #[Title('User accounts')] class extends Component {
         Flux::modal('user-form')->close();
 
         Flux::toast(variant: 'success', text: __('Account saved.'));
-    }
-
-    /**
-     * An employee holds at most one account, so moving an account to a
-     * different person must release the previous one.
-     */
-    private function linkEmployee(User $user): void
-    {
-        Employee::query()->where('user_id', $user->getKey())
-            ->when($this->employeeId !== null, fn (Builder $query) => $query->whereKeyNot($this->employeeId))
-            ->update(['user_id' => null]);
-
-        if ($this->employeeId !== null) {
-            Employee::query()->whereKey($this->employeeId)->update(['user_id' => $user->getKey()]);
-        }
     }
 
     private function authorizeAdmin(): void

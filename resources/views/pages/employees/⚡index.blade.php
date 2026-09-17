@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Employees\SaveEmployee;
 use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\TrainingStatus;
@@ -167,13 +168,11 @@ new #[Title('Employees')] class extends Component {
         Flux::modal('employee-form')->show();
     }
 
-    public function saveEmployee(): void
+    public function saveEmployee(SaveEmployee $save): void
     {
-        $employee = $this->editingId === null ? new Employee : Employee::findOrFail($this->editingId);
+        $employee = $this->editingId === null ? null : Employee::findOrFail($this->editingId);
 
-        $this->authorize($this->editingId === null ? 'create' : 'update', $this->editingId === null
-            ? Employee::class
-            : $employee);
+        $this->authorize($employee === null ? 'create' : 'update', $employee ?? Employee::class);
 
         $validated = $this->validate([
             'employee_number' => ['required', 'string', 'max:255', Rule::unique('employees', 'employee_number')->ignore($this->editingId)],
@@ -189,19 +188,7 @@ new #[Title('Employees')] class extends Component {
             'is_active' => ['boolean'],
         ]);
 
-        $employee->fill([
-            'employee_number' => $validated['employee_number'],
-            'first_name' => $validated['first_name'],
-            'middle_name' => $validated['middle_name'] ?: null,
-            'last_name' => $validated['last_name'],
-            'suffix' => $validated['suffix'] ?: null,
-            'gender' => $validated['gender'] ?: null,
-            'position_id' => $validated['positionId'],
-            'section_id' => $validated['employeeSectionId'],
-            'employment_status' => $validated['employment_status'],
-            'date_hired' => $validated['date_hired'] ?: null,
-            'is_active' => $validated['is_active'],
-        ])->save();
+        $save->handle($employee, $validated);
 
         $message = $this->editingId === null ? __('Employee added.') : __('Employee updated.');
 
@@ -253,6 +240,9 @@ new #[Title('Employees')] class extends Component {
 
         $this->authorize('delete', $employee);
 
+        // A soft delete: their training records and their data sheet are
+        // set to cascade, so taking the row out for real would take the
+        // Center's own accomplishment figures with it.
         $employee->delete();
 
         $this->deletingId = null;
