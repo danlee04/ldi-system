@@ -9,12 +9,12 @@
 {{-- No tinted box behind it. The seal is already a shape with its own
      colours, and a coloured square around it fights both. --}}
 @if ($sidebar)
-    {{-- White, and padded, because the seal is a transparent PNG: on the
-         nav's blue its dark green sits straight on dark blue. The padding
-         is what shows as the border — a ring on its own would be a hoop
-         around a shape still lost in the background. --}}
+    {{-- White because the seal is a transparent PNG: on the nav's blue its
+         dark green sits straight on dark blue. Barely any padding — the
+         artwork carries its own margin inside the file, and anything more
+         here lands on top of that and shrinks the seal to a speck. --}}
     <flux:sidebar.brand :name="config('app.name', 'Laravel')" {{ $attributes }}>
-        <x-slot name="logo" class="flex aspect-square size-9 items-center justify-center rounded-full bg-white p-1">
+        <x-slot name="logo" class="flex aspect-square size-9 items-center justify-center rounded-full bg-white p-px">
             <x-app-logo-icon class="size-full" />
         </x-slot>
     </flux:sidebar.brand>
