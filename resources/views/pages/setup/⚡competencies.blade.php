@@ -1,12 +1,13 @@
 <?php
 
+use App\Actions\Ldna\DeleteCompetency;
+use App\Actions\Ldna\SaveCompetency;
 use App\Enums\CompetencyType;
 use App\Enums\ProficiencyLevel;
 use App\Models\Competency;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -102,7 +103,7 @@ new #[Title('Competencies')] class extends Component {
         Flux::modal('competency-form')->show();
     }
 
-    public function save(): void
+    public function save(SaveCompetency $save): void
     {
         abort_unless(auth()->user()->isAdminOrHr(), 403);
 
@@ -123,31 +124,11 @@ new #[Title('Competencies')] class extends Component {
             attributes: $levels->mapWithKeys(fn (ProficiencyLevel $level): array => ["indicators.{$level->value}" => $level->label()])->all(),
         );
 
-        $type = CompetencyType::from($validated['type']);
-
-        DB::transaction(function () use ($validated, $type): void {
-            $competency = Competency::updateOrCreate(['id' => $this->editingId], [
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?: null,
-                'type' => $type,
-                // A technical competency's level belongs to each position, so
-                // one left over from a change of type must not linger here.
-                'required_level' => $type->hasOwnRequiredLevel() ? $validated['requiredLevel'] : null,
-            ]);
-
-            foreach (ProficiencyLevel::cases() as $level) {
-                $competency->indicators()->updateOrCreate(
-                    ['level' => $level->value],
-                    ['description' => $this->indicators[$level->value]],
-                );
-            }
-
-            // Only a technical competency is set per position. One that has
-            // become core or leadership is asked of people another way.
-            if ($type->hasOwnRequiredLevel()) {
-                $competency->positions()->detach();
-            }
-        });
+        $save->handle(
+            $this->editingId === null ? null : Competency::findOrFail($this->editingId),
+            $validated,
+            $this->indicators,
+        );
 
         $this->resetForm();
 
@@ -188,20 +169,15 @@ new #[Title('Competencies')] class extends Component {
         Flux::toast(variant: 'success', text: $competency->is_active ? __('Competency reactivated.') : __('Competency deactivated.'));
     }
 
-    public function delete(int $id): void
+    public function delete(int $id, DeleteCompetency $remove): void
     {
         abort_unless(auth()->user()->isAdminOrHr(), 403);
 
-        $competency = Competency::findOrFail($id);
-
-        // Deleting it would take a past year's answers with it.
-        if ($competency->isInUse()) {
+        if (! $remove->handle(Competency::findOrFail($id))) {
             Flux::toast(variant: 'danger', text: __('Somebody has been assessed on it. Deactivate it instead.'));
 
             return;
         }
-
-        $competency->delete();
 
         $this->confirmingId = null;
 

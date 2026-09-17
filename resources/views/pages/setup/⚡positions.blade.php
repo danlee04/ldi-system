@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Ldna\SetPositionCompetencies;
 use App\Enums\CompetencyType;
 use App\Enums\ProficiencyLevel;
 use App\Models\Competency;
@@ -181,7 +182,7 @@ new #[Title('Positions')] class extends Component {
         Flux::modal('position-competencies')->show();
     }
 
-    public function saveCompetencies(): void
+    public function saveCompetencies(SetPositionCompetencies $set): void
     {
         abort_unless(auth()->user()->isAdminOrHr(), 403);
 
@@ -189,19 +190,7 @@ new #[Title('Positions')] class extends Component {
 
         $this->validate(['positionLevels.*' => ['nullable', Rule::enum(ProficiencyLevel::class)]]);
 
-        DB::transaction(function () use ($position): void {
-            foreach ($this->technicalCompetencies as $competency) {
-                $level = $this->positionLevels[$competency->id] ?? '';
-
-                if ($level === '') {
-                    $position->competencies()->detach($competency->id);
-
-                    continue;
-                }
-
-                $position->competencies()->syncWithoutDetaching([$competency->id => ['required_level' => $level]]);
-            }
-        });
+        $set->handle($position, $this->technicalCompetencies, $this->positionLevels);
 
         $this->reset('competencyPositionId', 'positionLevels');
 
