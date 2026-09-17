@@ -17,6 +17,26 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * @property int $id
+ * @property int|null $user_id
+ * @property string $employee_number
+ * @property string $first_name
+ * @property string|null $middle_name
+ * @property string $last_name
+ * @property string|null $suffix
+ * @property string|null $photo_path
+ * @property string|null $gender
+ * @property int|null $position_id
+ * @property int|null $section_id
+ * @property int|null $division_id Kept in step with the section by the saving hook below
+ * @property CarbonImmutable|null $date_hired
+ * @property EmploymentStatus $employment_status
+ * @property bool $is_active
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
+ * @property CarbonImmutable|null $deleted_at
+ */
 class Employee extends Model
 {
     /** @use HasFactory<EmployeeFactory> */

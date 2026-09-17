@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Employees\ExportEmployeeRoster;
 use App\Actions\Employees\SaveEmployee;
 use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
@@ -18,6 +19,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Employees')] class extends Component {
     use WithPagination;
@@ -94,6 +96,29 @@ new #[Title('Employees')] class extends Component {
     #[Computed]
     public function employees(): LengthAwarePaginator
     {
+        return $this->roster()->paginate(25);
+    }
+
+    /**
+     * Hands the list on screen over as a spreadsheet. The same query is
+     * behind both, so the file is always what the filters were showing
+     * rather than a second, differently shaped roster.
+     */
+    public function exportCsv(ExportEmployeeRoster $export): StreamedResponse
+    {
+        $this->authorize('viewAny', Employee::class);
+
+        return $export->handle($this->roster(), $this->year);
+    }
+
+    /**
+     * The roster as the filters leave it, scoped to the people the
+     * signed-in user is allowed to see.
+     *
+     * @return Builder<Employee>
+     */
+    private function roster(): Builder
+    {
         return Employee::query()
             ->visibleTo(auth()->user())
             ->active()
@@ -121,8 +146,7 @@ new #[Title('Employees')] class extends Component {
             )
             ->with(['section', 'division', 'position', 'eligibilities.eligibility'])
             ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->paginate(25);
+            ->orderBy('first_name');
     }
 
     /**
@@ -303,9 +327,16 @@ new #[Title('Employees')] class extends Component {
     <div class="flex items-center justify-between">
         <flux:heading size="xl">{{ __('Employees') }}</flux:heading>
 
-        @if ($this->canManage)
-            <flux:button variant="primary" wire:click="createEmployee">{{ __('Add employee') }}</flux:button>
-        @endif
+        <div class="flex items-center gap-3">
+            {{-- Offered to everybody who can read the roster, not only to
+                 HR: a head downloading their own section is the whole
+                 point, and the query behind it is scoped to them. --}}
+            <flux:button icon="arrow-down-tray" wire:click="exportCsv">{{ __('Download CSV') }}</flux:button>
+
+            @if ($this->canManage)
+                <flux:button variant="primary" wire:click="createEmployee">{{ __('Add employee') }}</flux:button>
+            @endif
+        </div>
     </div>
 
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
