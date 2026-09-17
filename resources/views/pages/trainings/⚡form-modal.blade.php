@@ -213,15 +213,18 @@ new class extends Component {
     }
 }; ?>
 
-<flux:modal name="training-form" class="md:w-7xl">
+{{-- One column, with only the short paired fields sitting side by side.
+     Both width classes are needed: Flux puts a zero-specificity max-w-xl on
+     the same element, so md:w-2xl alone renders at 36rem. --}}
+<flux:modal name="training-form" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
     <form wire:submit="save" class="space-y-6">
         <flux:heading size="lg">
             {{ $editingId === null ? __('Record a training') : __('Edit training') }}
         </flux:heading>
 
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-4">
             @if ($this->canChooseEmployee)
-                <flux:select class="md:col-span-2" wire:model="employeeId" :label="__('Employee')" required>
+                <flux:select wire:model="employeeId" :label="__('Employee')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach ($this->employees as $employee)
                         <flux:select.option :value="$employee->id">
@@ -230,43 +233,58 @@ new class extends Component {
                     @endforeach
                 </flux:select>
             @elseif ($this->fixedEmployee)
-                <div class="md:col-span-2">
+                <div>
                     <flux:text size="sm">{{ __('Employee') }}</flux:text>
                     <flux:heading>{{ $this->fixedEmployee->listing_name }}</flux:heading>
                 </div>
             @endif
 
-            <flux:input class="md:col-span-2" wire:model="title"
+            <flux:input wire:model="title"
                 :label="__('Title of learning and development intervention')" required />
+        </div>
 
-            <flux:input wire:model="date_start" :label="__('From')" type="date" required />
-            <flux:input wire:model="date_end" :label="__('To')" type="date" required />
+        <div class="space-y-4">
+            <flux:separator :text="__('When')" />
 
-            <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
+            {{-- sm:, not md:: these pairs still fit side by side on a phone
+                 held landscape, and reading From against To is the whole
+                 point of putting them on one line. --}}
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input wire:model="date_start" :label="__('From')" type="date" required />
+                <flux:input wire:model="date_end" :label="__('To')" type="date" required />
 
-            <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
-                <flux:select.option value="">{{ __('Select') }}</flux:select.option>
-                @foreach (App\Enums\LdType::cases() as $type)
-                    <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:input wire:model="hours" :label="__('Number of hours')" type="number" min="1" required />
+
+                <flux:select wire:model.live="ld_type" :label="__('Type of LD')" required>
+                    <flux:select.option value="">{{ __('Select') }}</flux:select.option>
+                    @foreach (App\Enums\LdType::cases() as $type)
+                        <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
 
             @if ($ld_type === App\Enums\LdType::Other->value)
-                <flux:input class="md:col-span-2" wire:model="ld_type_other" :label="__('Specify the type')"
+                <flux:input wire:model="ld_type_other" :label="__('Specify the type')"
                     :placeholder="__('Soft Skill, Workshop, Convention')" required />
             @endif
+        </div>
+
+        <div class="space-y-4">
+            <flux:separator :text="__('Where')" />
 
             <flux:input wire:model="conducted_by" :label="__('Conducted or sponsored by')" required />
             <flux:input wire:model="location" :label="__('Location')" />
+        </div>
 
-            <div class="md:col-span-2">
-                <flux:separator :text="__('Costs')" />
+        <div class="space-y-4">
+            <flux:separator :text="__('Costs')" />
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input wire:model="registration_fee" :label="__('Registration fee')" type="number" step="0.01" min="0" />
+                <flux:input wire:model="tev" :label="__('Travel expenses')" type="number" step="0.01" min="0" />
+                <flux:input wire:model="expenses" :label="__('Other expenses')" type="number" step="0.01" min="0" />
+                <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0" />
             </div>
-
-            <flux:input wire:model="registration_fee" :label="__('Registration fee')" type="number" step="0.01" min="0" />
-            <flux:input wire:model="tev" :label="__('Travel expenses')" type="number" step="0.01" min="0" />
-            <flux:input wire:model="expenses" :label="__('Other expenses')" type="number" step="0.01" min="0" />
-            <flux:input wire:model="cpd_units" :label="__('CPD units')" type="number" step="0.1" min="0" />
         </div>
 
         <div class="flex gap-2">
