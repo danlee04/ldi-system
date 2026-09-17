@@ -26,6 +26,8 @@ final class HeadedTeam
         public readonly array $divisionIds,
         public readonly array $sectionIds,
         public readonly string $name,
+        /** The division a section head's sections sit in; null when the team is itself a division. */
+        public readonly ?string $divisionName,
     ) {}
 
     /**
@@ -52,6 +54,12 @@ final class HeadedTeam
             // A division says more than the sections inside it, so it is
             // the name a division head's team goes by.
             $divisions->isNotEmpty() ? $divisions->pluck('name')->join(', ') : $sections->pluck('name')->join(', '),
+            // A section on its own does not say where in the Center it
+            // sits, so a section head is told the division too. A division
+            // head needs no such line: their team is the division.
+            $divisions->isNotEmpty()
+                ? null
+                : ($sections->load('division')->pluck('division.name')->filter()->unique()->join(', ') ?: null),
         );
     }
 

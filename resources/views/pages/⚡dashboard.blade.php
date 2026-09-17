@@ -720,9 +720,15 @@ new #[Title('Dashboard')] class extends Component {
         {{-- A head's own people, first: the page is where they come to see
              how the team is doing. Their own record follows underneath,
              because a head is an employee too. --}}
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <flux:heading size="lg">{{ __('My team') }}</flux:heading>
-            <flux:text size="sm">{{ $this->team->name }}</flux:text>
+        {{-- The team's own name is the heading. "My team" said nothing a
+             head did not already know, and left the one fact that
+             identifies it adrift on the far right of the page. --}}
+        <div>
+            <flux:heading>{{ $this->team->name }}</flux:heading>
+
+            @if ($this->team->divisionName)
+                <flux:text size="sm">{{ $this->team->divisionName }}</flux:text>
+            @endif
         </div>
 
         <x-dashboard.figures :cards="[

@@ -76,7 +76,7 @@ test('a division head sees their whole division and nobody outside it', function
     expect($component->instance()->seesTeam)->toBeTrue()
         ->and($component->instance()->teamTotals['people'])->toBe(5);
 
-    $component->assertSee('My team')->assertSee('Rehabilitation');
+    $component->assertSee('Rehabilitation');
 });
 
 test('a section head sees their section and not the one beside it', function () {
@@ -108,8 +108,10 @@ test('an ordinary employee is shown no team', function () {
 
     $this->actingAs($user);
 
+    // "My people" is the team block's own card; the heading is the team's
+    // name now, so there is no fixed string in the heading to look for.
     Livewire::test('pages::dashboard')
-        ->assertDontSee('My team')
+        ->assertDontSee('My people')
         ->assertDontSee('Not trained yet this year');
 });
 
@@ -285,4 +287,36 @@ test('a head gets quick stats counted over their own people', function () {
     expect(array_sum($stats['statuses']))->toBe(2)
         ->and($stats['plans'])->toBe(1)
         ->and($stats['extra'][0]['value'])->toBe('4.5');
+});
+
+test('a section head is told the division their section sits in', function () {
+    $division = Division::factory()->create(['name' => 'Administrative']);
+    $section = Section::factory()->for($division)->create(['name' => 'Human Resource Development Section']);
+
+    $headUser = User::factory()->sectionHead()->create();
+    $head = Employee::factory()->for($section)->create(['user_id' => $headUser->id]);
+    $section->update(['section_head_employee_id' => $head->id]);
+
+    $this->actingAs($headUser);
+
+    $team = Livewire::test('pages::dashboard')->instance()->team;
+
+    // A section on its own does not say where in the Center it sits.
+    expect($team->name)->toBe('Human Resource Development Section')
+        ->and($team->divisionName)->toBe('Administrative');
+});
+
+test('a division head is given no second line, the division is the team', function () {
+    $division = Division::factory()->create(['name' => 'Administrative']);
+
+    $headUser = User::factory()->divisionHead()->create();
+    $head = Employee::factory()->for(Section::factory()->for($division))->create(['user_id' => $headUser->id]);
+    $division->update(['division_head_employee_id' => $head->id]);
+
+    $this->actingAs($headUser);
+
+    $team = Livewire::test('pages::dashboard')->instance()->team;
+
+    expect($team->name)->toBe('Administrative')
+        ->and($team->divisionName)->toBeNull();
 });
