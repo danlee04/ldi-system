@@ -171,18 +171,17 @@ new #[Title('Divisions')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="division-form" class="md:w-5xl">
+    <flux:modal name="division-form" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add division') : __('Edit division') }}
             </flux:heading>
 
-            <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-4">
                 <flux:input wire:model="name" :label="__('Name')" required />
                 <flux:input wire:model="code" :label="__('Code')" required />
 
-                <flux:select class="md:col-span-2" wire:model="divisionHeadEmployeeId" :label="__('Division head')"
-                    :description="__('The last step of every approval in this division.')">
+                <flux:select wire:model="divisionHeadEmployeeId" :label="__('Division head')">
                     <flux:select.option value="">{{ __('No head') }}</flux:select.option>
                     @foreach ($this->employees as $employee)
                         <flux:select.option :value="$employee->id">{{ $employee->listing_name }}</flux:select.option>

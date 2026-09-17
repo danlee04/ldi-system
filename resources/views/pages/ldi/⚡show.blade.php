@@ -323,36 +323,50 @@ new #[Title('LDI training')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="add-attendees" class="md:w-5xl">
+    {{-- One column: search, then the list it filters, so the two are not
+         read side by side. Both width classes are needed — Flux puts a
+         zero-specificity max-w-xl on the same element, so md:w-2xl alone
+         would render at 36rem. See .ai/rules/pages.md. --}}
+    <flux:modal name="add-attendees" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <div class="space-y-6">
-            <flux:heading size="lg">{{ __('Add attendees') }}</flux:heading>
+            <div class="space-y-1">
+                <flux:heading size="lg">{{ __('Add attendees') }}</flux:heading>
 
-            <div class="grid gap-6 md:grid-cols-2">
-                <div class="space-y-3">
+                <flux:text>
+                    {{ __('Everyone picked here gets an approved training record for this plan.') }}
+                </flux:text>
+
+                @if ($plan->target_attendees)
                     <flux:text size="sm">
-                        {{ __('Everyone picked here gets an approved training record for this plan.') }}
+                        {{ __('Target is :target; :count recorded so far.', [
+                            'target' => $plan->target_attendees,
+                            'count' => $this->attendees->count(),
+                        ]) }}
                     </flux:text>
+                @endif
+            </div>
 
-                    @if ($plan->target_attendees)
-                        <flux:text size="sm">
-                            {{ __('Target is :target; :count recorded so far.', [
-                                'target' => $plan->target_attendees,
-                                'count' => $this->attendees->count(),
-                            ]) }}
-                        </flux:text>
-                    @endif
+            <div class="space-y-3">
+                <flux:input size="sm" icon="magnifying-glass" wire:model.live.debounce.300ms="employeeSearch"
+                    :placeholder="__('Search name or number')" />
 
-                    <flux:input size="sm" wire:model.live.debounce.300ms="employeeSearch"
-                        :placeholder="__('Search name or number')" />
-                </div>
-
-                <div class="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {{-- The border and the dividers are what make this read as a
+                     list that scrolls rather than as loose checkboxes running
+                     off the bottom of the modal. --}}
+                <div class="max-h-80 divide-y divide-zinc-200 overflow-y-auto rounded-lg border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
                     @forelse ($this->candidates as $employee)
-                        <flux:checkbox wire:model="selected" :value="$employee->id"
-                            :label="$employee->listing_name"
-                            :description="$employee->section?->name ?? $employee->employee_number" />
+                        {{-- py-3, not less: the section under a name is only
+                             6px below it, so a tighter row would sit closer to
+                             the next person than to its own name. --}}
+                        <div class="px-3 py-3" wire:key="candidate-{{ $employee->id }}">
+                            <flux:checkbox wire:model="selected" :value="$employee->id"
+                                :label="$employee->listing_name"
+                                :description="$employee->section?->name ?? $employee->employee_number" />
+                        </div>
                     @empty
-                        <flux:text size="sm">{{ __('Nobody left to add.') }}</flux:text>
+                        <div class="px-3 py-8 text-center">
+                            <flux:text size="sm">{{ __('Nobody left to add.') }}</flux:text>
+                        </div>
                     @endforelse
                 </div>
             </div>
@@ -392,28 +406,20 @@ new #[Title('LDI training')] class extends Component {
         </form>
     </flux:modal>
 
-    <flux:modal name="remove-attendee" class="md:w-5xl">
+    <flux:modal name="remove-attendee" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Remove this attendee?') }}</flux:heading>
 
-            <div class="grid gap-6 md:grid-cols-2">
-                <div class="space-y-3">
-                    @if ($this->removing)
-                        <div>
-                            <flux:text size="sm">{{ __('Name') }}</flux:text>
-                            <flux:heading>{{ $this->removing->employee->listing_name }}</flux:heading>
-                        </div>
-                        <div>
-                            <flux:text size="sm">{{ __('Section') }}</flux:text>
-                            <flux:heading>{{ $this->removing->employee->section?->name ?? '—' }}</flux:heading>
-                        </div>
-                    @endif
+            @if ($this->removing)
+                <div class="space-y-1">
+                    <flux:heading>{{ $this->removing->employee->listing_name }}</flux:heading>
+                    <flux:text>{{ $this->removing->employee->section?->name ?? '—' }}</flux:text>
                 </div>
+            @endif
 
-                <flux:callout variant="warning" icon="exclamation-triangle">
-                    {{ __('Their training record for this plan is deleted, and it leaves their training history.') }}
-                </flux:callout>
-            </div>
+            <flux:callout variant="warning" icon="exclamation-triangle">
+                {{ __('Their training record for this plan is deleted, and it leaves their training history.') }}
+            </flux:callout>
 
             <div class="flex gap-2">
                 <flux:spacer />

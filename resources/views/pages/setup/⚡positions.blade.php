@@ -269,16 +269,17 @@ new #[Title('Positions')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="position-form" class="md:w-5xl">
+    <flux:modal name="position-form" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add position') : __('Edit position') }}
             </flux:heading>
 
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:input class="md:col-span-2" wire:model="title" :label="__('Title')" required />
+            <div class="space-y-4">
+                <flux:input wire:model="title" :label="__('Title')" required />
 
                 <flux:input wire:model="itemNumber" :label="__('Item number')" />
+
                 <flux:input wire:model="salaryGrade" :label="__('Salary grade')" type="number" min="1" max="33" />
             </div>
 

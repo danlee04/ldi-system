@@ -513,32 +513,28 @@ new #[Title('Employees')] class extends Component {
         </form>
     </flux:modal>
 
-    <flux:modal name="employee-delete" class="md:w-5xl">
+    <flux:modal name="employee-delete" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Remove this employee?') }}</flux:heading>
 
-            <div class="grid gap-6 md:grid-cols-2">
-                <div class="space-y-3">
-                    @if ($this->deleting)
-                        <div>
-                            <flux:text size="sm">{{ __('Name') }}</flux:text>
-                            <flux:heading>{{ $this->deleting->listing_name }}</flux:heading>
-                        </div>
-                        <div>
-                            <flux:text size="sm">{{ __('Employee no.') }}</flux:text>
-                            <flux:heading>{{ $this->deleting->employee_number }}</flux:heading>
-                        </div>
-                        <div>
-                            <flux:text size="sm">{{ __('Section') }}</flux:text>
-                            <flux:heading>{{ $this->deleting->section?->name ?? '—' }}</flux:heading>
-                        </div>
-                    @endif
-                </div>
+            @if ($this->deleting)
+                <flux:heading>{{ $this->deleting->listing_name }}</flux:heading>
 
-                <flux:callout variant="warning" icon="exclamation-triangle">
-                    {{ __('The employee leaves the list but their training records and approval history are kept.') }}
-                </flux:callout>
-            </div>
+                <dl class="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-zinc-200 py-5 dark:border-zinc-700">
+                    <div>
+                        <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Employee no.') }}</dt>
+                        <dd class="mt-0.5 text-sm tabular-nums">{{ $this->deleting->employee_number }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Section') }}</dt>
+                        <dd class="mt-0.5 text-sm">{{ $this->deleting->section?->name ?? '—' }}</dd>
+                    </div>
+                </dl>
+            @endif
+
+            <flux:callout variant="warning" icon="exclamation-triangle">
+                {{ __('The employee leaves the list but their training records and approval history are kept.') }}
+            </flux:callout>
 
             <div class="flex gap-2">
                 <flux:spacer />

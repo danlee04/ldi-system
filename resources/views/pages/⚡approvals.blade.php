@@ -227,41 +227,46 @@ new #[Title('Approvals')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="decide" class="md:w-5xl">
+    {{-- One column, so the record reads top to bottom and the reason box
+         gets the full width. Both classes are needed: Flux puts a
+         zero-specificity max-w-xl on the same element, so md:w-2xl alone
+         would render at 36rem. See .ai/rules/pages.md. --}}
+    <flux:modal name="decide" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <div class="space-y-6">
             <flux:heading size="lg">
                 {{ $decisionType === 'reject' ? __('Reject this training?') : __('Approve this training?') }}
             </flux:heading>
 
-            <div class="grid gap-6 md:grid-cols-2">
-                <div class="space-y-3">
-                    @if ($this->deciding)
-                        <div>
-                            <flux:text size="sm">{{ __('Training') }}</flux:text>
-                            <flux:heading>{{ $this->deciding->title }}</flux:heading>
-                        </div>
-                        <div>
-                            <flux:text size="sm">{{ __('Employee') }}</flux:text>
-                            <flux:heading>{{ $this->deciding->employee->listing_name }}</flux:heading>
-                        </div>
-                        <div>
-                            <flux:text size="sm">{{ __('Inclusive dates') }}</flux:text>
-                            <flux:heading>
-                                {{ $this->deciding->inclusive_dates }}
-                            </flux:heading>
-                        </div>
-                        <div>
-                            <flux:text size="sm">{{ __('Hours') }}</flux:text>
-                            <flux:heading>{{ $this->deciding->hours }}</flux:heading>
-                        </div>
-                    @endif
+            {{-- The same shape the training detail modal uses, so the record
+                 reads identically wherever it is opened from. --}}
+            @if ($this->deciding)
+                <div class="space-y-1">
+                    <flux:heading>{{ $this->deciding->title }}</flux:heading>
+
+                    <flux:text>
+                        {{ $this->deciding->employee->listing_name }}
+                        @if ($this->deciding->employee->section)
+                            — {{ $this->deciding->employee->section->name }}
+                        @endif
+                    </flux:text>
                 </div>
 
-                <flux:textarea wire:model="remarks" :label="__('Remarks')" rows="8"
-                    :description="$decisionType === 'reject'
-                        ? __('Required. The employee sees this reason.')
-                        : __('Optional.')" />
-            </div>
+                <dl class="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-zinc-200 py-5 dark:border-zinc-700">
+                    <div>
+                        <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Inclusive dates') }}</dt>
+                        <dd class="mt-0.5 text-sm">{{ $this->deciding->inclusive_dates }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Hours') }}</dt>
+                        <dd class="mt-0.5 text-sm tabular-nums">{{ $this->deciding->hours }}</dd>
+                    </div>
+                </dl>
+            @endif
+
+            <flux:textarea wire:model="remarks" :label="__('Remarks')" rows="4"
+                :description="$decisionType === 'reject'
+                    ? __('Required. The employee sees this reason.')
+                    : __('Optional.')" />
 
             <div class="flex gap-2">
                 <flux:spacer />

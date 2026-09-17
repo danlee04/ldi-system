@@ -84,10 +84,12 @@ new #[Title('Review')] class extends Component {
         $canConfirm = auth()->user()->can('confirm', $assessment);
     @endphp
 
-    <div>
-        <flux:link :href="route('ldna.confirmations')" wire:navigate class="text-sm">
+    <div class="space-y-3">
+        <flux:button size="sm" variant="ghost" icon="chevron-left"
+            :href="route('ldna.confirmations')" wire:navigate>
             {{ __('LDNA confirmations') }}
-        </flux:link>
+        </flux:button>
+
         <flux:heading size="xl">{{ $assessment->employee->listing_name }}</flux:heading>
         <flux:text>
             {{ $assessment->employee->position?->title ?? '—' }} ·

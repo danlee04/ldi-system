@@ -11,6 +11,7 @@ use App\Models\LdnaCycle;
 use App\Models\Section;
 use App\Workflow\LdnaConfirmer;
 use Flux\Flux;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +19,11 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('LDNA')] class extends Component {
+    use WithPagination;
+
     public LdnaCycle $cycle;
 
     #[Url]
@@ -56,6 +60,20 @@ new #[Title('LDNA')] class extends Component {
     }
 
     /**
+     * Filtering while on page four must not strand the reader on a page
+     * the narrowed list no longer has.
+     */
+    public function updatedFilterDivision(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    /**
      * @return Collection<int, Division>
      */
     #[Computed]
@@ -65,10 +83,10 @@ new #[Title('LDNA')] class extends Component {
     }
 
     /**
-     * @return Collection<int, LdnaAssessment>
+     * @return LengthAwarePaginator<int, LdnaAssessment>
      */
     #[Computed]
-    public function assessments(): Collection
+    public function assessments(): LengthAwarePaginator
     {
         return LdnaAssessment::query()
             ->where('ldna_cycle_id', $this->cycle->id)
@@ -80,9 +98,15 @@ new #[Title('LDNA')] class extends Component {
             ->when($this->filterStatus === 'not_self', fn (Builder $query) => $query->whereNull('self_submitted_at'))
             ->when($this->filterStatus === 'not_confirmed', fn (Builder $query) => $query->whereNull('confirmed_at'))
             ->when($this->filterStatus === 'confirmed', fn (Builder $query) => $query->whereNotNull('confirmed_at'))
-            ->get()
-            ->sortBy(fn (LdnaAssessment $assessment): string => $assessment->employee->listing_name)
-            ->values();
+            // Ordered in SQL, not on the collection: a page is a slice, and
+            // sorting the slice would only order the twenty-five names on it.
+            // The join carries somebody who has left, the way the relation
+            // does, so they keep their place in the year they were assessed.
+            ->join('employees', 'employees.id', '=', 'ldna_assessments.employee_id')
+            ->orderBy('employees.last_name')
+            ->orderBy('employees.first_name')
+            ->select('ldna_assessments.*')
+            ->paginate(25);
     }
 
     /**
@@ -301,8 +325,12 @@ new #[Title('LDNA')] class extends Component {
 
 <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3 print:hidden">
-        <div>
-            <flux:link :href="route('ldna.index')" wire:navigate class="text-sm">{{ __('All cycles') }}</flux:link>
+        <div class="space-y-3">
+            <flux:button size="sm" variant="ghost" icon="chevron-left"
+                :href="route('ldna.index')" wire:navigate>
+                {{ __('Cycles') }}
+            </flux:button>
+
             <flux:heading size="xl">{{ __('LDNA :year', ['year' => $cycle->year]) }}</flux:heading>
             <flux:text>
                 {{ $cycle->opens_on->format('M j, Y') }} – {{ $cycle->closes_on->format('M j, Y') }} · {{ $cycle->status() }}
@@ -368,7 +396,7 @@ new #[Title('LDNA')] class extends Component {
                 </flux:select>
             </div>
 
-            <flux:table>
+            <flux:table :paginate="$this->assessments">
                 <flux:table.columns>
                     <flux:table.column>{{ __('Name') }}</flux:table.column>
                     <flux:table.column>{{ __('Section') }}</flux:table.column>

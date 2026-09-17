@@ -207,13 +207,13 @@ new #[Title('Sections')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="section-form" class="md:w-5xl">
+    <flux:modal name="section-form" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add section') : __('Edit section') }}
             </flux:heading>
 
-            <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-4">
                 <flux:select wire:model="divisionId" :label="__('Division')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach ($this->divisions as $division)
@@ -221,11 +221,13 @@ new #[Title('Sections')] class extends Component {
                     @endforeach
                 </flux:select>
 
+                <flux:input wire:model="name" :label="__('Name')" required />
+
                 <flux:input wire:model="code" :label="__('Code')" required />
 
-                <flux:input class="md:col-span-2" wire:model="name" :label="__('Name')" required />
-
-                <flux:select class="md:col-span-2" wire:model="sectionHeadEmployeeId" :label="__('Section head')"
+                {{-- The description stays: leaving this empty changes where a
+                     submission goes, which nothing else on the form says. --}}
+                <flux:select wire:model="sectionHeadEmployeeId" :label="__('Section head')"
                     :description="__('Leave empty to send submissions straight to the division head.')">
                     <flux:select.option value="">{{ __('No head') }}</flux:select.option>
                     @foreach ($this->employees as $employee)

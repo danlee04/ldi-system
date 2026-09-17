@@ -99,9 +99,14 @@ new #[Title('LDNA')] class extends Component {
             @forelse ($this->cycles as $cycle)
                 <flux:table.row :key="$cycle->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
-                        <flux:link :href="route('ldna.show', $cycle)" wire:navigate>
+                        {{-- A plain anchor, not flux:link: every variant of it
+                             underlines either at rest or on hover, and passing
+                             a class to undo that loses silently. Same accent
+                             and hover the approvals table uses. --}}
+                        <a href="{{ route('ldna.show', $cycle) }}" wire:navigate
+                            class="font-medium text-[var(--color-accent-content)] hover:opacity-70">
                             {{ __('LDNA :year', ['year' => $cycle->year]) }}
-                        </flux:link>
+                        </a>
                     </flux:table.cell>
                     <flux:table.cell>
                         {{ $cycle->opens_on->format('M j, Y') }} – {{ $cycle->closes_on->format('M j, Y') }}

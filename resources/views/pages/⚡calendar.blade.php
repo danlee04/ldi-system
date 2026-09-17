@@ -494,39 +494,31 @@ new #[Title('Calendar')] class extends Component {
             </form>
         </flux:modal>
 
-        <flux:modal name="activity-delete" class="md:w-5xl md:max-w-[calc(100vw-4rem)]">
+        <flux:modal name="activity-delete" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
             <div class="space-y-6">
                 <flux:heading size="lg">{{ __('Take this off the calendar?') }}</flux:heading>
 
-                <div class="grid gap-6 md:grid-cols-2">
-                    <div class="space-y-3">
-                        @if ($this->deleting)
-                            <div>
-                                <flux:text size="sm">{{ __('Title') }}</flux:text>
-                                <flux:heading>{{ $this->deleting->title }}</flux:heading>
-                            </div>
-                            <div>
-                                <flux:text size="sm">{{ __('When') }}</flux:text>
-                                <flux:heading>{{ $this->deleting->inclusive_dates }}</flux:heading>
-                            </div>
-                    @endif
-                </div>
+                @if ($this->deleting)
+                    <div class="space-y-1">
+                        <flux:heading>{{ $this->deleting->title }}</flux:heading>
+                        <flux:text>{{ $this->deleting->inclusive_dates }}</flux:text>
+                    </div>
+                @endif
 
                 <flux:callout variant="warning" icon="exclamation-triangle">
                     {{ __('It is removed for everybody who reads the calendar. This cannot be undone.') }}
                 </flux:callout>
+
+                <div class="flex gap-2">
+                    <flux:spacer />
+
+                    <flux:modal.close>
+                        <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+
+                    <flux:button variant="danger" wire:click="delete">{{ __('Remove') }}</flux:button>
+                </div>
             </div>
-
-            <div class="flex gap-2">
-                <flux:spacer />
-
-                <flux:modal.close>
-                    <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
-                </flux:modal.close>
-
-                <flux:button variant="danger" wire:click="delete">{{ __('Remove') }}</flux:button>
-            </div>
-        </div>
-    </flux:modal>
+        </flux:modal>
     @endif
 </div>
