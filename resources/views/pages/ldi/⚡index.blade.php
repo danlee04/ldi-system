@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Ldi\SaveLdiTraining;
 use App\Enums\CompetencyType;
 use App\Enums\LdType;
 use App\Models\BudgetCap;
@@ -10,7 +11,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -57,12 +57,6 @@ new #[Title('LDI trainings')] class extends Component {
     public string $location = '';
 
     public ?int $target_attendees = null;
-
-    /**
-     * The fund is chosen, not typed. Free text is how the same fund ended
-     * up recorded four ways — and how "asdad" ended up carrying money.
-     */
-    public const HR_SOURCE = 'Human Resource';
 
     /**
      * HR's own budget, which every plan may draw on. It is the one fund
@@ -193,9 +187,11 @@ new #[Title('LDI trainings')] class extends Component {
         Flux::modal('ldi-form')->show();
     }
 
-    public function save(): void
+    public function save(SaveLdiTraining $save): void
     {
-        $this->authorize($this->editingId === null ? 'create' : 'update', $this->editingId === null ? LdiTraining::class : LdiTraining::findOrFail($this->editingId));
+        $plan = $this->editingId === null ? null : LdiTraining::findOrFail($this->editingId);
+
+        $this->authorize($plan === null ? 'create' : 'update', $plan ?? LdiTraining::class);
 
         $validated = $this->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -222,28 +218,7 @@ new #[Title('LDI trainings')] class extends Component {
         $competencyIds = array_map('intval', $validated['competencyIds'] ?? []);
         unset($validated['competencyIds']);
 
-        DB::transaction(function () use ($validated, $competencyIds): void {
-            $plan = LdiTraining::updateOrCreate(
-                ['id' => $this->editingId],
-                [
-                    ...$validated,
-                    'type_of_training' => $validated['type_of_training'] ?: null,
-                    'training_communication' => $validated['training_communication'] ?: null,
-                    'ld_type_other' => $this->ld_type === LdType::Other->value ? $validated['ld_type_other'] : null,
-                    'location' => $validated['location'] ?: null,
-                    // HR is named only when it actually put something in, so a
-                    // plan it did not fund does not land against its cap.
-                    'budget_source' => $this->budget_amount === null ? null : self::HR_SOURCE,
-                    'budget' => $this->totalBudget ?: null,
-                    'budget_amount' => $validated['budget_amount'],
-                    'other_budget_source' => $validated['other_budget_source'] ?: null,
-                    'other_budget_amount' => $validated['other_budget_amount'],
-                    'created_by' => auth()->id(),
-                ],
-            );
-
-            $plan->competencies()->sync($competencyIds);
-        });
+        $save->handle(auth()->user(), $plan, $validated, $competencyIds);
 
         $this->resetForm();
 
@@ -264,7 +239,7 @@ new #[Title('LDI trainings')] class extends Component {
     #[Computed]
     public function budgetHint(): ?string
     {
-        $cap = BudgetCap::forSourceAndYear(self::HR_SOURCE, $this->date_start !== '' ? (int) substr($this->date_start, 0, 4) : null);
+        $cap = BudgetCap::forSourceAndYear(LdiTraining::HR_SOURCE, $this->date_start !== '' ? (int) substr($this->date_start, 0, 4) : null);
 
         if ($cap === null) {
             return null;
@@ -326,7 +301,7 @@ new #[Title('LDI trainings')] class extends Component {
     {
         $whole = $plan->budget_amount ?? $plan->budget;
 
-        if ($plan->budget_source === self::HR_SOURCE) {
+        if ($plan->budget_source === LdiTraining::HR_SOURCE) {
             return [$whole === null ? null : (float) $whole, (string) $plan->other_budget_source, $plan->other_budget_amount === null ? null : (float) $plan->other_budget_amount];
         }
 

@@ -21,11 +21,6 @@ class AgencyTotalsReport
     public const NOT_STATED = 'Not stated';
 
     /**
-     * The agency's own budget line, as it is spelled in the plans.
-     */
-    public const HR_SOURCE = 'Human Resource';
-
-    /**
      * @return array{total: int, rows: list<array{label: string, count: int}>}
      */
     public function employeesByDivision(): array
@@ -90,7 +85,7 @@ class AgencyTotalsReport
                 $funded = $plan->fundedBy($source);
                 $total += $funded;
 
-                if ($source === self::HR_SOURCE) {
+                if ($source === LdiTraining::HR_SOURCE) {
                     $hr += $funded;
                 }
             }

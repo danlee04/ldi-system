@@ -45,6 +45,15 @@ class LdiTraining extends Model
     /** @use HasFactory<LdiTrainingFactory> */
     use HasFactory, HasInclusiveDates;
 
+    /**
+     * The fund is chosen, not typed. Free text is how the same fund ended
+     * up recorded four ways — and how "asdad" ended up carrying money.
+     *
+     * Shared by the plan form and the reports that break funding down by
+     * source, so the name is spelled once.
+     */
+    public const HR_SOURCE = 'Human Resource';
+
     protected $fillable = [
         'title',
         'development_partner',
