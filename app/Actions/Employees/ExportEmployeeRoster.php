@@ -39,7 +39,7 @@ class ExportEmployeeRoster
             fwrite($out, "\xEF\xBB\xBF");
 
             fputcsv($out, [
-                'employee_number', 'last_name', 'first_name', 'middle_name', 'suffix', 'gender',
+                'last_name', 'first_name', 'middle_name', 'suffix', 'gender', 'item_number',
                 'division', 'section', 'position', 'employment_status', 'date_hired',
                 'cpd_units_'.$year, 'eligibility', 'eligibility_expires_on',
             ]);
@@ -58,12 +58,12 @@ class ExportEmployeeRoster
     private function line(Employee $employee): array
     {
         return [
-            $employee->employee_number,
             $employee->last_name,
             $employee->first_name,
             $employee->middle_name,
             $employee->suffix,
             $employee->gender,
+            $employee->item_number,
             $employee->division?->name,
             $employee->section?->name,
             $employee->position?->title,

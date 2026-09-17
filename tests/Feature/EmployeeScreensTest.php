@@ -105,14 +105,14 @@ test('a section head sees only their own section', function () {
         ->assertDontSee('Jacinto');
 });
 
-test('search narrows by name and employee number', function () {
+test('search narrows by name', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    Employee::factory()->create(['last_name' => 'Bonifacio', 'employee_number' => 'EMP-111']);
-    Employee::factory()->create(['last_name' => 'Jacinto', 'employee_number' => 'EMP-222']);
+    Employee::factory()->create(['first_name' => 'Andres', 'last_name' => 'Bonifacio']);
+    Employee::factory()->create(['first_name' => 'Emilio', 'last_name' => 'Jacinto']);
 
     Livewire::test('pages::employees.index')
-        ->set('search', 'EMP-111')
+        ->set('search', 'Bonifacio')
         ->assertSee('Bonifacio')
         ->assertDontSee('Jacinto');
 });

@@ -228,7 +228,7 @@ new class extends Component {
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach ($this->employees as $employee)
                         <flux:select.option :value="$employee->id">
-                            {{ $employee->listing_name }} — {{ $employee->employee_number }}
+                            {{ $employee->listing_name }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>

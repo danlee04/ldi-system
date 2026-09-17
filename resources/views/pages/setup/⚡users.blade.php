@@ -209,7 +209,7 @@ new #[Title('User accounts')] class extends Component {
                     <flux:table.cell>{{ $user->role->label() }}</flux:table.cell>
                     <flux:table.cell>
                         <div class="w-40 truncate" title="{{ $user->employee?->section?->name }}">
-                            {{ $user->employee === null ? '—' : $user->employee->employee_number }}
+                            {{ $user->employee?->section?->name ?? '—' }}
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>
@@ -244,7 +244,7 @@ new #[Title('User accounts')] class extends Component {
                     <flux:select.option value="">{{ __('Not linked') }}</flux:select.option>
                     @foreach ($this->employeesWithoutAccount as $employee)
                         <flux:select.option :value="$employee->id">
-                            {{ $employee->listing_name }} — {{ $employee->employee_number }}
+                            {{ $employee->listing_name }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>

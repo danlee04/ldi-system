@@ -31,14 +31,13 @@ test('an employee sees their own details', function () {
     profileEmployee([
         'first_name' => 'Maria',
         'last_name' => 'Cruz',
-        'employee_number' => 'EMP-0042',
+        'item_number' => 'ADOF3-14-2019',
         'section_id' => $section->id,
     ]);
 
     $this->get(route('my-profile'))
         ->assertOk()
         ->assertSee('Maria')
-        ->assertSee('EMP-0042')
         ->assertSee('Human Resource Development Section');
 });
 

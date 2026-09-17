@@ -146,8 +146,7 @@ new #[Title('Employees')] class extends Component {
 
                 $query->where(function (Builder $match) use ($term): void {
                     $match->where('first_name', 'like', $term)
-                        ->orWhere('last_name', 'like', $term)
-                        ->orWhere('employee_number', 'like', $term);
+                        ->orWhere('last_name', 'like', $term);
                 });
             })
             ->when($this->divisionId !== null, fn (Builder $query) => $query->where('division_id', $this->divisionId))
@@ -399,7 +398,7 @@ new #[Title('Employees')] class extends Component {
 
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
         <flux:input size="sm" class="lg:flex-1" wire:model.live.debounce.300ms="search"
-            :placeholder="__('Search name or employee number')" />
+            :placeholder="__('Search name')" />
 
         <flux:select size="sm" class="lg:w-52" wire:model.live="divisionId">
             <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
@@ -531,10 +530,6 @@ new #[Title('Employees')] class extends Component {
                     <flux:select.option value="Female">{{ __('Female') }}</flux:select.option>
                     <flux:select.option value="Male">{{ __('Male') }}</flux:select.option>
                 </flux:select>
-            </div>
-
-            <div class="space-y-4">
-                <flux:separator :text="__('Appointment')" />
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:select wire:model="positionId" :label="__('Position')">
@@ -547,36 +542,30 @@ new #[Title('Employees')] class extends Component {
                     <flux:input wire:model="item_number" :label="__('Plantilla item')" />
                 </div>
 
+                {{-- Choosing a division only narrows the sections beside it.
+                     The section is what is stored; the division follows it. --}}
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <flux:select wire:model.live="employeeDivisionId" :label="__('Division')">
+                        <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
+                        @foreach ($this->divisions as $division)
+                            <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    <flux:select wire:model="employeeSectionId" :label="__('Section')">
+                        <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                        @foreach ($this->formSections as $section)
+                            <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
                 <flux:select wire:model="employment_status" :label="__('Employment status')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                     @foreach (EmploymentStatus::cases() as $status)
                         <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
                     @endforeach
                 </flux:select>
-            </div>
-
-            <div class="space-y-4">
-                <flux:separator :text="__('Where they sit')" />
-
-                {{-- Choosing a division only narrows the sections below it.
-                     The section is what is stored; the division follows it. --}}
-                <flux:select wire:model.live="employeeDivisionId" :label="__('Division')">
-                    <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
-                    @foreach ($this->divisions as $division)
-                        <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-
-                <flux:select wire:model="employeeSectionId" :label="__('Section')">
-                    <flux:select.option value="">{{ __('None') }}</flux:select.option>
-                    @foreach ($this->formSections as $section)
-                        <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
-
-            <div class="space-y-4">
-                <flux:separator :text="__('Eligibility')" />
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:select wire:model="eligibilityId" :label="__('Eligibility')">
@@ -592,7 +581,7 @@ new #[Title('Employees')] class extends Component {
                 {{-- Under the pair, not on one field: a description on only
                      one of two side-by-side controls pushes it down and
                      leaves the two boxes out of line. --}}
-                <flux:text size="sm">{{ __('Leave empty to keep what is on their PDS.') }}</flux:text>
+                <flux:text size="sm">{{ __('Leave the eligibility empty to keep what is on their PDS.') }}</flux:text>
             </div>
 
             <div class="flex gap-2">
@@ -618,12 +607,12 @@ new #[Title('Employees')] class extends Component {
 
                 <dl class="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-zinc-200 py-5 dark:border-zinc-700">
                     <div>
-                        <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Employee no.') }}</dt>
-                        <dd class="mt-0.5 text-sm tabular-nums">{{ $this->deleting->employee_number }}</dd>
-                    </div>
-                    <div>
                         <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Section') }}</dt>
                         <dd class="mt-0.5 text-sm">{{ $this->deleting->section?->name ?? '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Position') }}</dt>
+                        <dd class="mt-0.5 text-sm">{{ $this->deleting->position?->title ?? '—' }}</dd>
                     </div>
                 </dl>
             @endif

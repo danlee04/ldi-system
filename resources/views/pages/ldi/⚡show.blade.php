@@ -74,8 +74,7 @@ new #[Title('LDI training')] class extends Component {
                 $term = '%'.$this->employeeSearch.'%';
 
                 $query->where(fn (Builder $match) => $match->where('first_name', 'like', $term)
-                    ->orWhere('last_name', 'like', $term)
-                    ->orWhere('employee_number', 'like', $term));
+                    ->orWhere('last_name', 'like', $term));
             })
             ->with('section')
             ->orderBy('last_name')
@@ -348,7 +347,7 @@ new #[Title('LDI training')] class extends Component {
 
             <div class="space-y-3">
                 <flux:input size="sm" icon="magnifying-glass" wire:model.live.debounce.300ms="employeeSearch"
-                    :placeholder="__('Search name or number')" />
+                    :placeholder="__('Search name')" />
 
                 {{-- The border and the dividers are what make this read as a
                      list that scrolls rather than as loose checkboxes running
@@ -361,7 +360,7 @@ new #[Title('LDI training')] class extends Component {
                         <div class="px-3 py-3" wire:key="candidate-{{ $employee->id }}">
                             <flux:checkbox wire:model="selected" :value="$employee->id"
                                 :label="$employee->listing_name"
-                                :description="$employee->section?->name ?? $employee->employee_number" />
+                                :description="$employee->section?->name ?? __('No section')" />
                         </div>
                     @empty
                         <div class="px-3 py-8 text-center">

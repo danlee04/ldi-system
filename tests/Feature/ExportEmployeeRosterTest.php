@@ -38,8 +38,8 @@ test('the roster downloads with a heading row and one line per employee', functi
     $position = Position::factory()->create(['title' => 'Administrative Officer III']);
 
     Employee::factory()->for($section)->for($division)->for($position)->create([
-        'employee_number' => 'EMP-777',
         'first_name' => 'Gabriela',
+        'item_number' => 'ADOF3-14-2019',
         'last_name' => 'Silang',
         'middle_name' => null,
     ]);
@@ -47,10 +47,10 @@ test('the roster downloads with a heading row and one line per employee', functi
     $rows = downloadedRoster();
 
     expect($rows)->toHaveCount(2)
-        ->and($rows[0][0])->toBe('employee_number')
-        ->and($rows[1][0])->toBe('EMP-777')
-        ->and($rows[1][1])->toBe('Silang')
-        ->and($rows[1][2])->toBe('Gabriela')
+        ->and($rows[0][0])->toBe('last_name')
+        ->and($rows[1][0])->toBe('Silang')
+        ->and($rows[1][1])->toBe('Gabriela')
+        ->and($rows[1][5])->toBe('ADOF3-14-2019')
         ->and($rows[1][6])->toBe('Administrative')
         ->and($rows[1][7])->toBe('Records')
         ->and($rows[1][8])->toBe('Administrative Officer III');
@@ -68,7 +68,7 @@ test('the file holds what the filters were showing, not the whole roster', funct
     $rows = downloadedRoster(['divisionId' => $wanted->id]);
 
     expect($rows)->toHaveCount(2)
-        ->and($rows[1][1])->toBe('Kept');
+        ->and($rows[1][0])->toBe('Kept');
 });
 
 test('a section head downloads their own section and nobody else', function () {
@@ -83,7 +83,7 @@ test('a section head downloads their own section and nobody else', function () {
 
     $this->actingAs($head);
 
-    $names = collect(downloadedRoster())->skip(1)->pluck(1);
+    $names = collect(downloadedRoster())->skip(1)->pluck(0);
 
     expect($names)->toContain('Theirs')
         ->and($names)->not->toContain('Somebody else');
@@ -93,7 +93,7 @@ test('somebody who has left the roster is left off the file', function () {
     Employee::factory()->create(['last_name' => 'Working', 'is_active' => true]);
     Employee::factory()->create(['last_name' => 'Departed', 'is_active' => false]);
 
-    $names = collect(downloadedRoster())->skip(1)->pluck(1);
+    $names = collect(downloadedRoster())->skip(1)->pluck(0);
 
     expect($names)->toContain('Working')
         ->and($names)->not->toContain('Departed');

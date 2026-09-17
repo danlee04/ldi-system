@@ -228,10 +228,6 @@ new #[Title('My profile')] class extends Component {
                      employee can check them, not so they compete with the
                      cards below that actually ask something of them. --}}
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span>{{ __('No.') }} {{ $this->employee->employee_number }}</span>
-
-                    <span aria-hidden="true">·</span>
-
                     <span>{{ $this->employee->division?->name ?? __('No division') }}</span>
 
                     <span aria-hidden="true">·</span>

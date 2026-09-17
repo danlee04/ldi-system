@@ -72,8 +72,8 @@ new #[Title('Employee')] class extends Component {
 
     <flux:card class="grid gap-4 md:grid-cols-4">
         <div>
-            <flux:text size="sm">{{ __('Employee no.') }}</flux:text>
-            <flux:heading size="lg">{{ $employee->employee_number }}</flux:heading>
+            <flux:text size="sm">{{ __('Plantilla item') }}</flux:text>
+            <flux:heading size="lg">{{ $employee->item_number ?? '—' }}</flux:heading>
         </div>
         <div>
             <flux:text size="sm">{{ __('Division') }}</flux:text>
