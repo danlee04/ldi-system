@@ -123,11 +123,11 @@ test('the section list paginates', function () {
         ->and($sections->total())->toBe(20);
 });
 
-test('the position search narrows by title and item number', function () {
+test('the position search narrows by title', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    Position::factory()->create(['title' => 'Administrative Officer V', 'item_number' => 'ITEM-1']);
-    Position::factory()->create(['title' => 'Nurse II', 'item_number' => 'ITEM-2']);
+    Position::factory()->create(['title' => 'Administrative Officer V']);
+    Position::factory()->create(['title' => 'Nurse II']);
 
     Livewire::test('pages::setup.positions')
         ->set('search', 'Administrative')

@@ -13,7 +13,7 @@ class Position extends Model
     /** @use HasFactory<PositionFactory> */
     use HasFactory;
 
-    protected $fillable = ['title', 'item_number', 'salary_grade', 'is_active'];
+    protected $fillable = ['title', 'salary_grade', 'is_active'];
 
     /**
      * @return array<string, string>

@@ -30,8 +30,6 @@ new #[Title('Positions')] class extends Component {
 
     public string $title = '';
 
-    public string $itemNumber = '';
-
     public ?int $salaryGrade = null;
 
     public ?int $competencyPositionId = null;
@@ -64,7 +62,7 @@ new #[Title('Positions')] class extends Component {
             ->when($this->search !== '', function (Builder $query): void {
                 $term = '%'.$this->search.'%';
 
-                $query->where(fn (Builder $match) => $match->where('title', 'like', $term)->orWhere('item_number', 'like', $term));
+                $query->where('title', 'like', $term);
             })
             ->when($this->filterSalaryGrade !== null, fn (Builder $query) => $query->where('salary_grade', $this->filterSalaryGrade))
             ->withCount(['employees', 'competencies'])
@@ -107,7 +105,6 @@ new #[Title('Positions')] class extends Component {
 
         $this->editingId = $position->id;
         $this->title = $position->title;
-        $this->itemNumber = $position->item_number ?? '';
         $this->salaryGrade = $position->salary_grade;
 
         Flux::modal('position-form')->show();
@@ -119,13 +116,11 @@ new #[Title('Positions')] class extends Component {
 
         $validated = $this->validate([
             'title' => ['required', 'string', 'max:255'],
-            'itemNumber' => ['nullable', 'string', 'max:50'],
             'salaryGrade' => ['nullable', 'integer', 'between:1,33'],
         ]);
 
         Position::updateOrCreate(['id' => $this->editingId], [
             'title' => $validated['title'],
-            'item_number' => $validated['itemNumber'] ?: null,
             'salary_grade' => $validated['salaryGrade'],
         ]);
 
@@ -203,7 +198,7 @@ new #[Title('Positions')] class extends Component {
 
     public function resetForm(): void
     {
-        $this->reset('editingId', 'title', 'itemNumber', 'salaryGrade');
+        $this->reset('editingId', 'title', 'salaryGrade');
         $this->resetValidation();
     }
 }; ?>
@@ -217,7 +212,7 @@ new #[Title('Positions')] class extends Component {
 
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
         <flux:input size="sm" class="lg:flex-1" wire:model.live.debounce.300ms="search"
-            :placeholder="__('Search title or item number')" />
+            :placeholder="__('Search title')" />
 
         <flux:select size="sm" class="lg:w-48" wire:model.live="filterSalaryGrade">
             <flux:select.option value="">{{ __('All salary grades') }}</flux:select.option>
@@ -230,7 +225,6 @@ new #[Title('Positions')] class extends Component {
     <flux:table :paginate="$this->positions">
         <flux:table.columns>
             <flux:table.column>{{ __('Title') }}</flux:table.column>
-            <flux:table.column>{{ __('Item number') }}</flux:table.column>
             <flux:table.column>{{ __('Salary grade') }}</flux:table.column>
             <flux:table.column>{{ __('Employees') }}</flux:table.column>
             <flux:table.column>{{ __('Technical') }}</flux:table.column>
@@ -243,7 +237,6 @@ new #[Title('Positions')] class extends Component {
                     <flux:table.cell>
                         <div class="w-80 truncate" title="{{ $position->title }}">{{ $position->title }}</div>
                     </flux:table.cell>
-                    <flux:table.cell>{{ $position->item_number ?? '—' }}</flux:table.cell>
                     <flux:table.cell>{{ $position->salary_grade ?? '—' }}</flux:table.cell>
                     <flux:table.cell>{{ $position->employees_count }}</flux:table.cell>
                     <flux:table.cell>{{ $position->competencies_count }}</flux:table.cell>
@@ -277,8 +270,6 @@ new #[Title('Positions')] class extends Component {
 
             <div class="space-y-4">
                 <flux:input wire:model="title" :label="__('Title')" required />
-
-                <flux:input wire:model="itemNumber" :label="__('Item number')" />
 
                 <flux:input wire:model="salaryGrade" :label="__('Salary grade')" type="number" min="1" max="33" />
             </div>

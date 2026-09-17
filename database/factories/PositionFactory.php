@@ -17,7 +17,6 @@ class PositionFactory extends Factory
     {
         return [
             'title' => fake()->jobTitle(),
-            'item_number' => fake()->bothify('ITEM-####'),
             'salary_grade' => fake()->numberBetween(1, 33),
             'is_active' => true,
         ];
