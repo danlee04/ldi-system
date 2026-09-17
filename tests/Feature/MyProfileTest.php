@@ -38,6 +38,7 @@ test('an employee sees their own details', function () {
     $this->get(route('my-profile'))
         ->assertOk()
         ->assertSee('Maria')
+        ->assertSee('ADOF3-14-2019')
         ->assertSee('Human Resource Development Section');
 });
 

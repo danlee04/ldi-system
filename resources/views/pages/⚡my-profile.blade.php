@@ -228,6 +228,14 @@ new #[Title('My profile')] class extends Component {
                      employee can check them, not so they compete with the
                      cards below that actually ask something of them. --}}
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    @if ($this->employee->item_number)
+                        {{-- First: it is the one fact here that names their
+                             seat rather than describes it. --}}
+                        <span class="tabular-nums">{{ $this->employee->item_number }}</span>
+
+                        <span aria-hidden="true">·</span>
+                    @endif
+
                     <span>{{ $this->employee->division?->name ?? __('No division') }}</span>
 
                     <span aria-hidden="true">·</span>
