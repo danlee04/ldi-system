@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Ldna\CountLdnaRatingsDue;
+use App\Actions\Ldna\CountLdnaConfirmationsDue;
 use App\Models\LdnaAssessment;
 use App\Models\LdnaCycle;
 use Illuminate\Support\Collection;
@@ -8,7 +8,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('LDNA ratings')] class extends Component {
+new #[Title('LDNA confirmations')] class extends Component {
     public function mount(): void
     {
         abort_unless(auth()->user()->decidesOnTrainings(), 403);
@@ -28,13 +28,13 @@ new #[Title('LDNA ratings')] class extends Component {
     {
         return $this->cycle === null
             ? collect()
-            : app(CountLdnaRatingsDue::class)->ratees(auth()->user(), $this->cycle);
+            : app(CountLdnaConfirmationsDue::class)->confirmees(auth()->user(), $this->cycle);
     }
 }; ?>
 
 <div class="space-y-6">
     <div>
-        <flux:heading size="xl">{{ __('LDNA ratings') }}</flux:heading>
+        <flux:heading size="xl">{{ __('LDNA confirmations') }}</flux:heading>
 
         @if ($this->cycle)
             <flux:text>
@@ -52,8 +52,8 @@ new #[Title('LDNA ratings')] class extends Component {
             <flux:table.columns>
                 <flux:table.column>{{ __('Name') }}</flux:table.column>
                 <flux:table.column>{{ __('Section') }}</flux:table.column>
-                <flux:table.column>{{ __('Self-rating') }}</flux:table.column>
-                <flux:table.column>{{ __('Your rating') }}</flux:table.column>
+                <flux:table.column>{{ __('Their assessment') }}</flux:table.column>
+                <flux:table.column>{{ __('Your confirmation') }}</flux:table.column>
                 <flux:table.column />
             </flux:table.columns>
 
@@ -62,7 +62,7 @@ new #[Title('LDNA ratings')] class extends Component {
                     <flux:table.row :key="$assessment->id">
                         <flux:table.cell>
                             <div class="w-56 truncate" title="{{ $assessment->employee->full_name }}">
-                                <flux:link :href="route('ldna.rate', $assessment)" wire:navigate>
+                                <flux:link :href="route('ldna.review', $assessment)" wire:navigate>
                                     {{ $assessment->employee->listing_name }}
                                 </flux:link>
                             </div>
@@ -78,20 +78,27 @@ new #[Title('LDNA ratings')] class extends Component {
                             </flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge size="sm" :color="$assessment->isRated() ? 'green' : 'amber'">
-                                {{ $assessment->isRated() ? __('Done') : __('To do') }}
-                            </flux:badge>
+                            {{-- Nothing is owed on somebody who has not answered
+                                 yet, so their row is not marked as waiting. --}}
+                            @if ($assessment->isConfirmed())
+                                <flux:badge size="sm" color="green">{{ __('Confirmed') }}</flux:badge>
+                            @elseif ($assessment->isSelfSubmitted())
+                                <flux:badge size="sm" color="amber">{{ __('To confirm') }}</flux:badge>
+                            @else
+                                <flux:badge size="sm" color="zinc">{{ __('Waiting on them') }}</flux:badge>
+                            @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:button size="sm" :variant="$assessment->isRated() ? 'ghost' : 'primary'"
-                                :href="route('ldna.rate', $assessment)" wire:navigate>
-                                {{ $assessment->isRated() ? __('Review') : __('Rate') }}
+                            <flux:button size="sm"
+                                :variant="$assessment->isSelfSubmitted() && ! $assessment->isConfirmed() ? 'primary' : 'ghost'"
+                                :href="route('ldna.review', $assessment)" wire:navigate>
+                                {{ $assessment->isConfirmed() ? __('Review') : __('Open') }}
                             </flux:button>
                         </flux:table.cell>
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="5">{{ __('Nobody is waiting on your rating.') }}</flux:table.cell>
+                        <flux:table.cell colspan="5">{{ __('Nobody is waiting on you.') }}</flux:table.cell>
                     </flux:table.row>
                 @endforelse
             </flux:table.rows>

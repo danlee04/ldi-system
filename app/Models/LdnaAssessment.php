@@ -17,8 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $employee_id
  * @property int|null $position_id
  * @property CarbonImmutable|null $self_submitted_at
- * @property CarbonImmutable|null $rated_at
- * @property int|null $rated_by
+ * @property CarbonImmutable|null $confirmed_at
+ * @property int|null $confirmed_by
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
@@ -27,7 +27,7 @@ class LdnaAssessment extends Model
     /** @use HasFactory<LdnaAssessmentFactory> */
     use HasFactory;
 
-    protected $fillable = ['ldna_cycle_id', 'employee_id', 'position_id', 'self_submitted_at', 'rated_at', 'rated_by'];
+    protected $fillable = ['ldna_cycle_id', 'employee_id', 'position_id', 'self_submitted_at', 'confirmed_at', 'confirmed_by'];
 
     /**
      * @return array<string, string>
@@ -36,7 +36,7 @@ class LdnaAssessment extends Model
     {
         return [
             'self_submitted_at' => 'datetime',
-            'rated_at' => 'datetime',
+            'confirmed_at' => 'datetime',
         ];
     }
 
@@ -78,9 +78,9 @@ class LdnaAssessment extends Model
     /**
      * @return BelongsTo<User, $this>
      */
-    public function ratedBy(): BelongsTo
+    public function confirmedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'rated_by');
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     public function isSelfSubmitted(): bool
@@ -88,8 +88,12 @@ class LdnaAssessment extends Model
         return $this->self_submitted_at !== null;
     }
 
-    public function isRated(): bool
+    /**
+     * Whether the head has read what they said about themselves and
+     * agreed to it. Only a confirmed assessment counts toward the gap.
+     */
+    public function isConfirmed(): bool
     {
-        return $this->rated_at !== null;
+        return $this->confirmed_at !== null;
     }
 }

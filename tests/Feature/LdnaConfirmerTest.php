@@ -6,7 +6,7 @@ use App\Models\Employee;
 use App\Models\Section;
 use App\Models\User;
 use App\Workflow\ApprovalRouter;
-use App\Workflow\LdnaRater;
+use App\Workflow\LdnaConfirmer;
 
 test('the rater agrees with the approval router', function (Closure $arrange) {
     $employee = $arrange();
@@ -15,7 +15,7 @@ test('the rater agrees with the approval router', function (Closure $arrange) {
     $approver = $router->approverFor(ApprovalLevel::SectionHead, $employee)
         ?? $router->approverFor(ApprovalLevel::DivisionHead, $employee);
 
-    expect((new LdnaRater)->raterIdFor($employee->fresh()))->toBe($approver?->getKey());
+    expect((new LdnaConfirmer)->confirmerIdFor($employee->fresh()))->toBe($approver?->getKey());
 })->with([
     'a section head' => function (): Employee {
         $section = Section::factory()->create();
@@ -58,8 +58,8 @@ test('the rater agrees with the approval router', function (Closure $arrange) {
 test('hr rates whoever has nobody above them', function () {
     $employee = Employee::factory()->create();
 
-    expect((new LdnaRater)->rates(User::factory()->hr()->create(), $employee))->toBeTrue()
-        ->and((new LdnaRater)->rates(User::factory()->employee()->create(), $employee))->toBeFalse();
+    expect((new LdnaConfirmer)->confirms(User::factory()->hr()->create(), $employee))->toBeTrue()
+        ->and((new LdnaConfirmer)->confirms(User::factory()->employee()->create(), $employee))->toBeFalse();
 });
 
 test('hr does not rate somebody a head rates', function () {
@@ -69,13 +69,13 @@ test('hr does not rate somebody a head rates', function () {
     $section->update(['section_head_employee_id' => $head->id]);
     $employee = Employee::factory()->for($section)->create();
 
-    expect((new LdnaRater)->rates($headUser, $employee))->toBeTrue()
-        ->and((new LdnaRater)->rates(User::factory()->hr()->create(), $employee))->toBeFalse();
+    expect((new LdnaConfirmer)->confirms($headUser, $employee))->toBeTrue()
+        ->and((new LdnaConfirmer)->confirms(User::factory()->hr()->create(), $employee))->toBeFalse();
 });
 
 test('nobody rates themselves, hr included', function () {
     $hrUser = User::factory()->hr()->create();
     $hrEmployee = Employee::factory()->create(['user_id' => $hrUser->id]);
 
-    expect((new LdnaRater)->rates($hrUser, $hrEmployee))->toBeFalse();
+    expect((new LdnaConfirmer)->confirms($hrUser, $hrEmployee))->toBeFalse();
 });

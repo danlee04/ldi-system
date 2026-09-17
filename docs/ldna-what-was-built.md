@@ -9,8 +9,9 @@
 ## 1. Ano ito, sa isang talata
 
 Taunang **competency-based na needs assessment**. May listahan ng kakayahan (competency
-dictionary) na may antas na hinihingi sa bawat tao; nagre-rate ang empleyado sa sarili,
-nagre-rate din ang supervisor niya; ang pagitan ng hinihingi at ng natagpuan ay ang **gap**.
+dictionary) na may antas na hinihingi sa bawat tao. **Ang empleyado lang ang nagbibigay
+ng antas sa sarili niya**; binabasa ito ng head niya at kinukumpirma. Ang pagitan ng
+hinihingi at ng ibinigay niya sa sarili ay ang **gap**.
 Ang buod ng mga gap ang batayan ng HR sa pagpaplano ng LDI trainings sa susunod na taon, at
 makikita mismo kung aling gap ang **walang** planong tumutugon.
 
@@ -36,17 +37,17 @@ HR bubuo ng cycle (hal. LDNA 2027, Okt 1–31)
         ▼
 abiso sa lahat ng may account
         │
-        ├──► empleyado: self-rating ──► submit ──► abiso sa magre-rate
-        │
-        └──► supervisor: rating (kahit wala pang self-rating) ──► submit
+        └──► empleyado: self-assessment ──► submit ──► abiso sa magkukumpirma
                     │
-                    ▼
+                    └──► head: babasahin ──► kukumpirmahin
+                                │
+                                ▼
             pagsara ng cycle ──► gap report ──► LDI plan sa susunod na taon
 ```
 
-Sino ang magre-rate: **section head → division head → HR**. Iisa ito sa tuntunin ng approvals,
-kaya ang naga-aprub ng training mo ay siya ring nagre-rate sa iyo. Hindi kailanman ang sarili,
-at hindi ang head na inactive na.
+Sino ang magkukumpirma: **section head → division head → HR**. Iisa ito sa tuntunin ng
+approvals, kaya ang naga-aprub ng training mo ay siya ring kumukumpirma sa iyo. Hindi
+kailanman ang sarili, at hindi ang head na inactive na.
 
 ## 4. Apat na desisyon sa disenyo, at ang dahilan
 
@@ -60,9 +61,10 @@ mawawalan ng saysay ang paghahambing taon-taon.
 Lumalabas lang ang hinihinging antas pagkatapos mag-submit. Kapag nakita muna ng tao ang target,
 doon kakapit ang sagot niya, at mawawalan ng silbi ang self-rating bilang pangalawang tingin.
 
-**3. Makakapag-rate ang supervisor kahit wala pang self-rating.**
-Ang rating ng supervisor lang ang bumubuo ng gap. Hindi dapat maipit ang gap ng isang tao dahil
-hindi siya nag-self-rate.
+**3. Walang nakukumpirma hangga't hindi pa naisusumite.**
+Ang sagot ay sa tao hanggang i-submit niya. Kung makukumpirma ang draft, mai-freeze ang
+sagot na hindi pa naman niya tapos. At ang kumpirmasyon lang ang naglalagay ng gap sa
+report — ang hindi pa nakukumpirma ay hindi pa batayan ng plano.
 
 **4. Hindi binubura ang competency na nagamit na — dine-deactivate.**
 Kung buburahin, kasama nitong mawawala ang mga sagot ng nakaraang taon. Ang Delete ay lumalabas
@@ -76,12 +78,13 @@ lang para sa competency na wala pang rating.
 | `competency_indicators` | paglalarawan ng competency sa bawat antas — apat kada isa |
 | `competency_position` | Technical lang: anong posisyon ang kailangan nito, sa anong antas |
 | `ldna_cycles` | taon (unique), opens_on, closes_on, created_by |
-| `ldna_assessments` | isa kada tao kada cycle: posisyon noong nabuo, self_submitted_at, rated_at, rated_by |
-| `ldna_ratings` | **`required_level` (kopya)**, self_level, supervisor_level, remarks |
+| `ldna_assessments` | isa kada tao kada cycle: posisyon noong nabuo, self_submitted_at, confirmed_at, confirmed_by |
+| `ldna_ratings` | **`required_level` (kopya)**, self_level, remarks (galing sa head) |
 | `competency_ldi_training` | anong competency ang tinutugunan ng isang LDI plan |
 
-`gap = required − rating ng supervisor`, at hindi bumababa sa zero. Walang gap hangga't walang
-rating ang supervisor.
+`gap = required − antas na ibinigay niya sa sarili`, at hindi bumababa sa zero. Walang gap
+hangga't hindi pa siya sumasagot, at hindi ito pumapasok sa report hangga't hindi pa
+nakukumpirma ng head.
 
 ## 6. Saan nakatira ang code
 
@@ -89,17 +92,17 @@ rating ang supervisor.
 |---|---|
 | Uri at antas | `app/Enums/CompetencyType.php`, `ProficiencyLevel.php` |
 | Models | `app/Models/Competency.php`, `CompetencyIndicator.php`, `LdnaCycle.php`, `LdnaAssessment.php`, `LdnaRating.php` |
-| Sino ang magre-rate | `app/Workflow/LdnaRater.php` |
+| Sino ang magkukumpirma | `app/Workflow/LdnaConfirmer.php` |
 | Pahintulot | `app/Policies/LdnaAssessmentPolicy.php` |
-| Tuntunin ng negosyo | `app/Actions/Ldna/` — `BuildCompetencyProfile`, `EnrolInLdnaCycle`, `OpenLdnaCycle`, `SyncLdnaCycle`, `RefreshLdnaAssessment`, `SaveSelfRating`, `SaveSupervisorRating`, `ValidateRatingInput`, `CountLdnaRatingsDue` |
+| Tuntunin ng negosyo | `app/Actions/Ldna/` — `BuildCompetencyProfile`, `EnrolInLdnaCycle`, `OpenLdnaCycle`, `SyncLdnaCycle`, `RefreshLdnaAssessment`, `SaveSelfRating`, `ConfirmLdnaAssessment`, `ValidateRatingInput`, `CountLdnaConfirmationsDue`, `SaveCompetency`, `DeleteCompetency`, `SetPositionCompetencies` |
 | Report | `app/Actions/Reports/LdnaGapReport.php` |
-| Mga screen | `resources/views/pages/ldna/` (`index`, `show`, `mine`, `ratings`, `rate`), `pages/setup/⚡competencies.blade.php`, at ang modal sa `pages/setup/⚡positions.blade.php` |
+| Mga screen | `resources/views/pages/ldna/` (`index`, `show`, `mine`, `confirmations`, `review`), `pages/setup/⚡competencies.blade.php`, at ang modal sa `pages/setup/⚡positions.blade.php` |
 | Pinagsasaluhang piraso | `resources/views/components/ldna/level-picker.blade.php` |
 | Abiso | `app/Notifications/LdnaCycleOpened.php`, `SelfRatingSubmitted.php` |
 | Tuntuning naitala | `.ai/rules/ldna.md` |
 
-Mga route: `/ldna`, `/ldna/mine`, `/ldna/ratings`, `/ldna/ratings/{assessment}`, `/ldna/{cycle}`,
-`/setup/competencies`.
+Mga route: `/ldna`, `/ldna/mine`, `/ldna/confirmations`, `/ldna/confirmations/{assessment}`,
+`/ldna/{cycle}`, `/setup/competencies`.
 
 ## 7. Testing
 
@@ -110,12 +113,12 @@ skip bago pa ang LDNA). Malinis ang Pint, 0 error ang PHPStan.
 |---|---|---|
 | `CompetencySetupTest` | 8 | Pag-encode ng dictionary, apat na paglalarawan, deactivate |
 | `PositionCompetenciesTest` | 5 | Technical kada posisyon; hindi nagagalaw ang deactivated |
-| `LdnaRaterTest` | 4 (may dataset) | **Magkatugma ang `LdnaRater` at `ApprovalRouter`** sa limang sangay |
+| `LdnaConfirmerTest` | 4 (may dataset) | **Magkatugma ang `LdnaConfirmer` at `ApprovalRouter`** sa limang sangay |
 | `LdnaCycleTest` | 9 | Pagbuo, kung sino ang binibilang, **hindi gumagalaw ang kopya**, abiso, bantay sa pagbura |
 | `LdnaChangesTest` | 5 | Sync at Refresh, at ang pagtanggi sa saradong cycle |
 | `LdnaCycleScreensTest` | 14 | Mga screen ng HR, mga babala, petsa ng pagsasara |
 | `SelfRatingTest` | 14 | Nakatagong target, save vs submit, abiso nang minsan lang |
-| `SupervisorRatingTest` | 11 | Sino ang pwede, palit ng head, saradong cycle, badge |
+| `ConfirmAssessmentTest` | 13 | Sino ang pwede, palit ng head, saradong cycle, badge, at na **hindi nakukumpirma ang hindi pa naisusumite** |
 | `LdiCompetencyTagTest` | 5 | Tag sa plan; hindi nalalaglag ang deactivated |
 | `LdnaGapReportTest` | 8 | Bilang, karaniwan, filter, ayos, "No plan" |
 

@@ -52,7 +52,7 @@ test('the screen says why a cycle cannot be set up without competencies', functi
     expect(LdnaCycle::count())->toBe(0);
 });
 
-test('progress shows who rates each person', function () {
+test('progress shows who confirms each person', function () {
     $this->actingAs(User::factory()->hr()->create());
 
     $section = Section::factory()->create();
@@ -62,14 +62,14 @@ test('progress shows who rates each person', function () {
 
     $cycle = openLdna();
 
-    $raters = Livewire::test('pages::ldna.show', ['cycle' => $cycle])->instance()->raters;
+    $confirmers = Livewire::test('pages::ldna.show', ['cycle' => $cycle])->instance()->confirmers;
 
-    expect($raters[assessmentOf($staff, $cycle)->id])->toBe($head->listing_name)
-        // The head has nobody above them in this division, so HR rates them.
-        ->and($raters[assessmentOf($head, $cycle)->id])->toBe('HR');
+    expect($confirmers[assessmentOf($staff, $cycle)->id])->toBe($head->listing_name)
+        // The head has nobody above them in this division, so HR does.
+        ->and($confirmers[assessmentOf($head, $cycle)->id])->toBe('HR');
 });
 
-test('the show screen shares one LdnaRater between raters and hrRates', function () {
+test('the show screen shares one LdnaConfirmer between confirmers and hrConfirms', function () {
     $this->actingAs(User::factory()->hr()->create());
 
     $section = Section::factory()->create();
@@ -89,8 +89,8 @@ test('the show screen shares one LdnaRater between raters and hrRates', function
 
     Livewire::test('pages::ldna.show', ['cycle' => $cycle]);
 
-    // One LdnaRater, shared by raters() and hrRates(), so the active-employee
-    // set it memoises is only ever queried once per render.
+    // One LdnaConfirmer, shared by confirmers() and hrConfirms(), so the
+    // active-employee set it memoises is only ever queried once per render.
     expect($activeEmployeeQueries)->toBe(1);
 });
 

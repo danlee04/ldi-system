@@ -29,8 +29,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('ldna', 'pages::ldna.index')->name('ldna.index');
     Route::livewire('ldna/mine', 'pages::ldna.mine')->name('ldna.mine');
-    Route::livewire('ldna/ratings', 'pages::ldna.ratings')->name('ldna.ratings');
-    Route::livewire('ldna/ratings/{assessment}', 'pages::ldna.rate')->name('ldna.rate');
+    Route::livewire('ldna/confirmations', 'pages::ldna.confirmations')->name('ldna.confirmations');
+    Route::livewire('ldna/confirmations/{assessment}', 'pages::ldna.review')->name('ldna.review');
     // Every other ldna/... page goes above this line: ldna/{cycle} would
     // otherwise match it first.
     Route::livewire('ldna/{cycle}', 'pages::ldna.show')->name('ldna.show');

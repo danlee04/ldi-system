@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Ldna\SaveSupervisorRating;
+use App\Actions\Ldna\ConfirmLdnaAssessment;
 use App\Enums\CompetencyType;
 use App\Models\LdnaAssessment;
 use App\Models\LdnaRating;
@@ -10,22 +10,28 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Rate')] class extends Component {
+/**
+ * What somebody said about themselves, for the head who confirms it.
+ *
+ * The levels are theirs alone and are read-only here. All the head does
+ * is read them, note anything worth noting, and agree — which is what
+ * lets the assessment count toward the cycle's gaps.
+ */
+new #[Title('Review')] class extends Component {
     public LdnaAssessment $assessment;
-
-    /** @var array<int, string> the level found, keyed by rating id; '' for none yet */
-    public array $levels = [];
 
     /** @var array<int, string> keyed by rating id */
     public array $remarks = [];
 
     public function mount(LdnaAssessment $assessment): void
     {
-        $this->authorize('viewAsRater', $assessment);
+        $this->authorize('viewAsConfirmer', $assessment);
 
         $this->assessment = $assessment->load(['employee.section', 'employee.position', 'cycle']);
 
-        $this->fillForm();
+        $this->remarks = $assessment->ratings()->get()
+            ->mapWithKeys(fn (LdnaRating $rating): array => [$rating->id => (string) $rating->remarks])
+            ->all();
     }
 
     /**
@@ -43,41 +49,45 @@ new #[Title('Rate')] class extends Component {
             ->groupBy(fn (LdnaRating $rating): string => $rating->competency->type->value);
     }
 
-    public function save(SaveSupervisorRating $save): void
+    /**
+     * How many of the competencies they put themselves short on.
+     */
+    #[Computed]
+    public function gaps(): int
     {
-        $save->handle(auth()->user(), $this->assessment, $this->levels, $this->remarks);
-
-        Flux::toast(variant: 'success', text: __('Saved.'));
+        return $this->assessment->ratings()->get()
+            ->filter(fn (LdnaRating $rating): bool => $rating->gap() > 0)
+            ->count();
     }
 
-    public function submit(SaveSupervisorRating $save): void
+    public function save(ConfirmLdnaAssessment $confirm): void
     {
-        $save->handle(auth()->user(), $this->assessment, $this->levels, $this->remarks, submit: true);
+        $confirm->handle(auth()->user(), $this->assessment, $this->remarks);
 
-        Flux::modal('ldna-rate-submit')->close();
-
-        Flux::toast(variant: 'success', text: __('Rating submitted.'));
-
-        $this->redirectRoute('ldna.ratings', navigate: true);
+        Flux::toast(variant: 'success', text: __('Remarks saved.'));
     }
 
-    private function fillForm(): void
+    public function confirm(ConfirmLdnaAssessment $confirm): void
     {
-        $ratings = $this->assessment->ratings()->get();
+        $confirm->handle(auth()->user(), $this->assessment, $this->remarks, confirm: true);
 
-        $this->levels = $ratings->mapWithKeys(fn (LdnaRating $rating): array => [$rating->id => (string) $rating->supervisor_level?->value])->all();
-        $this->remarks = $ratings->mapWithKeys(fn (LdnaRating $rating): array => [$rating->id => (string) $rating->remarks])->all();
+        Flux::modal('ldna-confirm')->close();
+
+        Flux::toast(variant: 'success', text: __('Assessment confirmed.'));
+
+        $this->redirectRoute('ldna.confirmations', navigate: true);
     }
 }; ?>
 
 <div class="space-y-6">
     @php
-        $canRate = auth()->user()->can('rate', $assessment);
-        $done = collect($levels)->filter()->count();
+        $canConfirm = auth()->user()->can('confirm', $assessment);
     @endphp
 
     <div>
-        <flux:link :href="route('ldna.ratings')" wire:navigate class="text-sm">{{ __('LDNA ratings') }}</flux:link>
+        <flux:link :href="route('ldna.confirmations')" wire:navigate class="text-sm">
+            {{ __('LDNA confirmations') }}
+        </flux:link>
         <flux:heading size="xl">{{ $assessment->employee->listing_name }}</flux:heading>
         <flux:text>
             {{ $assessment->employee->position?->title ?? '—' }} ·
@@ -86,16 +96,16 @@ new #[Title('Rate')] class extends Component {
         </flux:text>
     </div>
 
-    @if ($assessment->isRated())
+    @if ($assessment->isConfirmed())
         <flux:callout icon="check-circle" variant="success">
-            {{ __('Submitted on :date. It can still be changed until :close.', [
-                'date' => $assessment->rated_at?->format('M j, Y'),
+            {{ __('Confirmed on :date. Your remarks can still be changed until :close.', [
+                'date' => $assessment->confirmed_at?->format('M j, Y'),
                 'close' => $assessment->cycle->closes_on->format('M j, Y'),
             ]) }}
         </flux:callout>
     @elseif (! $assessment->isSelfSubmitted())
         <flux:callout icon="information-circle" variant="secondary">
-            {{ __('They have not rated themselves yet. You can rate them anyway; only your rating counts toward the gap.') }}
+            {{ __('They have not submitted their assessment yet. There is nothing to confirm until they do.') }}
         </flux:callout>
     @endif
 
@@ -123,55 +133,70 @@ new #[Title('Rate')] class extends Component {
                                 {{ __('Required: :level', ['level' => $rating->required_level->label()]) }}
                             </flux:badge>
 
-                            {{-- A draft self-rating is theirs until they submit it. --}}
+                            {{-- A draft is theirs until they submit it, so
+                                 nothing of it is shown before then. --}}
                             @if ($assessment->isSelfSubmitted() && $rating->self_level !== null)
                                 <flux:badge size="sm" color="blue">
-                                    {{ __('Self: :level', ['level' => $rating->self_level->label()]) }}
+                                    {{ __('They said: :level', ['level' => $rating->self_level->label()]) }}
                                 </flux:badge>
+
+                                @if ($rating->gap() > 0)
+                                    <flux:badge size="sm" color="amber">
+                                        {{ __(':count short', ['count' => $rating->gap()]) }}
+                                    </flux:badge>
+                                @else
+                                    <flux:badge size="sm" color="green">{{ __('Meets it') }}</flux:badge>
+                                @endif
                             @endif
                         </div>
                     </div>
 
-                    <x-ldna.level-picker :competency="$rating->competency" :disabled="! $canRate"
-                        wire:model.live="levels.{{ $rating->id }}" />
-
                     <flux:textarea wire:model="remarks.{{ $rating->id }}" :label="__('Remarks')" rows="2"
-                        :disabled="! $canRate" />
+                        :disabled="! $canConfirm" />
                 </flux:card>
             @endforeach
         </section>
     @endforeach
 
-    @if ($canRate)
+    @if ($canConfirm)
         <div class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg dark:border-white/10 dark:bg-zinc-800">
             <flux:text class="tabular-nums">
-                {{ __(':done of :total rated', ['done' => $done, 'total' => count($levels)]) }}
+                {{ __(':count short of the requirement', ['count' => $this->gaps]) }}
             </flux:text>
 
-            <flux:error name="levels" />
             <flux:error name="remarks" />
+            <flux:error name="confirm" />
 
             <flux:spacer />
 
-            <flux:button wire:click="save">{{ __('Save') }}</flux:button>
+            <flux:button wire:click="save">{{ __('Save remarks') }}</flux:button>
 
-            <flux:modal.trigger name="ldna-rate-submit">
-                <flux:button variant="primary">{{ __('Submit') }}</flux:button>
-            </flux:modal.trigger>
+            @if (! $assessment->isConfirmed())
+                <flux:modal.trigger name="ldna-confirm">
+                    <flux:button variant="primary" :disabled="! $assessment->isSelfSubmitted()">
+                        {{ __('Confirm') }}
+                    </flux:button>
+                </flux:modal.trigger>
+            @endif
         </div>
 
-        <flux:modal name="ldna-rate-submit" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
+        <flux:modal name="ldna-confirm" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
             <div class="space-y-6">
                 <flux:heading size="lg">
-                    {{ __('Submit your rating of :name?', ['name' => $assessment->employee->listing_name]) }}
+                    {{ __('Confirm the assessment of :name?', ['name' => $assessment->employee->listing_name]) }}
                 </flux:heading>
 
                 <div class="grid gap-4 md:grid-cols-2">
-                    <flux:text>{{ __(':done of :total competencies rated.', ['done' => $done, 'total' => count($levels)]) }}</flux:text>
-                    <flux:text>{{ __('Your levels decide their gaps. They see them once the cycle closes.') }}</flux:text>
+                    <flux:text>
+                        {{ __('They put themselves short on :count of :total competencies.', [
+                            'count' => $this->gaps,
+                            'total' => count($remarks),
+                        ]) }}
+                    </flux:text>
+                    <flux:text>{{ __('Confirming is what puts their gaps into the cycle\'s report. They see them once the cycle closes.') }}</flux:text>
                 </div>
 
-                <flux:error name="levels" />
+                <flux:error name="confirm" />
 
                 <div class="flex gap-2">
                     <flux:spacer />
@@ -180,7 +205,7 @@ new #[Title('Rate')] class extends Component {
                         <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
 
-                    <flux:button variant="primary" wire:click="submit">{{ __('Submit') }}</flux:button>
+                    <flux:button variant="primary" wire:click="confirm">{{ __('Confirm') }}</flux:button>
                 </div>
             </div>
         </flux:modal>

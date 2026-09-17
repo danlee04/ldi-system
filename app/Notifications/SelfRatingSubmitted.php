@@ -6,7 +6,8 @@ use App\Models\LdnaAssessment;
 use Illuminate\Notifications\Notification;
 
 /**
- * Told to whoever rates somebody, once that person has rated themselves.
+ * Told to whoever confirms somebody's assessment, once that person has
+ * submitted it.
  */
 class SelfRatingSubmitted extends Notification
 {
@@ -30,7 +31,7 @@ class SelfRatingSubmitted extends Notification
             'title' => __('LDNA :year', ['year' => $this->assessment->cycle->year]),
             'employee' => $this->assessment->employee->listing_name,
             'kind' => 'ldna_self_rated',
-            'route' => 'ldna.ratings',
+            'route' => 'ldna.confirmations',
         ];
     }
 }

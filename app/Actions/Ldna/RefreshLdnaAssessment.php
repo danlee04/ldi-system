@@ -49,7 +49,7 @@ class RefreshLdnaAssessment
 
             $assessment->update([
                 'position_id' => $employee->position_id,
-                ...($added ? ['self_submitted_at' => null, 'rated_at' => null, 'rated_by' => null] : []),
+                ...($added ? ['self_submitted_at' => null, 'confirmed_at' => null, 'confirmed_by' => null] : []),
             ]);
         });
     }

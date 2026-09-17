@@ -195,16 +195,10 @@ new #[Title('My LDNA')] class extends Component {
                                     </flux:badge>
                                 @endif
 
-                                @if ($showsResult && $rating->supervisor_level !== null)
-                                    <flux:badge size="sm" color="blue">
-                                        {{ __('Supervisor: :level', ['level' => $rating->supervisor_level->label()]) }}
+                                @if ($showsResult && $rating->gap() > 0)
+                                    <flux:badge size="sm" color="amber">
+                                        {{ trans_choice('{1} 1 level short|[2,*] :count levels short', $rating->gap(), ['count' => $rating->gap()]) }}
                                     </flux:badge>
-
-                                    @if ($rating->gap() > 0)
-                                        <flux:badge size="sm" color="amber">
-                                            {{ trans_choice('{1} 1 level short|[2,*] :count levels short', $rating->gap(), ['count' => $rating->gap()]) }}
-                                        </flux:badge>
-                                    @endif
                                 @endif
                             </div>
                         </div>

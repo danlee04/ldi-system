@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\DB;
  * Where a cycle found people short, competency by competency.
  *
  * Read from the levels copied into the cycle, never from the framework as
- * it stands, so a year's gaps stay what they were. Only a supervisor's
- * rating counts, and only people still working here: the report is for
- * planning, and a plan is for the people who will attend it.
+ * it stands, so a year's gaps stay what they were. Only an assessment the
+ * head has confirmed counts, and only people still working here: the
+ * report is for planning, and a plan is for the people who will attend it.
  */
 class LdnaGapReport
 {
@@ -26,9 +26,10 @@ class LdnaGapReport
     public function handle(LdnaCycle $cycle, ?int $divisionId = null, ?int $sectionId = null): array
     {
         $ratings = LdnaRating::query()
-            ->whereNotNull('supervisor_level')
+            ->whereNotNull('self_level')
             ->whereHas('assessment', fn (Builder $assessment) => $assessment
                 ->where('ldna_cycle_id', $cycle->getKey())
+                ->whereNotNull('confirmed_at')
                 ->whereHas('employee', fn (Builder $employee) => $employee
                     ->where('is_active', true)
                     ->when($divisionId !== null, fn (Builder $query) => $query->where('division_id', $divisionId))
@@ -72,7 +73,7 @@ class LdnaGapReport
                     'employee' => $rating->assessment->employee->listing_name,
                     'section' => $rating->assessment->employee->section->name ?? '—',
                     'required' => $rating->required_level,
-                    'rating' => $rating->supervisor_level,
+                    'rating' => $rating->self_level,
                     'gap' => (int) $rating->gap(),
                 ])
                 ->sortByDesc('gap')

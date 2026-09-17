@@ -10,7 +10,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/css/** | .ai/rules/css.md |
 | app/Enums/** | .ai/rules/enums.md |
 | ** | .ai/rules/general.md |
-| app/Actions/Ldna/**, app/Actions/Reports/LdnaGapReport.php, app/Models/Ldna*.php, app/Workflow/LdnaRater.php, resources/views/pages/ldna/** | .ai/rules/ldna.md |
+| app/Actions/Ldna/**, app/Actions/Reports/LdnaGapReport.php, app/Models/Ldna*.php, app/Workflow/LdnaConfirmer.php, resources/views/pages/ldna/** | .ai/rules/ldna.md |
 | resources/views/pages/** | .ai/rules/pages.md |
 | app/Actions/Pds/** | .ai/rules/pds.md |
 | database/seeders/** | .ai/rules/seeders.md |

@@ -12,11 +12,15 @@ use App\Models\User;
 use Livewire\Livewire;
 
 /**
- * Sets every supervisor level on somebody's assessment at once.
+ * Answers somebody's whole assessment at that level and has it
+ * confirmed, which is what puts it into the report.
  */
-function supervisorRates(Employee $employee, LdnaCycle $cycle, ProficiencyLevel $level): void
+function assessedAndConfirmed(Employee $employee, LdnaCycle $cycle, ProficiencyLevel $level): void
 {
-    assessmentOf($employee, $cycle)->ratings()->update(['supervisor_level' => $level->value]);
+    $assessment = assessmentOf($employee, $cycle);
+
+    $assessment->ratings()->update(['self_level' => $level->value]);
+    $assessment->update(['self_submitted_at' => now(), 'confirmed_at' => now()]);
 }
 
 /**
@@ -33,9 +37,9 @@ test('it counts who was rated, who is short, and by how much on average', functi
     [$short, $shorter, $fine] = Employee::factory()->count(3)->create()->all();
     $cycle = openLdna();
 
-    supervisorRates($short, $cycle, ProficiencyLevel::Basic);        // one short
-    supervisorRates($shorter, $cycle, ProficiencyLevel::Basic);      // one short
-    supervisorRates($fine, $cycle, ProficiencyLevel::Superior);     // none
+    assessedAndConfirmed($short, $cycle, ProficiencyLevel::Basic);        // one short
+    assessedAndConfirmed($shorter, $cycle, ProficiencyLevel::Basic);      // one short
+    assessedAndConfirmed($fine, $cycle, ProficiencyLevel::Superior);     // none
 
     $row = serviceExcellenceRow($cycle);
 
@@ -49,7 +53,7 @@ test('it counts who was rated, who is short, and by how much on average', functi
 test('a change to the framework after the cycle does not move its gaps', function () {
     $employee = Employee::factory()->create();
     $cycle = openLdna();
-    supervisorRates($employee, $cycle, ProficiencyLevel::Intermediate);
+    assessedAndConfirmed($employee, $cycle, ProficiencyLevel::Intermediate);
 
     Competency::where('name', 'Delivering service excellence')->first()
         ->update(['required_level' => ProficiencyLevel::Superior]);
@@ -61,8 +65,8 @@ test('unrated competencies and people who have left are not counted', function (
     [$rated, $unrated, $leaver] = Employee::factory()->count(3)->create()->all();
     $cycle = openLdna();
 
-    supervisorRates($rated, $cycle, ProficiencyLevel::Basic);
-    supervisorRates($leaver, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($rated, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($leaver, $cycle, ProficiencyLevel::Basic);
     $leaver->update(['is_active' => false]);
 
     expect(serviceExcellenceRow($cycle)['rated'])->toBe(1);
@@ -71,7 +75,7 @@ test('unrated competencies and people who have left are not counted', function (
 test('it counts only plans in the cycle year that carry the competency', function () {
     $employee = Employee::factory()->create();
     $cycle = openLdna();
-    supervisorRates($employee, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($employee, $cycle, ProficiencyLevel::Basic);
     $competency = Competency::where('name', 'Delivering service excellence')->first();
 
     $inYear = LdiTraining::factory()->create(['date_start' => "{$cycle->year}-04-01", 'date_end' => "{$cycle->year}-04-02"]);
@@ -87,7 +91,7 @@ test('it counts only plans in the cycle year that carry the competency', functio
 test('a plan tagged only with a deactivated competency does not count', function () {
     $employee = Employee::factory()->create();
     $cycle = openLdna();
-    supervisorRates($employee, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($employee, $cycle, ProficiencyLevel::Basic);
     $competency = Competency::where('name', 'Delivering service excellence')->first();
     $competency->update(['is_active' => false]);
 
@@ -103,8 +107,8 @@ test('it narrows to a division', function () {
     $outside = Employee::factory()->create();
     $cycle = openLdna();
 
-    supervisorRates($inside, $cycle, ProficiencyLevel::Basic);
-    supervisorRates($outside, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($inside, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($outside, $cycle, ProficiencyLevel::Basic);
 
     expect(serviceExcellenceRow($cycle, $division->id)['rated'])->toBe(1);
 });
@@ -115,8 +119,8 @@ test('the competencies most people are short in come first', function () {
     $cycle = openLdna();
 
     // Advanced clears Intermediate but not Superior.
-    supervisorRates($first, $cycle, ProficiencyLevel::Advanced);
-    supervisorRates($second, $cycle, ProficiencyLevel::Advanced);
+    assessedAndConfirmed($first, $cycle, ProficiencyLevel::Advanced);
+    assessedAndConfirmed($second, $cycle, ProficiencyLevel::Advanced);
 
     expect(collect(app(LdnaGapReport::class)->handle($cycle))->pluck('competency')->all())
         ->toBe(['Exemplifying integrity', 'Delivering service excellence']);
@@ -126,7 +130,7 @@ test('the gaps tab points out a gap no plan answers', function () {
     $this->actingAs(User::factory()->hr()->create());
     $employee = Employee::factory()->create();
     $cycle = openLdna();
-    supervisorRates($employee, $cycle, ProficiencyLevel::Basic);
+    assessedAndConfirmed($employee, $cycle, ProficiencyLevel::Basic);
 
     Livewire::test('pages::ldna.show', ['cycle' => $cycle])
         ->set('tab', 'gaps')

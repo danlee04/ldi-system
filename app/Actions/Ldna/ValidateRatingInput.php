@@ -37,16 +37,15 @@ class ValidateRatingInput
      *
      * @param  Collection<int, LdnaRating>  $ratings  keyed by id
      * @param  array<int, string|null>  $levels  keyed by rating id
-     * @param  'self_level'|'supervisor_level'  $column
      */
-    public function completes(Collection $ratings, array $levels, string $column): bool
+    public function completes(Collection $ratings, array $levels): bool
     {
-        return $ratings->every(function (LdnaRating $rating, int $id) use ($levels, $column): bool {
+        return $ratings->every(function (LdnaRating $rating, int $id) use ($levels): bool {
             if (array_key_exists($id, $levels)) {
                 return filled($levels[$id]);
             }
 
-            return ($column === 'self_level' ? $rating->self_level : $rating->supervisor_level) !== null;
+            return $rating->self_level !== null;
         });
     }
 

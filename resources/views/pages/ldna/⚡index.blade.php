@@ -32,7 +32,7 @@ new #[Title('LDNA')] class extends Component {
         return LdnaCycle::query()
             ->withCount([
                 'assessments',
-                'assessments as rated_count' => fn (Builder $query) => $query->whereNotNull('rated_at'),
+                'assessments as confirmed_count' => fn (Builder $query) => $query->whereNotNull('confirmed_at'),
             ])
             ->orderByDesc('year')
             ->get();
@@ -92,7 +92,7 @@ new #[Title('LDNA')] class extends Component {
             <flux:table.column>{{ __('Year') }}</flux:table.column>
             <flux:table.column>{{ __('Window') }}</flux:table.column>
             <flux:table.column>{{ __('Status') }}</flux:table.column>
-            <flux:table.column>{{ __('Rated by a supervisor') }}</flux:table.column>
+            <flux:table.column>{{ __('Confirmed by a head') }}</flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
@@ -112,7 +112,7 @@ new #[Title('LDNA')] class extends Component {
                         </flux:badge>
                     </flux:table.cell>
                     <flux:table.cell class="tabular-nums">
-                        {{ __(':rated of :people', ['rated' => $cycle->rated_count, 'people' => $cycle->assessments_count]) }}
+                        {{ __(':confirmed of :people', ['confirmed' => $cycle->confirmed_count, 'people' => $cycle->assessments_count]) }}
                     </flux:table.cell>
                 </flux:table.row>
             @empty

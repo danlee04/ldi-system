@@ -7,7 +7,7 @@ use App\Models\Employee;
 use App\Models\LdnaAssessment;
 use App\Models\User;
 use App\Notifications\SelfRatingSubmitted;
-use App\Workflow\LdnaRater;
+use App\Workflow\LdnaConfirmer;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -18,14 +18,14 @@ class SaveSelfRating
 {
     public function __construct(
         private readonly ValidateRatingInput $input,
-        private readonly LdnaRater $rater,
+        private readonly LdnaConfirmer $confirmer,
     ) {}
 
     /**
      * Records the levels people give themselves.
      *
      * Saving half done is allowed. Submitting asks for every competency
-     * and tells whoever rates them — the first time only. Once submitted
+     * and tells whoever confirms it — the first time only. Once submitted
      * it stays whole: a level can be changed until the cycle closes, but
      * not cleared.
      *
@@ -42,7 +42,7 @@ class SaveSelfRating
 
         $this->input->handle($ratings, $levels);
 
-        if (($submit || $assessment->isSelfSubmitted()) && ! $this->input->completes($ratings, $levels, 'self_level')) {
+        if (($submit || $assessment->isSelfSubmitted()) && ! $this->input->completes($ratings, $levels)) {
             throw ValidationException::withMessages([
                 'levels' => __('Give yourself a level on every competency before you submit.'),
             ]);
@@ -61,20 +61,21 @@ class SaveSelfRating
         });
 
         if ($firstSubmission) {
-            $this->tellRater($assessment);
+            $this->tellConfirmer($assessment);
         }
     }
 
-    private function tellRater(LdnaAssessment $assessment): void
+    private function tellConfirmer(LdnaAssessment $assessment): void
     {
-        $raterId = $this->rater->raterIdFor($assessment->employee);
-        $raterUserId = $raterId === null ? null : Employee::query()->whereKey($raterId)->value('user_id');
+        $confirmerId = $this->confirmer->confirmerIdFor($assessment->employee);
+        $confirmerUserId = $confirmerId === null ? null : Employee::query()->whereKey($confirmerId)->value('user_id');
 
-        // Nobody rates them, or the one who does has no account to tell:
-        // either way the submission must not go untold, so HR hears it.
-        $recipients = $raterUserId === null
+        // Nobody confirms them, or the one who does has no account to
+        // tell: either way the submission must not go untold, so HR
+        // hears it.
+        $recipients = $confirmerUserId === null
             ? User::query()->where('role', UserRole::Hr)->where('is_active', true)->get()
-            : User::query()->where('is_active', true)->whereKey($raterUserId)->get();
+            : User::query()->where('is_active', true)->whereKey($confirmerUserId)->get();
 
         Notification::send($recipients, new SelfRatingSubmitted($assessment));
     }

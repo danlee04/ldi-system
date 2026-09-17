@@ -6,30 +6,30 @@ use App\Models\Employee;
 use App\Models\User;
 
 /**
- * Who rates a person in the needs assessment.
+ * Who confirms a person's needs assessment.
  *
  * The rule is ApprovalRouter's for a training record — the section head,
  * else the division head, never the person themselves, never a head who
- * has left — so whoever approves somebody's training rates them too.
- * When nobody is left, HR does.
+ * has left — so whoever approves somebody's training confirms what they
+ * said about themselves too. When nobody is left, HR does.
  *
  * It reads the designation off the section and division already loaded
  * rather than asking the router, which looks each head up again: one query
- * per person, and the sidebar badge counts everybody HR rates on every
- * page. LdnaRaterTest holds the two to the same answer.
+ * per person, and the sidebar badge counts everybody HR confirms on every
+ * page. LdnaConfirmerTest holds the two to the same answer.
  *
  * Memoises the active-employee set per instance, so it must never be bound
  * as a singleton.
  */
-final class LdnaRater
+final class LdnaConfirmer
 {
     /** @var array<int, true>|null */
     private ?array $activeEmployeeIds = null;
 
     /**
-     * The id of the employee who rates this one, or null when HR does.
+     * The id of the employee who confirms this one, or null when HR does.
      */
-    public function raterIdFor(Employee $employee): ?int
+    public function confirmerIdFor(Employee $employee): ?int
     {
         $heads = [
             $employee->section?->section_head_employee_id,
@@ -52,20 +52,20 @@ final class LdnaRater
     }
 
     /**
-     * Whether this account is the one that rates this employee.
+     * Whether this account is the one that confirms this employee.
      */
-    public function rates(User $user, Employee $employee): bool
+    public function confirms(User $user, Employee $employee): bool
     {
         $mine = $user->employee?->getKey();
 
-        // Nobody rates themselves, whatever else they are.
+        // Nobody confirms their own, whatever else they are.
         if ($mine !== null && $mine === $employee->getKey()) {
             return false;
         }
 
-        $raterId = $this->raterIdFor($employee);
+        $confirmerId = $this->confirmerIdFor($employee);
 
-        return $raterId === null ? $user->isAdminOrHr() : $raterId === $mine;
+        return $confirmerId === null ? $user->isAdminOrHr() : $confirmerId === $mine;
     }
 
     private function isActive(int $employeeId): bool

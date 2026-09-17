@@ -16,15 +16,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $competency_id
  * @property ProficiencyLevel $required_level copied in when the assessment was made
  * @property ProficiencyLevel|null $self_level
- * @property ProficiencyLevel|null $supervisor_level
- * @property string|null $remarks
+ * @property string|null $remarks what the head noted when they confirmed it
  */
 class LdnaRating extends Model
 {
     /** @use HasFactory<LdnaRatingFactory> */
     use HasFactory;
 
-    protected $fillable = ['ldna_assessment_id', 'competency_id', 'required_level', 'self_level', 'supervisor_level', 'remarks'];
+    protected $fillable = ['ldna_assessment_id', 'competency_id', 'required_level', 'self_level', 'remarks'];
 
     /**
      * @return array<string, string>
@@ -34,7 +33,6 @@ class LdnaRating extends Model
         return [
             'required_level' => ProficiencyLevel::class,
             'self_level' => ProficiencyLevel::class,
-            'supervisor_level' => ProficiencyLevel::class,
         ];
     }
 
@@ -55,17 +53,17 @@ class LdnaRating extends Model
     }
 
     /**
-     * How many levels short of the requirement the supervisor found them.
+     * How many levels short of the requirement they put themselves.
      *
-     * Null until the supervisor has rated: the self-rating never makes a
-     * gap. Never below zero — being above the requirement is not a need.
+     * Null until they have answered. Never below zero — being above the
+     * requirement is not a need.
      */
     public function gap(): ?int
     {
-        if ($this->supervisor_level === null) {
+        if ($this->self_level === null) {
             return null;
         }
 
-        return max(0, $this->required_level->rank() - $this->supervisor_level->rank());
+        return max(0, $this->required_level->rank() - $this->self_level->rank());
     }
 }

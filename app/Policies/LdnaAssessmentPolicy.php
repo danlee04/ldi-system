@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use App\Models\LdnaAssessment;
 use App\Models\User;
-use App\Workflow\LdnaRater;
+use App\Workflow\LdnaConfirmer;
 
 /**
  * Who may do what with somebody's needs assessment.
@@ -14,22 +14,22 @@ use App\Workflow\LdnaRater;
  */
 class LdnaAssessmentPolicy
 {
-    public function __construct(private readonly LdnaRater $rater) {}
+    public function __construct(private readonly LdnaConfirmer $confirmer) {}
 
     /**
-     * The person themselves, whoever rates them, and HR.
+     * The person themselves, whoever confirms it, and HR.
      */
     public function view(User $user, LdnaAssessment $assessment): bool
     {
-        return $this->isOwner($user, $assessment) || $this->viewAsRater($user, $assessment);
+        return $this->isOwner($user, $assessment) || $this->viewAsConfirmer($user, $assessment);
     }
 
     /**
-     * The rating page: whoever rates them, and HR, who oversees every one.
+     * The review page: whoever confirms it, and HR, who oversees every one.
      */
-    public function viewAsRater(User $user, LdnaAssessment $assessment): bool
+    public function viewAsConfirmer(User $user, LdnaAssessment $assessment): bool
     {
-        return $user->isAdminOrHr() || $this->rater->rates($user, $assessment->employee);
+        return $user->isAdminOrHr() || $this->confirmer->confirms($user, $assessment->employee);
     }
 
     public function selfRate(User $user, LdnaAssessment $assessment): bool
@@ -37,13 +37,13 @@ class LdnaAssessmentPolicy
         return $this->isOwner($user, $assessment) && $assessment->cycle->isOpen();
     }
 
-    public function rate(User $user, LdnaAssessment $assessment): bool
+    public function confirm(User $user, LdnaAssessment $assessment): bool
     {
-        return $assessment->cycle->isOpen() && $this->rater->rates($user, $assessment->employee);
+        return $assessment->cycle->isOpen() && $this->confirmer->confirms($user, $assessment->employee);
     }
 
     /**
-     * What the supervisor found, and the gap, once nothing more can change.
+     * Their own gaps, once nothing more can change.
      */
     public function seeOwnResult(User $user, LdnaAssessment $assessment): bool
     {

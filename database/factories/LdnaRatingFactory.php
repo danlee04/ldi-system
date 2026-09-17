@@ -23,7 +23,6 @@ class LdnaRatingFactory extends Factory
             'competency_id' => Competency::factory(),
             'required_level' => ProficiencyLevel::Intermediate,
             'self_level' => null,
-            'supervisor_level' => null,
             'remarks' => null,
         ];
     }

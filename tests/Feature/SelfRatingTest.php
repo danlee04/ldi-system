@@ -167,17 +167,17 @@ test('the required level stays hidden until they submit', function () {
     Livewire::test('pages::ldna.mine')->assertSee('Required: Advanced');
 });
 
-test('the supervisor rating and the gap appear only once the cycle closes', function () {
+test('the gap appears only once the cycle closes', function () {
     ['employee' => $employee, 'cycle' => $cycle, 'assessment' => $assessment] = selfRater();
-    $assessment->ratings()->update(['supervisor_level' => ProficiencyLevel::Basic->value]);
+    $assessment->ratings()->update(['self_level' => ProficiencyLevel::Basic->value]);
     $this->actingAs($employee->user);
 
-    Livewire::test('pages::ldna.mine')->assertDontSee('Supervisor: Basic');
+    Livewire::test('pages::ldna.mine')->assertDontSee('levels short');
 
     $cycle->update(['opens_on' => today()->subMonths(2), 'closes_on' => today()->subDay()]);
 
     // Exemplifying integrity asks Advanced; Basic is two short of it.
-    Livewire::test('pages::ldna.mine')->assertSee('Supervisor: Basic')->assertSee('2 levels short');
+    Livewire::test('pages::ldna.mine')->assertSee('2 levels short');
 });
 
 test('the page says when there is nothing to fill in', function () {

@@ -97,14 +97,15 @@
                 </x-sidebar-group>
 
                 <x-sidebar-group :heading="__('LDNA')">
-                    {{-- The same people approve and rate, so the same test
-                         decides who is offered it. --}}
-                    @php($ldnaDue = app(App\Actions\Ldna\CountLdnaRatingsDue::class)->handle(auth()->user()))
+                    {{-- The same people approve a training and confirm an
+                         assessment, so the same test decides who is
+                         offered it. --}}
+                    @php($ldnaDue = app(App\Actions\Ldna\CountLdnaConfirmationsDue::class)->handle(auth()->user()))
 
-                    <flux:sidebar.item icon="clipboard-document-check" :href="route('ldna.ratings')"
-                        :current="request()->routeIs('ldna.ratings', 'ldna.rate')"
+                    <flux:sidebar.item icon="clipboard-document-check" :href="route('ldna.confirmations')"
+                        :current="request()->routeIs('ldna.confirmations', 'ldna.review')"
                         :badge="$ldnaDue > 0 ? $ldnaDue : null" badge-color="amber" wire:navigate>
-                        {{ __('LDNA ratings') }}
+                        {{ __('LDNA confirmations') }}
                     </flux:sidebar.item>
 
                     @if (auth()->user()->isAdminOrHr())

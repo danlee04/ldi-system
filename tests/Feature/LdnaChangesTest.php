@@ -66,7 +66,7 @@ test('refresh drops what is no longer asked and reopens what was submitted when 
     $employee = Employee::factory()->create(['position_id' => $before->id]);
     $cycle = openLdna();
     $assessment = assessmentOf($employee, $cycle);
-    $assessment->update(['self_submitted_at' => now(), 'rated_at' => now()]);
+    $assessment->update(['self_submitted_at' => now(), 'confirmed_at' => now()]);
 
     $employee->update(['position_id' => $after->id]);
     app(RefreshLdnaAssessment::class)->handle($assessment);
@@ -76,7 +76,7 @@ test('refresh drops what is no longer asked and reopens what was submitted when 
     expect($competencyIds)->toContain($new->id)
         ->and($competencyIds)->not->toContain($old->id)
         ->and($assessment->fresh()->isSelfSubmitted())->toBeFalse()
-        ->and($assessment->fresh()->isRated())->toBeFalse();
+        ->and($assessment->fresh()->isConfirmed())->toBeFalse();
 });
 
 test('sync and refresh refuse a cycle that has closed', function () {

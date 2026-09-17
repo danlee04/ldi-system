@@ -22,8 +22,8 @@ class LdnaAssessmentFactory extends Factory
             'employee_id' => Employee::factory(),
             'position_id' => null,
             'self_submitted_at' => null,
-            'rated_at' => null,
-            'rated_by' => null,
+            'confirmed_at' => null,
+            'confirmed_by' => null,
         ];
     }
 }

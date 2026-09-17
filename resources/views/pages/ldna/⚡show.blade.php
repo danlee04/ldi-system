@@ -9,7 +9,7 @@ use App\Models\Employee;
 use App\Models\LdnaAssessment;
 use App\Models\LdnaCycle;
 use App\Models\Section;
-use App\Workflow\LdnaRater;
+use App\Workflow\LdnaConfirmer;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -25,7 +25,7 @@ new #[Title('LDNA')] class extends Component {
     #[Url]
     public ?int $filterDivision = null;
 
-    /** '' for everybody, or not_self, not_rated, rated */
+    /** '' for everybody, or not_self, not_confirmed, confirmed */
     #[Url]
     public string $filterStatus = '';
 
@@ -46,7 +46,7 @@ new #[Title('LDNA')] class extends Component {
 
     public ?int $refreshingId = null;
 
-    private ?LdnaRater $rater = null;
+    private ?LdnaConfirmer $confirmer = null;
 
     public function mount(LdnaCycle $cycle): void
     {
@@ -78,61 +78,62 @@ new #[Title('LDNA')] class extends Component {
                 fn (Builder $employee) => $employee->where('division_id', $this->filterDivision),
             ))
             ->when($this->filterStatus === 'not_self', fn (Builder $query) => $query->whereNull('self_submitted_at'))
-            ->when($this->filterStatus === 'not_rated', fn (Builder $query) => $query->whereNull('rated_at'))
-            ->when($this->filterStatus === 'rated', fn (Builder $query) => $query->whereNotNull('rated_at'))
+            ->when($this->filterStatus === 'not_confirmed', fn (Builder $query) => $query->whereNull('confirmed_at'))
+            ->when($this->filterStatus === 'confirmed', fn (Builder $query) => $query->whereNotNull('confirmed_at'))
             ->get()
             ->sortBy(fn (LdnaAssessment $assessment): string => $assessment->employee->listing_name)
             ->values();
     }
 
     /**
-     * Who rates each person, by assessment id: a head's name, or HR.
+     * Who confirms each person, by assessment id: a head's name, or HR.
      *
      * @return array<int, string>
      */
     #[Computed]
-    public function raters(): array
+    public function confirmers(): array
     {
-        $rater = $this->rater();
+        $confirmer = $this->confirmer();
 
-        $raterIds = $this->assessments->mapWithKeys(
-            fn (LdnaAssessment $assessment): array => [$assessment->id => $rater->raterIdFor($assessment->employee)],
+        $confirmerIds = $this->assessments->mapWithKeys(
+            fn (LdnaAssessment $assessment): array => [$assessment->id => $confirmer->confirmerIdFor($assessment->employee)],
         );
 
         $names = Employee::query()
-            ->whereIn('id', $raterIds->filter()->unique()->values())
+            ->whereIn('id', $confirmerIds->filter()->unique()->values())
             ->get()
             ->mapWithKeys(fn (Employee $employee): array => [$employee->id => $employee->listing_name]);
 
-        return $raterIds
+        return $confirmerIds
             ->map(fn (?int $id): string => $id === null ? __('HR') : (string) ($names[$id] ?? __('HR')))
             ->all();
     }
 
     /**
-     * The assessments HR rates itself — nobody above the person — by id.
+     * The assessments HR confirms itself — nobody above the person — by id.
      *
      * @return array<int, true>
      */
     #[Computed]
-    public function hrRates(): array
+    public function hrConfirms(): array
     {
-        $rater = $this->rater();
+        $confirmer = $this->confirmer();
 
         return $this->assessments
-            ->filter(fn (LdnaAssessment $assessment): bool => $rater->raterIdFor($assessment->employee) === null)
+            ->filter(fn (LdnaAssessment $assessment): bool => $confirmer->confirmerIdFor($assessment->employee) === null)
             ->mapWithKeys(fn (LdnaAssessment $assessment): array => [$assessment->id => true])
             ->all();
     }
 
     /**
-     * The one LdnaRater used by both raters() and hrRates(), so the two do
-     * not each run their own active-employee query. Never a singleton
-     * (see .ai/rules/ldna.md), so it is memoised per-request here instead.
+     * The one LdnaConfirmer used by both confirmers() and hrConfirms(), so
+     * the two do not each run their own active-employee query. Never a
+     * singleton (see .ai/rules/ldna.md), so it is memoised per-request
+     * here instead.
      */
-    private function rater(): LdnaRater
+    private function confirmer(): LdnaConfirmer
     {
-        return $this->rater ??= app(LdnaRater::class);
+        return $this->confirmer ??= app(LdnaConfirmer::class);
     }
 
     /**
@@ -161,7 +162,7 @@ new #[Title('LDNA')] class extends Component {
     }
 
     /**
-     * @return array{people: int, self: int, rated: int}
+     * @return array{people: int, self: int, confirmed: int}
      */
     #[Computed]
     public function progress(): array
@@ -171,7 +172,7 @@ new #[Title('LDNA')] class extends Component {
         return [
             'people' => $all()->count(),
             'self' => $all()->whereNotNull('self_submitted_at')->count(),
-            'rated' => $all()->whereNotNull('rated_at')->count(),
+            'confirmed' => $all()->whereNotNull('confirmed_at')->count(),
         ];
     }
 
@@ -229,7 +230,7 @@ new #[Title('LDNA')] class extends Component {
 
         $added = $sync->handle($this->cycle);
 
-        unset($this->assessments, $this->raters, $this->hrRates, $this->progress);
+        unset($this->assessments, $this->confirmers, $this->hrConfirms, $this->progress);
 
         Flux::modal('ldna-sync')->close();
 
@@ -261,7 +262,7 @@ new #[Title('LDNA')] class extends Component {
 
         $this->refreshingId = null;
 
-        unset($this->assessments, $this->raters, $this->hrRates, $this->progress, $this->refreshing);
+        unset($this->assessments, $this->confirmers, $this->hrConfirms, $this->progress, $this->refreshing);
 
         Flux::modal('ldna-refresh')->close();
 
@@ -339,14 +340,14 @@ new #[Title('LDNA')] class extends Component {
                 ],
                 [
                     'icon' => 'user',
-                    'label' => __('Rated themselves'),
+                    'label' => __('Assessed themselves'),
                     'value' => number_format($this->progress['self']),
                     'support' => __('of :people', ['people' => $this->progress['people']]),
                 ],
                 [
                     'icon' => 'check-badge',
-                    'label' => __('Rated by a supervisor'),
-                    'value' => number_format($this->progress['rated']),
+                    'label' => __('Confirmed by a head'),
+                    'value' => number_format($this->progress['confirmed']),
                     'support' => __('of :people', ['people' => $this->progress['people']]),
                 ],
             ]" />
@@ -362,8 +363,8 @@ new #[Title('LDNA')] class extends Component {
                 <flux:select size="sm" class="lg:w-56" wire:model.live="filterStatus">
                     <flux:select.option value="">{{ __('Everybody') }}</flux:select.option>
                     <flux:select.option value="not_self">{{ __('Has not rated themselves') }}</flux:select.option>
-                    <flux:select.option value="not_rated">{{ __('Not rated by a supervisor') }}</flux:select.option>
-                    <flux:select.option value="rated">{{ __('Rated by a supervisor') }}</flux:select.option>
+                    <flux:select.option value="not_confirmed">{{ __('Not confirmed yet') }}</flux:select.option>
+                    <flux:select.option value="confirmed">{{ __('Confirmed by a head') }}</flux:select.option>
                 </flux:select>
             </div>
 
@@ -371,9 +372,9 @@ new #[Title('LDNA')] class extends Component {
                 <flux:table.columns>
                     <flux:table.column>{{ __('Name') }}</flux:table.column>
                     <flux:table.column>{{ __('Section') }}</flux:table.column>
-                    <flux:table.column>{{ __('Self-rating') }}</flux:table.column>
-                    <flux:table.column>{{ __('Supervisor') }}</flux:table.column>
-                    <flux:table.column>{{ __('Rated by') }}</flux:table.column>
+                    <flux:table.column>{{ __('Their assessment') }}</flux:table.column>
+                    <flux:table.column>{{ __('Confirmation') }}</flux:table.column>
+                    <flux:table.column>{{ __('Confirmed by') }}</flux:table.column>
                     <flux:table.column />
                 </flux:table.columns>
 
@@ -408,20 +409,20 @@ new #[Title('LDNA')] class extends Component {
                                 </flux:badge>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <flux:badge size="sm" :color="$assessment->isRated() ? 'green' : 'zinc'">
-                                    {{ $assessment->isRated() ? __('Rated') : __('Not yet') }}
+                                <flux:badge size="sm" :color="$assessment->isConfirmed() ? 'green' : 'zinc'">
+                                    {{ $assessment->isConfirmed() ? __('Confirmed') : __('Not yet') }}
                                 </flux:badge>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <div class="w-40 truncate" title="{{ $this->raters[$assessment->id] }}">
-                                    {{ $this->raters[$assessment->id] }}
+                                <div class="w-40 truncate" title="{{ $this->confirmers[$assessment->id] }}">
+                                    {{ $this->confirmers[$assessment->id] }}
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="flex justify-end gap-1">
-                                    @if (array_key_exists($assessment->id, $this->hrRates))
-                                        <flux:button size="sm" variant="ghost" :href="route('ldna.rate', $assessment)" wire:navigate>
-                                            {{ __('Rate') }}
+                                    @if (array_key_exists($assessment->id, $this->hrConfirms))
+                                        <flux:button size="sm" variant="ghost" :href="route('ldna.review', $assessment)" wire:navigate>
+                                            {{ __('Review') }}
                                         </flux:button>
                                     @endif
 
@@ -471,14 +472,14 @@ new #[Title('LDNA')] class extends Component {
 
             @if ($this->gaps === [])
                 <flux:callout icon="chart-bar-square" variant="secondary">
-                    {{ __('Nobody here has been rated by a supervisor yet.') }}
+                    {{ __('Nobody here has been confirmed yet.') }}
                 </flux:callout>
             @else
                 <flux:table>
                     <flux:table.columns>
                         <flux:table.column>{{ __('Competency') }}</flux:table.column>
                         <flux:table.column>{{ __('Type') }}</flux:table.column>
-                        <flux:table.column class="text-right">{{ __('Rated') }}</flux:table.column>
+                        <flux:table.column class="text-right">{{ __('Assessed') }}</flux:table.column>
                         <flux:table.column class="text-right">{{ __('Short') }}</flux:table.column>
                         <flux:table.column class="text-right">%</flux:table.column>
                         <flux:table.column class="text-right">{{ __('Avg. levels short') }}</flux:table.column>
@@ -574,7 +575,7 @@ new #[Title('LDNA')] class extends Component {
                 </flux:heading>
 
                 <flux:text>
-                    {{ __('Their competencies are read again from their position and designation now. Ratings of a competency they still have are kept. A new one arrives unrated, and anything submitted is reopened.') }}
+                    {{ __('Their competencies are read again from their position and designation now. Ratings of a competency they still have are kept. A new one arrives unrated, and anything submitted or confirmed is reopened.') }}
                 </flux:text>
 
                 <flux:error name="cycle" />
