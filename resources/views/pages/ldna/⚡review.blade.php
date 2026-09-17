@@ -188,13 +188,14 @@ new #[Title('Review')] class extends Component {
                     {{ __('Confirm the assessment of :name?', ['name' => $assessment->employee->listing_name]) }}
                 </flux:heading>
 
-                <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-2">
                     <flux:text>
                         {{ __('They put themselves short on :count of :total competencies.', [
                             'count' => $this->gaps,
                             'total' => count($remarks),
                         ]) }}
                     </flux:text>
+
                     <flux:text>{{ __('Confirming is what puts their gaps into the cycle\'s report. They see them once the cycle closes.') }}</flux:text>
                 </div>
 

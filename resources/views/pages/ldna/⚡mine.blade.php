@@ -233,13 +233,13 @@ new #[Title('My LDNA')] class extends Component {
                 <div class="space-y-6">
                     <flux:heading size="lg">{{ __('Submit your self-rating?') }}</flux:heading>
 
-                    <div class="grid gap-4 md:grid-cols-2">
+                    <div class="space-y-2">
                         <flux:text>
                             {{ __(':done of :total competencies rated.', ['done' => $done, 'total' => count($levels)]) }}
                         </flux:text>
 
                         <flux:text>
-                            {{ __('Whoever rates you is told it is ready. You can still change a level until :date.', [
+                            {{ __('Whoever confirms it is told it is ready. You can still change a level until :date.', [
                                 'date' => $this->cycle->closes_on->format('M j, Y'),
                             ]) }}
                         </flux:text>
