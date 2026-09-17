@@ -1,5 +1,9 @@
 <?php
 
+use App\Actions\Pds\SaveEducation;
+use App\Actions\Pds\SaveOtherInformation;
+use App\Actions\Pds\SyncRepeatingSection;
+use App\Actions\Pds\WritePersonalDataSheet;
 use App\Enums\EducationLevel;
 use App\Enums\OtherInformationType;
 use App\Models\Eligibility;
@@ -294,37 +298,27 @@ new #[Title('My PDS')] class extends Component {
     }
 
     /**
-     * Writes the given lines into their relation and drops the ones that
-     * are no longer on the form.
+     * Hands one repeating section over to be written, and puts the ids it
+     * comes back with onto the form, so the next save edits those lines
+     * rather than adding a second copy of them.
      *
      * @param  Collection<int, array<string, mixed>>  $rows  keyed by their index in $list
      */
-    private function syncRows(string $list, Collection $rows): void
+    private function syncRows(SyncRepeatingSection $sync, string $list, Collection $rows): void
     {
-        $relation = $this->repeater($list)['relation'];
-        $kept = [];
+        $saved = $sync->handle(
+            $this->employee,
+            $this->repeater($list)['relation'],
+            $rows,
+            collect($this->{$list})->map(fn (array $row): ?int => $row['id'] ?? null)->all(),
+        );
 
-        foreach ($rows as $index => $row) {
-            $values = collect($row)
-                ->map(fn (mixed $value): mixed => $value === '' ? null : $value)
-                ->except('id')
-                ->all();
-
-            // Scoped to their own lines, so a tampered id finds nothing and
-            // starts a new one instead of editing somebody else's.
-            $record = $this->employee->{$relation}()->findOrNew($this->{$list}[$index]['id'] ?? 0);
-
-            $record->fill($values)->save();
-
-            $kept[] = $record->getKey();
-            $this->{$list}[$index]['id'] = $record->getKey();
+        foreach ($saved as $index => $id) {
+            $this->{$list}[$index]['id'] = $id;
         }
-
-        $this->employee->{$relation}()->reorder()->whereNotIn('id', $kept)->delete();
-        $this->employee->unsetRelation($relation);
     }
 
-    public function saveEligibilities(): void
+    public function saveEligibilities(SyncRepeatingSection $sync): void
     {
         $validated = $this->validate([
             'eligibilities' => ['array', 'max:'.self::REPEATERS['eligibilities']['max']],
@@ -342,7 +336,7 @@ new #[Title('My PDS')] class extends Component {
         ]);
 
         // A line with nothing on it is not an eligibility.
-        $this->syncRows('eligibilities', collect($validated['eligibilities'])
+        $this->syncRows($sync, 'eligibilities', collect($validated['eligibilities'])
             ->filter(fn (array $row): bool => filled($row['eligibility_id']) || filled($row['detail'])));
 
         Flux::toast(variant: 'success', text: __('Eligibility saved.'));
@@ -357,7 +351,7 @@ new #[Title('My PDS')] class extends Component {
         return Eligibility::query()->orderBy('name')->get();
     }
 
-    public function saveWork(): void
+    public function saveWork(SyncRepeatingSection $sync): void
     {
         $validated = $this->validate([
             'work' => ['array', 'max:'.self::REPEATERS['work']['max']],
@@ -380,13 +374,13 @@ new #[Title('My PDS')] class extends Component {
             'work.*.monthly_salary' => __('monthly salary'),
         ]);
 
-        $this->syncRows('work', collect($validated['work'])
+        $this->syncRows($sync, 'work', collect($validated['work'])
             ->filter(fn (array $row): bool => filled($row['from_date'])));
 
         Flux::toast(variant: 'success', text: __('Work experience saved.'));
     }
 
-    public function saveFamily(): void
+    public function saveFamily(WritePersonalDataSheet $write, SyncRepeatingSection $sync): void
     {
         $validated = $this->validate([
             'form.spouse_last_name' => ['nullable', 'string', 'max:255'],
@@ -412,15 +406,15 @@ new #[Title('My PDS')] class extends Component {
             'children.*.date_of_birth' => __('date of birth'),
         ]);
 
-        $this->writeSheet($validated['form']);
+        $write->handle($this->employee, $validated['form']);
 
-        $this->syncRows('children', collect($validated['children'])
+        $this->syncRows($sync, 'children', collect($validated['children'])
             ->filter(fn (array $row): bool => filled($row['full_name'])));
 
         Flux::toast(variant: 'success', text: __('Family background saved.'));
     }
 
-    public function saveVoluntary(): void
+    public function saveVoluntary(SyncRepeatingSection $sync): void
     {
         $validated = $this->validate([
             'voluntary' => ['array', 'max:'.self::REPEATERS['voluntary']['max']],
@@ -435,13 +429,13 @@ new #[Title('My PDS')] class extends Component {
             'voluntary.*.to_date' => __('date to'),
         ]);
 
-        $this->syncRows('voluntary', collect($validated['voluntary'])
+        $this->syncRows($sync, 'voluntary', collect($validated['voluntary'])
             ->filter(fn (array $row): bool => filled($row['organization'])));
 
         Flux::toast(variant: 'success', text: __('Voluntary work saved.'));
     }
 
-    public function saveOther(): void
+    public function saveOther(SaveOtherInformation $write): void
     {
         $validated = $this->validate([
             'other' => ['array'],
@@ -449,24 +443,7 @@ new #[Title('My PDS')] class extends Component {
             'other.*.*' => ['nullable', 'string', 'max:255'],
         ]);
 
-        // Three plain lists with nothing to key them by, so they are
-        // rewritten whole rather than matched line by line.
-        $this->employee->otherInformation()->delete();
-
-        foreach (OtherInformationType::cases() as $type) {
-            foreach ($validated['other'][$type->value] ?? [] as $description) {
-                if (blank($description)) {
-                    continue;
-                }
-
-                $this->employee->otherInformation()->create([
-                    'type' => $type,
-                    'description' => $description,
-                ]);
-            }
-        }
-
-        $this->employee->unsetRelation('otherInformation');
+        $write->handle($this->employee, $validated['other']);
 
         Flux::toast(variant: 'success', text: __('Other information saved.'));
     }
@@ -492,7 +469,7 @@ new #[Title('My PDS')] class extends Component {
         'solo_parent' => 'solo_parent_id_no',
     ];
 
-    public function savePageFour(): void
+    public function savePageFour(WritePersonalDataSheet $write, SyncRepeatingSection $sync): void
     {
         $rules = [
             'form.criminally_charged_date_filed' => ['nullable', 'date'],
@@ -518,15 +495,15 @@ new #[Title('My PDS')] class extends Component {
             'references.*.full_name' => __('name'),
         ]);
 
-        $this->writeSheet($validated['form']);
+        $write->handle($this->employee, $validated['form']);
 
-        $this->syncRows('references', collect($validated['references'])
+        $this->syncRows($sync, 'references', collect($validated['references'])
             ->filter(fn (array $row): bool => filled($row['full_name'])));
 
         Flux::toast(variant: 'success', text: __('Page 4 saved.'));
     }
 
-    public function saveEducation(): void
+    public function saveEducation(SaveEducation $write): void
     {
         $validated = $this->validate([
             'education.*.school_name' => ['nullable', 'string', 'max:255'],
@@ -538,26 +515,7 @@ new #[Title('My PDS')] class extends Component {
             'education.*.honors' => ['nullable', 'string', 'max:255'],
         ]);
 
-        foreach ($validated['education'] as $level => $row) {
-            $values = collect($row)->map(fn (mixed $v): mixed => $v === '' ? null : $v)->all();
-
-            // A level nobody attended leaves no line on the form.
-            if (collect($values)->filter()->isEmpty()) {
-                EmployeeEducation::query()
-                    ->where('employee_id', $this->employee->getKey())
-                    ->where('level', $level)
-                    ->delete();
-
-                continue;
-            }
-
-            EmployeeEducation::updateOrCreate(
-                ['employee_id' => $this->employee->getKey(), 'level' => $level],
-                $values,
-            );
-        }
-
-        $this->employee->unsetRelation('educations');
+        $write->handle($this->employee, $validated['education']);
 
         Flux::toast(variant: 'success', text: __('Education saved.'));
     }
@@ -582,7 +540,7 @@ new #[Title('My PDS')] class extends Component {
         return (new PersonalDataSheet)->getFillable();
     }
 
-    public function save(): void
+    public function save(WritePersonalDataSheet $write): void
     {
         $validated = $this->validate([
             'form.date_of_birth' => ['nullable', 'date', 'before:today'],
@@ -619,30 +577,11 @@ new #[Title('My PDS')] class extends Component {
             'form.email_address' => ['nullable', 'email', 'max:255'],
         ]);
 
-        $this->writeSheet($validated['form']);
+        $write->handle($this->employee, $validated['form']);
 
         unset($this->completeness);
 
         Flux::toast(variant: 'success', text: __('Saved. Nobody else can edit this but you.'));
-    }
-
-    /**
-     * Writes part of Section I or II, leaving the rest of the row alone —
-     * each form on this page saves only the fields it shows.
-     *
-     * @param  array<string, mixed>  $attributes
-     */
-    private function writeSheet(array $attributes): void
-    {
-        PersonalDataSheet::updateOrCreate(
-            ['employee_id' => $this->employee->getKey()],
-            collect($attributes)
-                ->except('employee_id')
-                ->map(fn (mixed $value): mixed => $value === '' ? null : $value)
-                ->all(),
-        );
-
-        $this->employee->unsetRelation('personalDataSheet');
     }
 
     /**
