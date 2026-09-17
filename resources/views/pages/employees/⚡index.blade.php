@@ -6,7 +6,9 @@ use App\Enums\EligibilityStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\TrainingStatus;
 use App\Models\Division;
+use App\Models\Eligibility;
 use App\Models\Employee;
+use App\Models\EmployeeEligibility;
 use App\Models\Position;
 use App\Models\Section;
 use Flux\Flux;
@@ -43,8 +45,6 @@ new #[Title('Employees')] class extends Component {
 
     public ?int $deletingId = null;
 
-    public string $employee_number = '';
-
     public string $first_name = '';
 
     public string $middle_name = '';
@@ -57,13 +57,19 @@ new #[Title('Employees')] class extends Component {
 
     public ?int $positionId = null;
 
+    /** The plantilla item, kept per person: two people can hold the same position under different items. */
+    public string $item_number = '';
+
+    /** Form only — the section is what is stored, and the division follows it. */
+    public ?int $employeeDivisionId = null;
+
     public ?int $employeeSectionId = null;
 
     public string $employment_status = '';
 
-    public string $date_hired = '';
+    public ?int $eligibilityId = null;
 
-    public bool $is_active = true;
+    public string $eligibilityExpiresOn = '';
 
     public function updated(): void
     {
@@ -78,6 +84,19 @@ new #[Title('Employees')] class extends Component {
     {
         if ($this->sectionId !== null && ! $this->sections->contains('id', $this->sectionId)) {
             $this->sectionId = null;
+        }
+    }
+
+    /**
+     * The same rule inside the form: a section from another division must
+     * not survive the division being changed under it.
+     */
+    public function updatedEmployeeDivisionId(): void
+    {
+        unset($this->formSections);
+
+        if ($this->employeeSectionId !== null && ! $this->formSections->contains('id', $this->employeeSectionId)) {
+            $this->employeeSectionId = null;
         }
     }
 
@@ -177,17 +196,25 @@ new #[Title('Employees')] class extends Component {
         $this->resetValidation();
 
         $this->editingId = $employee->getKey();
-        $this->employee_number = $employee->employee_number;
         $this->first_name = $employee->first_name;
         $this->middle_name = (string) $employee->middle_name;
         $this->last_name = $employee->last_name;
         $this->suffix = (string) $employee->suffix;
         $this->gender = (string) $employee->gender;
         $this->positionId = $employee->position_id;
+        $this->item_number = (string) $employee->item_number;
+        $this->employeeDivisionId = $employee->division_id;
         $this->employeeSectionId = $employee->section_id;
         $this->employment_status = $employee->employment_status->value;
-        $this->date_hired = $employee->date_hired?->toDateString() ?? '';
-        $this->is_active = $employee->is_active;
+
+        // The first line only: the form carries one eligibility, and that
+        // is the one the roster's own column reports.
+        $eligibility = $employee->eligibilities()->oldest('id')->first();
+
+        $this->eligibilityId = $eligibility?->eligibility_id;
+        $this->eligibilityExpiresOn = $eligibility?->date_of_validity?->toDateString() ?? '';
+
+        unset($this->formSections);
 
         Flux::modal('employee-form')->show();
     }
@@ -199,17 +226,23 @@ new #[Title('Employees')] class extends Component {
         $this->authorize($employee === null ? 'create' : 'update', $employee ?? Employee::class);
 
         $validated = $this->validate([
-            'employee_number' => ['required', 'string', 'max:255', Rule::unique('employees', 'employee_number')->ignore($this->editingId)],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'suffix' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:Male,Female'],
             'positionId' => ['nullable', 'exists:positions,id'],
+            'item_number' => ['nullable', 'string', 'max:50'],
+            'employeeDivisionId' => ['nullable', 'exists:divisions,id'],
             'employeeSectionId' => ['nullable', 'exists:sections,id'],
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
-            'date_hired' => ['nullable', 'date'],
-            'is_active' => ['boolean'],
+            'eligibilityId' => ['nullable', 'exists:eligibilities,id'],
+            'eligibilityExpiresOn' => ['nullable', 'date'],
+        ], attributes: [
+            'employeeDivisionId' => __('division'),
+            'employeeSectionId' => __('section'),
+            'eligibilityId' => __('eligibility'),
+            'eligibilityExpiresOn' => __('expiry date'),
         ]);
 
         $save->handle($employee, $validated);
@@ -228,11 +261,13 @@ new #[Title('Employees')] class extends Component {
     private function resetForm(): void
     {
         $this->reset(
-            'editingId', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'gender',
-            'positionId', 'employeeSectionId', 'employment_status', 'date_hired',
+            'editingId', 'first_name', 'middle_name', 'last_name', 'suffix', 'gender',
+            'positionId', 'item_number', 'employeeDivisionId', 'employeeSectionId',
+            'employment_status', 'eligibilityId', 'eligibilityExpiresOn',
         );
 
-        $this->is_active = true;
+        unset($this->formSections);
+
         $this->resetValidation();
     }
 
@@ -320,6 +355,29 @@ new #[Title('Employees')] class extends Component {
             ->when($this->divisionId !== null, fn (Builder $query) => $query->where('division_id', $this->divisionId))
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * The sections the form offers, narrowed by the division chosen in it.
+     *
+     * @return Collection<int, Section>
+     */
+    #[Computed]
+    public function formSections(): Collection
+    {
+        return Section::query()
+            ->when($this->employeeDivisionId !== null, fn (Builder $query) => $query->where('division_id', $this->employeeDivisionId))
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, Eligibility>
+     */
+    #[Computed(persist: true)]
+    public function eligibilityList(): Collection
+    {
+        return Eligibility::query()->orderBy('name')->get();
     }
 }; ?>
 
@@ -450,41 +508,44 @@ new #[Title('Employees')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="employee-form" class="md:w-7xl">
+    {{-- One column, with only the short paired fields side by side. Both
+         width classes are needed: Flux puts a zero-specificity max-w-xl on
+         the same element, so md:w-2xl alone renders at 36rem. --}}
+    <flux:modal name="employee-form" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
         <form wire:submit="saveEmployee" class="space-y-6">
             <flux:heading size="lg">
                 {{ $editingId === null ? __('Add employee') : __('Edit employee') }}
             </flux:heading>
 
-            <div class="grid gap-4 md:grid-cols-2">
-                <flux:input wire:model="employee_number" :label="__('Employee no.')" required />
-                <flux:input wire:model="date_hired" :label="__('Date hired')" type="date" />
+            <div class="space-y-4">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <flux:input wire:model="first_name" :label="__('First name')" required />
+                    <flux:input wire:model="middle_name" :label="__('Middle name')" />
 
-                <flux:input wire:model="first_name" :label="__('First name')" required />
-                <flux:input wire:model="middle_name" :label="__('Middle name')" />
-
-                <flux:input wire:model="last_name" :label="__('Last name')" required />
-                <flux:input wire:model="suffix" :label="__('Suffix')" :placeholder="__('Jr., Sr., III')" />
+                    <flux:input wire:model="last_name" :label="__('Last name')" required />
+                    <flux:input wire:model="suffix" :label="__('Suffix')" :placeholder="__('Jr., Sr., III')" />
+                </div>
 
                 <flux:select wire:model="gender" :label="__('Sex')">
                     <flux:select.option value="">{{ __('Not stated') }}</flux:select.option>
                     <flux:select.option value="Female">{{ __('Female') }}</flux:select.option>
                     <flux:select.option value="Male">{{ __('Male') }}</flux:select.option>
                 </flux:select>
+            </div>
 
-                <flux:select wire:model="employeeSectionId" :label="__('Section')">
-                    <flux:select.option value="">{{ __('None') }}</flux:select.option>
-                    @foreach ($this->allSections as $section)
-                        <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+            <div class="space-y-4">
+                <flux:separator :text="__('Appointment')" />
 
-                <flux:select wire:model="positionId" :label="__('Position')">
-                    <flux:select.option value="">{{ __('None') }}</flux:select.option>
-                    @foreach ($this->positions as $position)
-                        <flux:select.option :value="$position->id">{{ $position->title }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <flux:select wire:model="positionId" :label="__('Position')">
+                        <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                        @foreach ($this->positions as $position)
+                            <flux:select.option :value="$position->id">{{ $position->title }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    <flux:input wire:model="item_number" :label="__('Plantilla item')" />
+                </div>
 
                 <flux:select wire:model="employment_status" :label="__('Employment status')" required>
                     <flux:select.option value="">{{ __('Select') }}</flux:select.option>
@@ -492,11 +553,46 @@ new #[Title('Employees')] class extends Component {
                         <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
                     @endforeach
                 </flux:select>
+            </div>
 
-                <flux:field variant="inline" class="self-end">
-                    <flux:switch wire:model="is_active" />
-                    <flux:label>{{ __('Active') }}</flux:label>
-                </flux:field>
+            <div class="space-y-4">
+                <flux:separator :text="__('Where they sit')" />
+
+                {{-- Choosing a division only narrows the sections below it.
+                     The section is what is stored; the division follows it. --}}
+                <flux:select wire:model.live="employeeDivisionId" :label="__('Division')">
+                    <flux:select.option value="">{{ __('All divisions') }}</flux:select.option>
+                    @foreach ($this->divisions as $division)
+                        <flux:select.option :value="$division->id">{{ $division->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:select wire:model="employeeSectionId" :label="__('Section')">
+                    <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                    @foreach ($this->formSections as $section)
+                        <flux:select.option :value="$section->id">{{ $section->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <div class="space-y-4">
+                <flux:separator :text="__('Eligibility')" />
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <flux:select wire:model="eligibilityId" :label="__('Eligibility')">
+                        <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                        @foreach ($this->eligibilityList as $eligibility)
+                            <flux:select.option :value="$eligibility->id">{{ $eligibility->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    <flux:input wire:model="eligibilityExpiresOn" :label="__('Expiry date')" type="date" />
+                </div>
+
+                {{-- Under the pair, not on one field: a description on only
+                     one of two side-by-side controls pushes it down and
+                     leaves the two boxes out of line. --}}
+                <flux:text size="sm">{{ __('Leave empty to keep what is on their PDS.') }}</flux:text>
             </div>
 
             <div class="flex gap-2">

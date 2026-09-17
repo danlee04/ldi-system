@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Storage;
 /**
  * @property int $id
  * @property int|null $user_id
- * @property string $employee_number
+ * @property string|null $employee_number
  * @property string $first_name
  * @property string|null $middle_name
  * @property string $last_name
@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $photo_path
  * @property string|null $gender
  * @property int|null $position_id
+ * @property string|null $item_number The plantilla item this person sits in
  * @property int|null $section_id
  * @property int|null $division_id Kept in step with the section by the saving hook below
  * @property CarbonImmutable|null $date_hired
@@ -52,6 +53,7 @@ class Employee extends Model
         'photo_path',
         'gender',
         'position_id',
+        'item_number',
         'section_id',
         'division_id',
         'date_hired',

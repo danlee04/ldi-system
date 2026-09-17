@@ -212,7 +212,6 @@ test('hr can add an employee', function () {
     Livewire::test('pages::employees.index')
         ->call('createEmployee')
         ->assertSet('editingId', null)
-        ->set('employee_number', 'EMP-500')
         ->set('first_name', 'Maria')
         ->set('last_name', 'Cruz')
         ->set('employeeSectionId', $section->id)
@@ -220,7 +219,7 @@ test('hr can add an employee', function () {
         ->call('saveEmployee')
         ->assertHasNoErrors();
 
-    $employee = Employee::where('employee_number', 'EMP-500')->first();
+    $employee = Employee::where('last_name', 'Cruz')->first();
 
     expect($employee)->not->toBeNull()
         ->and($employee->full_name)->toBe('Maria Cruz')
@@ -229,19 +228,18 @@ test('hr can add an employee', function () {
         ->and($employee->is_active)->toBeTrue();
 });
 
-test('a new employee cannot take an existing employee number', function () {
+test('somebody added through the form is saved without an employee number', function () {
     $this->actingAs(User::factory()->hr()->create());
-
-    Employee::factory()->create(['employee_number' => 'EMP-500']);
 
     Livewire::test('pages::employees.index')
         ->call('createEmployee')
-        ->set('employee_number', 'EMP-500')
         ->set('first_name', 'Maria')
         ->set('last_name', 'Cruz')
         ->set('employment_status', EmploymentStatus::Permanent->value)
         ->call('saveEmployee')
-        ->assertHasErrors('employee_number');
+        ->assertHasNoErrors();
+
+    expect(Employee::where('last_name', 'Cruz')->first()->employee_number)->toBeNull();
 });
 
 test('opening the add form does not carry over the last edited employee', function () {
@@ -255,7 +253,7 @@ test('opening the add form does not carry over the last edited employee', functi
         ->call('createEmployee')
         ->assertSet('editingId', null)
         ->assertSet('first_name', '')
-        ->assertSet('employee_number', '');
+        ->assertSet('item_number', '');
 });
 
 test('a section head cannot add an employee', function () {
@@ -287,17 +285,23 @@ test('hr can correct an employee record', function () {
         ->and($employee->division_id)->toBe($section->division_id);
 });
 
-test('an employee number cannot collide with another employee', function () {
+test('editing leaves the employee number and the date hired alone', function () {
     $this->actingAs(User::factory()->hr()->create());
 
-    Employee::factory()->create(['employee_number' => 'EMP-111']);
-    $employee = Employee::factory()->create(['employee_number' => 'EMP-222']);
+    $employee = Employee::factory()->create([
+        'employee_number' => 'EMP-222',
+        'date_hired' => '2015-06-01',
+    ]);
 
     Livewire::test('pages::employees.index')
         ->call('editEmployee', $employee->id)
-        ->set('employee_number', 'EMP-111')
+        ->set('last_name', 'Renamed')
         ->call('saveEmployee')
-        ->assertHasErrors('employee_number');
+        ->assertHasNoErrors();
+
+    // Neither is on the form any more, so saving must not blank them.
+    expect($employee->fresh()->employee_number)->toBe('EMP-222')
+        ->and($employee->fresh()->date_hired->toDateString())->toBe('2015-06-01');
 });
 
 test('hr can remove an employee without losing their training', function () {
