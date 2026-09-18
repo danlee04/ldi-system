@@ -7,6 +7,7 @@
     $cards = [
         [
             'icon' => 'users',
+            'tone' => 'blue',
             'label' => __('Employees'),
             'value' => number_format($employees['total']),
             'support' => trans_choice('across :count division|across :count divisions', count($employees['rows']), [
@@ -15,6 +16,7 @@
         ],
         [
             'icon' => 'academic-cap',
+            'tone' => 'violet',
             'label' => __('LDI trainings in :year', ['year' => $year]),
             'value' => number_format($plans['total']),
             'support' => $plans['rows'] === []
@@ -23,6 +25,7 @@
         ],
         [
             'icon' => 'check-badge',
+            'tone' => 'teal',
             'label' => __('Trained in :year', ['year' => $year]),
             'value' => $coverage['percentage'].'%',
             'support' => __(':covered of :employees employees', [
@@ -32,6 +35,7 @@
         ],
         [
             'icon' => 'banknotes',
+            'tone' => 'pink',
             'label' => __('Spent in :year', ['year' => $year]),
             'value' => number_format($spend['total'], 2),
             'support' => __(':amount funded by HR', ['amount' => number_format($funding['hr'], 2)]),

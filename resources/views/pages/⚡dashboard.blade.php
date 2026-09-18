@@ -431,6 +431,61 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
+     * The four figures at the top of a head's page.
+     *
+     * Built here rather than written into the component's attribute: a
+     * literal array that size compiles into one enormous Blade expression,
+     * and Livewire's morph-aware compiler builds a regex around the
+     * compiled file. Past a point PCRE refuses it — "regular expression is
+     * too large" — and the whole page 500s. Keep big arrays in PHP.
+     *
+     * @return list<array<string, mixed>>
+     */
+    #[Computed]
+    public function teamFigures(): array
+    {
+        return [
+            [
+                'icon' => 'users',
+                'tone' => 'blue',
+                'label' => __('My people'),
+                'value' => number_format($this->teamTotals['people']),
+                'support' => $this->team->headsDivision()
+                    ? trans_choice('across :count section|across :count sections', $this->teamSections->count(), ['count' => $this->teamSections->count()])
+                    : __('in the section'),
+            ],
+            [
+                'icon' => 'check-badge',
+                'tone' => 'teal',
+                'label' => __('Trained in :year', ['year' => $this->year()]),
+                'value' => $this->teamTotals['percentage'].'%',
+                'support' => __(':covered of :people people', [
+                    'covered' => $this->teamTotals['covered'],
+                    'people' => $this->teamTotals['people'],
+                ]),
+            ],
+            [
+                'icon' => 'inbox-stack',
+                // Amber only when something is actually waiting, so the one
+                // colour in this app that means "you owe a decision" never
+                // sits above a nought.
+                'tone' => $this->teamTotals['waiting'] > 0 ? 'amber' : 'violet',
+                'label' => __('Waiting for my decision'),
+                'value' => number_format($this->teamTotals['waiting']),
+                'support' => __('Open approvals'),
+                'href' => route('approvals'),
+            ],
+            [
+                'icon' => 'clock',
+                'tone' => 'pink',
+                'label' => __('Hours of training in :year', ['year' => $this->year()]),
+                'value' => number_format($this->teamTotals['hours']),
+                'support' => __('approved and finished'),
+            ],
+        ];
+    }
+
+    /**
      * @return array{people: int, covered: int, percentage: int, waiting: int, hours: int}
      */
     #[Computed]
@@ -731,38 +786,7 @@ new #[Title('Dashboard')] class extends Component {
             @endif
         </div>
 
-        <x-dashboard.figures :cards="[
-            [
-                'icon' => 'users',
-                'label' => __('My people'),
-                'value' => number_format($this->teamTotals['people']),
-                'support' => $this->team->headsDivision()
-                    ? trans_choice('across :count section|across :count sections', $this->teamSections->count(), ['count' => $this->teamSections->count()])
-                    : __('in the section'),
-            ],
-            [
-                'icon' => 'check-badge',
-                'label' => __('Trained in :year', ['year' => $this->year()]),
-                'value' => $this->teamTotals['percentage'].'%',
-                'support' => __(':covered of :people people', [
-                    'covered' => $this->teamTotals['covered'],
-                    'people' => $this->teamTotals['people'],
-                ]),
-            ],
-            [
-                'icon' => 'inbox-stack',
-                'label' => __('Waiting for my decision'),
-                'value' => number_format($this->teamTotals['waiting']),
-                'support' => __('Open approvals'),
-                'href' => route('approvals'),
-            ],
-            [
-                'icon' => 'clock',
-                'label' => __('Hours of training in :year', ['year' => $this->year()]),
-                'value' => number_format($this->teamTotals['hours']),
-                'support' => __('approved and finished'),
-            ],
-        ]" />
+        <x-dashboard.figures :cards="$this->teamFigures" />
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
             <div class="space-y-6">

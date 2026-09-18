@@ -362,18 +362,21 @@ new #[Title('LDNA')] class extends Component {
             <x-dashboard.figures :cards="[
                 [
                     'icon' => 'users',
+                    'tone' => 'blue',
                     'label' => __('People in it'),
                     'value' => number_format($this->progress['people']),
                     'support' => __('active when it was set up, or added since'),
                 ],
                 [
                     'icon' => 'user',
+                    'tone' => 'violet',
                     'label' => __('Assessed themselves'),
                     'value' => number_format($this->progress['self']),
                     'support' => __('of :people', ['people' => $this->progress['people']]),
                 ],
                 [
                     'icon' => 'check-badge',
+                    'tone' => 'teal',
                     'label' => __('Confirmed by a head'),
                     'value' => number_format($this->progress['confirmed']),
                     'support' => __('of :people', ['people' => $this->progress['people']]),
