@@ -60,12 +60,16 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | will be used by the PHP date and date-time functions.
+    |
+    | Manila, not UTC: the Center works on Philippine time, and "today"
+    | decides what has expired and which year a training counts toward.
+    | Timestamps written before 2026-09-21 were stamped in UTC and read
+    | eight hours early — accepted, as they are all from the setup period.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Manila',
 
     /*
     |--------------------------------------------------------------------------
