@@ -218,6 +218,12 @@
         </flux:toast.group>
     @endpersist
 
+    {{-- Persisted so one clock runs across wire:navigate, rather than a
+         new one starting on every page. --}}
+    @persist('idle-logout')
+        <x-idle-logout />
+    @endpersist
+
     @fluxScripts
 </body>
 

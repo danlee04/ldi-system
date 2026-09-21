@@ -115,7 +115,9 @@ return [
     */
 
     'limiters' => [
-        'login' => 'login',
+        // Null on purpose: it hands login to Fortify's failure-only limiter,
+        // lengthened to a 15-minute lockout by App\Actions\Fortify\FailedLoginLimiter.
+        'login' => null,
         'two-factor' => 'two-factor',
         'passkeys' => 'passkeys',
     ],

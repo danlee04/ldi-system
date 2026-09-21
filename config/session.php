@@ -32,7 +32,16 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    'lifetime' => (int) env('SESSION_LIFETIME', 20),
+
+    /*
+    | Minutes without a key press, click, scroll or touch before the browser
+    | signs the person out, with a warning in the last minute. This, not the
+    | lifetime above, is what makes idle mean idle: the notification bell
+    | polls every minute, and each poll keeps the session itself alive.
+    */
+
+    'idle_timeout' => 20,
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

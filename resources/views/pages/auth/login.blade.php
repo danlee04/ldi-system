@@ -41,8 +41,8 @@
                 @endif
             </div>
 
-            <!-- Remember Me -->
-            <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />
+            {{-- No "Remember me": its cookie signs a closed browser back in for
+                 weeks, past the 20-minute idle sign-out, on PCs the office shares. --}}
 
             <div class="flex items-center justify-end">
                 <flux:button variant="primary" type="submit" class="w-full" data-test="login-button">
