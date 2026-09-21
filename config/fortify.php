@@ -163,7 +163,8 @@ return [
     */
 
     'features' => [
-        Features::resetPasswords(),
+        // No resetPasswords(): the Center sends no mail, so a reset link
+        // would never arrive. HR sets a forgotten password in Setup → Users.
         Features::emailVerification(),
         Features::twoFactorAuthentication([
             'confirm' => true,

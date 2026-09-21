@@ -36,3 +36,9 @@ test('the login form no longer offers to remember the browser', function () {
     // A remembered browser would sign itself back in past the idle limit.
     $this->get(route('login'))->assertDontSee('Remember me');
 });
+
+test('there is no forgot-password path, since no mail would ever arrive', function () {
+    $this->get(route('login'))->assertDontSee('Forgot your password?');
+
+    $this->get('/forgot-password')->assertNotFound();
+});

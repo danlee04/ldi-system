@@ -2,6 +2,18 @@
 
 use App\Models\User;
 
+/**
+ * The whole opening tag that carries the marker, whatever order Flux
+ * writes its attributes in.
+ */
+function openingTag(string $html, string $marker): string
+{
+    // Quoted values read whole: x-bind:disabled="left > 0" holds a ">".
+    preg_match_all('/<(?:input|button)\b(?:"[^"]*"|[^">])*>/s', $html, $tags);
+
+    return collect($tags[0])->first(fn (string $tag): bool => str_contains($tag, $marker)) ?? '';
+}
+
 function wrongPassword(User $user, int $times): void
 {
     foreach (range(1, $times) as $ignored) {
@@ -64,4 +76,26 @@ test('one locked account does not lock anybody else out', function () {
         ->assertSessionHasNoErrors();
 
     $this->assertAuthenticated();
+});
+
+test('a locked account finds the password and the button shut, with the time left', function () {
+    $user = User::factory()->create();
+
+    wrongPassword($user, 5);
+
+    $html = $this->from(route('login'))
+        ->followingRedirects()
+        ->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])
+        ->assertSee('You can try again in')
+        ->assertSee('left: 900', false)
+        ->getContent();
+
+    expect(openingTag($html, 'name="password"'))->toContain('disabled="disabled"')
+        ->and(openingTag($html, 'data-test="login-button"'))->toContain('disabled="disabled"');
+});
+
+test('the login form opens as usual when nobody is locked out', function () {
+    $html = $this->get(route('login'))->assertSee('left: 0', false)->getContent();
+
+    expect(openingTag($html, 'name="password"'))->not->toContain('disabled="disabled"');
 });

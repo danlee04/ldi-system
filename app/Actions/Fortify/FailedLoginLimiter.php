@@ -3,6 +3,7 @@
 namespace App\Actions\Fortify;
 
 use Illuminate\Http\Request;
+use Laravel\Fortify\Fortify;
 use Laravel\Fortify\LoginRateLimiter;
 
 /**
@@ -22,5 +23,17 @@ class FailedLoginLimiter extends LoginRateLimiter
     public function increment(Request $request): void
     {
         $this->limiter->hit($this->throttleKey($request), self::LOCKOUT_SECONDS);
+    }
+
+    /**
+     * How long this email is still locked out from where the request came
+     * from, or 0. For the login form, which is shown on a GET that carries
+     * the email only as old input.
+     */
+    public function secondsLockedFor(Request $request, string $email): int
+    {
+        $asAttempt = $request->duplicate([Fortify::username() => $email]);
+
+        return $this->tooManyAttempts($asAttempt) ? max(1, $this->availableIn($asAttempt)) : 0;
     }
 }

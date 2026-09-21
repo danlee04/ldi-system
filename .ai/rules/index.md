@@ -7,7 +7,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Actions/Users/**, app/Models/User.php, resources/views/pages/setup/⚡users.blade.php | .ai/rules/accounts.md |
 | app/Console/Commands/** | .ai/rules/commands.md |
 | resources/views/components/**, resources/views/components/idle-logout.blade.php | .ai/rules/components.md |
-| config/app.php | .ai/rules/config.md |
+| config/app.php, config/fortify.php | .ai/rules/config.md |
 | resources/css/** | .ai/rules/css.md |
 | app/Actions/Employees/**, app/Models/Employee.php, resources/views/pages/employees/** | .ai/rules/employees.md |
 | app/Enums/** | .ai/rules/enums.md |

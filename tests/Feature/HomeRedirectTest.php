@@ -25,7 +25,9 @@ test('the log in page says what the system is and where an account comes from', 
 });
 
 test('every door into the system wears the same page', function () {
-    $this->get(route('password.request'))
+    // Confirm-password, now that the forgot-password door is gone.
+    $this->actingAs(User::factory()->create())
+        ->get(route('password.confirm'))
         ->assertOk()
         ->assertSee('HR Training System')
         ->assertSee('Authorized users only.');
