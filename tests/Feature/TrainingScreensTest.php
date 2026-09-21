@@ -10,6 +10,7 @@ use App\Models\Section;
 use App\Models\TrainingApproval;
 use App\Models\TrainingRecord;
 use App\Models\User;
+use App\Notifications\TrainingAwaitsDecision;
 use Livewire\Livewire;
 
 function actingAsEmployee(): Employee
@@ -282,4 +283,56 @@ test('saving tells the list behind the modal to redraw', function () {
         ->set(formFields($employee->id))
         ->call('save')
         ->assertDispatched('training-saved');
+});
+
+test('an employee withdraws a training nobody has decided on, and the approver notice goes with it', function () {
+    $employee = actingAsEmployee();
+
+    $record = TrainingRecord::factory()->for($employee)->create();
+
+    $approver = User::factory()->sectionHead()->create();
+    $approver->notify(new TrainingAwaitsDecision($record));
+    // Somebody else's record keeps its notice.
+    $approver->notify(new TrainingAwaitsDecision(TrainingRecord::factory()->create()));
+
+    Livewire::test('pages::trainings.mine')
+        ->call('confirmDelete', $record->id)
+        ->assertSee('Delete this training?')
+        ->call('deleteRecord');
+
+    expect(TrainingRecord::find($record->id))->toBeNull()
+        ->and($approver->notifications()->count())->toBe(1);
+});
+
+test('a training somebody has already decided on cannot be deleted', function () {
+    $employee = actingAsEmployee();
+
+    $record = TrainingRecord::factory()->awaitingDivisionHead()->for($employee)->create();
+    TrainingApproval::factory()->for($record)->create(['level' => ApprovalLevel::SectionHead]);
+
+    $approved = TrainingRecord::factory()->approved()->for($employee)->create();
+
+    Livewire::test('pages::trainings.mine')
+        ->assertDontSee('confirmDelete('.$record->id.')', false)
+        ->call('confirmDelete', $record->id)
+        ->assertForbidden();
+
+    Livewire::test('pages::trainings.mine')
+        ->call('confirmDelete', $approved->id)
+        ->assertForbidden();
+
+    expect(TrainingRecord::find($record->id))->not->toBeNull()
+        ->and(TrainingRecord::find($approved->id))->not->toBeNull();
+});
+
+test('an employee cannot delete somebody else training', function () {
+    actingAsEmployee();
+
+    $stranger = TrainingRecord::factory()->create();
+
+    Livewire::test('pages::trainings.mine')
+        ->call('confirmDelete', $stranger->id)
+        ->assertForbidden();
+
+    expect(TrainingRecord::find($stranger->id))->not->toBeNull();
 });

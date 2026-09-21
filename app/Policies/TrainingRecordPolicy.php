@@ -60,6 +60,15 @@ class TrainingRecordPolicy
     }
 
     /**
+     * Withdrawn on the same terms as corrected: once any level has
+     * decided, the record is part of somebody's history and stays.
+     */
+    public function delete(User $user, TrainingRecord $record): bool
+    {
+        return $this->update($user, $record);
+    }
+
+    /**
      * Uses the loaded relation when the caller eager loaded it, so listing
      * a page of records does not cost one query per row.
      */
