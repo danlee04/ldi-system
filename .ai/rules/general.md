@@ -23,5 +23,10 @@ Their cadence is roughly one message covering every two working sessions, so tha
 
 Plans in docs/superpowers/plans/ have "Commit message" steps that already hold a one-line message — hand it over rather than running the command.
 
-## public/build is committed; the server deploys with deploy.bat
-Since 2026-09-21 public/build is NOT in .gitignore: the office server has no Node, and the user wanted `git pull` to be enough. A pre-commit hook in .git/hooks/pre-commit (local to the dev PC, not versioned) runs `npm run build` and `git add -A public/build` before every commit; recreate it if the repo is cloned afresh. On the server, deploy.bat does pull, composer install --no-dev, migrate --force, config/view/event cache and route:clear. .gitattributes keeps *.bat CRLF, which cmd.exe needs for goto.
+## Deploying is `git pull` and nothing else
+The user's rule: on the office server, `git pull` must be the whole deploy. Do not hand them extra steps to run after it.
+
+- public/build is committed (not in .gitignore since 2026-09-21): the server has no Node. A pre-commit hook on the dev PC, .git/hooks/pre-commit, runs `npm run build` and `git add -A public/build`.
+- On the server, .git/hooks/post-merge runs deploy.bat after every pull that changes something: composer install --no-dev, migrate --force, config/view/event cache, route:clear. A pull without it leaves the old cached config against new code — that is how "Rate limiter [login] is not defined" took the site down.
+- Neither hook is versioned. Recreate both after a fresh clone. The post-merge hook must call deploy.bat by full Windows path: `exec cmd.exe //c "$(cygpath -w "$PWD")\deploy.bat"` — a bare `deploy.bat` is not found from Git Bash.
+- .gitattributes keeps *.bat CRLF, which cmd.exe needs for goto.

@@ -1,15 +1,12 @@
 @echo off
-rem Updates the office server to what is on GitHub. Run it from the
-rem project folder on the server: deploy.bat
+rem Brings the office server in line with the code a git pull just brought
+rem in. Nobody runs this by hand: the server's .git\hooks\post-merge calls
+rem it after every pull that changes something. See .ai/rules/general.md.
 rem
 rem The built CSS and JS arrive with the pull (public\build is committed),
 rem so the server needs no Node.
 
 cd /d "%~dp0"
-
-echo.
-echo == Pulling the latest code
-git pull --ff-only || goto :failed
 
 echo.
 echo == Installing PHP packages
@@ -31,10 +28,11 @@ rem See .ai/rules/routes.md.
 php artisan route:clear || goto :failed
 
 echo.
-echo == Done. Open http://192.168.10.38/ldi-system/ to check.
+echo == Updated. Open http://192.168.10.38/ldi-system/ to check.
 exit /b 0
 
 :failed
 echo.
-echo == STOPPED: the step above failed. Nothing after it ran.
+echo == STOPPED: the step above failed, and the site may be half updated.
+echo == Fix it, then run deploy.bat by hand to finish.
 exit /b 1
