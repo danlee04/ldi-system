@@ -1,12 +1,17 @@
 <?php
 
+use App\Actions\Ldna\DeleteCompetency;
 use App\Enums\ProficiencyLevel;
 use App\Models\Competency;
 use App\Models\Employee;
+use App\Models\LdnaAssessment;
 use App\Models\LdnaCycle;
+use App\Models\LdnaRating;
 use App\Models\Position;
 use App\Models\Section;
 use App\Models\User;
+use App\Notifications\LdnaCycleOpened;
+use App\Notifications\SelfRatingSubmitted;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -213,4 +218,69 @@ test('hr is offered ldna in the sidebar', function () {
     $this->actingAs(User::factory()->hr()->create());
 
     $this->get(route('dashboard'))->assertOk()->assertSee(route('ldna.index'));
+});
+
+test('hr deletes a cycle with everything in it and the notices it sent', function () {
+    $hr = User::factory()->hr()->create();
+    $this->actingAs($hr);
+
+    $cycle = LdnaCycle::factory()->create(['year' => 2027]);
+    $assessment = LdnaAssessment::factory()->for($cycle, 'cycle')->create(['self_submitted_at' => now()]);
+    $rating = LdnaRating::factory()->for($assessment, 'assessment')->create();
+
+    $hr->notify(new LdnaCycleOpened($cycle));
+    $hr->notify(new SelfRatingSubmitted($assessment));
+
+    // Another year's notice is somebody else's business and stays.
+    $hr->notify(new LdnaCycleOpened(LdnaCycle::factory()->create(['year' => 2028])));
+
+    Livewire::test('pages::ldna.index')
+        ->call('confirmDelete', $cycle->id)
+        ->call('deleteCycle')
+        ->assertHasNoErrors();
+
+    expect(LdnaCycle::find($cycle->id))->toBeNull()
+        ->and(LdnaAssessment::find($assessment->id))->toBeNull()
+        ->and(LdnaRating::find($rating->id))->toBeNull()
+        ->and($hr->notifications()->count())->toBe(1);
+});
+
+test('a cycle a head has confirmed in is deleted only once its year is typed', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $cycle = LdnaCycle::factory()->create(['year' => 2027]);
+    LdnaAssessment::factory()->for($cycle, 'cycle')->create(['self_submitted_at' => now(), 'confirmed_at' => now()]);
+
+    $component = Livewire::test('pages::ldna.index')
+        ->call('confirmDelete', $cycle->id)
+        ->assertSee('Type "2027" to delete it anyway')
+        ->call('deleteCycle')
+        ->assertHasErrors('typedYear')
+        ->set('typedYear', '2026')
+        ->call('deleteCycle')
+        ->assertHasErrors('typedYear');
+
+    expect(LdnaCycle::find($cycle->id))->not->toBeNull();
+
+    $component->set('typedYear', '2027')->call('deleteCycle')->assertHasNoErrors();
+
+    expect(LdnaCycle::find($cycle->id))->toBeNull();
+});
+
+test('a competency rated only in a deleted cycle can then be deleted', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $competency = Competency::factory()->core()->create();
+    $cycle = LdnaCycle::factory()->create();
+    LdnaRating::factory()
+        ->for(LdnaAssessment::factory()->for($cycle, 'cycle'), 'assessment')
+        ->create(['competency_id' => $competency->id]);
+
+    expect(app(DeleteCompetency::class)->handle($competency))->toBeFalse();
+
+    Livewire::test('pages::ldna.index')
+        ->call('confirmDelete', $cycle->id)
+        ->call('deleteCycle');
+
+    expect(app(DeleteCompetency::class)->handle($competency->fresh()))->toBeTrue();
 });

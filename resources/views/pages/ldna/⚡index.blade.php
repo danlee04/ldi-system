@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Ldna\DeleteLdnaCycle;
 use App\Actions\Ldna\OpenLdnaCycle;
 use App\Models\LdnaCycle;
 use Carbon\CarbonImmutable;
@@ -17,6 +18,10 @@ new #[Title('LDNA')] class extends Component {
     public string $opensOn = '';
 
     public string $closesOn = '';
+
+    public ?int $deletingId = null;
+
+    public string $typedYear = '';
 
     public function mount(): void
     {
@@ -78,6 +83,61 @@ new #[Title('LDNA')] class extends Component {
 
         $this->redirectRoute('ldna.show', $cycle, navigate: true);
     }
+
+    public function confirmDelete(int $cycleId): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $this->deletingId = LdnaCycle::findOrFail($cycleId)->getKey();
+        $this->typedYear = '';
+        $this->resetValidation();
+
+        unset($this->deleting);
+
+        Flux::modal('delete-cycle')->show();
+    }
+
+    /**
+     * The cycle the delete modal is asking about, with what it holds.
+     */
+    #[Computed]
+    public function deleting(): ?LdnaCycle
+    {
+        return $this->deletingId === null
+            ? null
+            : LdnaCycle::query()
+                ->withCount([
+                    'assessments',
+                    'assessments as submitted_count' => fn (Builder $query) => $query->whereNotNull('self_submitted_at'),
+                    'assessments as confirmed_count' => fn (Builder $query) => $query->whereNotNull('confirmed_at'),
+                ])
+                ->find($this->deletingId);
+    }
+
+    public function deleteCycle(DeleteLdnaCycle $delete): void
+    {
+        abort_unless(auth()->user()->isAdminOrHr(), 403);
+
+        $cycle = LdnaCycle::findOrFail($this->deletingId);
+
+        $this->resetValidation('typedYear');
+
+        // Left open on a wrong year, with the field marked, rather than
+        // closed on a toast the user might miss.
+        if (! $delete->handle($cycle, $this->typedYear)) {
+            $this->addError('typedYear', __('Type ":year" to delete this cycle.', ['year' => $cycle->year]));
+
+            return;
+        }
+
+        $this->reset('deletingId', 'typedYear');
+
+        unset($this->cycles, $this->deleting);
+
+        Flux::modal('delete-cycle')->close();
+
+        Flux::toast(variant: 'success', text: __('LDNA :year deleted.', ['year' => $cycle->year]));
+    }
 }; ?>
 
 <div class="space-y-6">
@@ -93,6 +153,7 @@ new #[Title('LDNA')] class extends Component {
             <flux:table.column>{{ __('Window') }}</flux:table.column>
             <flux:table.column>{{ __('Status') }}</flux:table.column>
             <flux:table.column>{{ __('Confirmed by a head') }}</flux:table.column>
+            <flux:table.column />
         </flux:table.columns>
 
         <flux:table.rows>
@@ -119,10 +180,15 @@ new #[Title('LDNA')] class extends Component {
                     <flux:table.cell class="tabular-nums">
                         {{ __(':confirmed of :people', ['confirmed' => $cycle->confirmed_count, 'people' => $cycle->assessments_count]) }}
                     </flux:table.cell>
+                    <flux:table.cell class="text-right">
+                        <flux:button size="sm" variant="danger" wire:click="confirmDelete({{ $cycle->id }})">
+                            {{ __('Delete') }}
+                        </flux:button>
+                    </flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>
-                    <flux:table.cell colspan="4">{{ __('No cycle yet. Set up the first one when the framework is ready.') }}</flux:table.cell>
+                    <flux:table.cell colspan="5">{{ __('No cycle yet. Set up the first one when the framework is ready.') }}</flux:table.cell>
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
@@ -151,6 +217,47 @@ new #[Title('LDNA')] class extends Component {
                 </flux:modal.close>
 
                 <flux:button type="submit" variant="primary">{{ __('Set up cycle') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="delete-cycle" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
+        <form wire:submit="deleteCycle" class="space-y-6">
+            <flux:heading size="lg">{{ __('Delete this cycle?') }}</flux:heading>
+
+            @if ($this->deleting)
+                <div class="space-y-1">
+                    <flux:heading>{{ __('LDNA :year', ['year' => $this->deleting->year]) }}</flux:heading>
+                    <flux:text>
+                        {{ __(':people assessments · :submitted submitted · :confirmed confirmed', [
+                            'people' => $this->deleting->assessments_count,
+                            'submitted' => $this->deleting->submitted_count,
+                            'confirmed' => $this->deleting->confirmed_count,
+                        ]) }}
+                    </flux:text>
+                </div>
+
+                <flux:callout variant="danger" icon="exclamation-triangle">
+                    {{ __('Every assessment and every answer in it is deleted for good, with the notices it sent. This cannot be undone.') }}
+                </flux:callout>
+
+                @if ($this->deleting->confirmed_count > 0)
+                    {{-- Set apart: the quotes around the year would close the
+                         attribute if the string sat inside :label="…". --}}
+                    @php($typeYearLabel = __('A head has confirmed some of these. Type ":year" to delete it anyway.', ['year' => $this->deleting->year]))
+
+                    <flux:input wire:model="typedYear" inputmode="numeric" autocomplete="off" :label="$typeYearLabel" />
+                @endif
+            @endif
+
+            <div class="flex gap-2">
+                <flux:spacer />
+
+                <flux:modal.close>
+                    <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button type="submit" variant="danger">{{ __('Delete') }}</flux:button>
             </div>
         </form>
     </flux:modal>
