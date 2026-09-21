@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Ldi\DeleteLdiTraining;
 use App\Actions\Ldi\SaveLdiTraining;
 use App\Enums\CompetencyType;
 use App\Enums\LdType;
@@ -78,6 +79,8 @@ new #[Title('LDI trainings')] class extends Component {
      * @var list<string>
      */
     public array $competencyIds = [];
+
+    public ?int $deletingId = null;
 
     public function mount(): void
     {
@@ -227,6 +230,52 @@ new #[Title('LDI trainings')] class extends Component {
         Flux::modal('ldi-form')->close();
 
         Flux::toast(variant: 'success', text: __('LDI training saved.'));
+    }
+
+    public function confirmDelete(int $planId): void
+    {
+        $plan = LdiTraining::findOrFail($planId);
+
+        $this->authorize('delete', $plan);
+
+        $this->deletingId = $plan->getKey();
+
+        unset($this->deleting);
+
+        Flux::modal('delete-plan')->show();
+    }
+
+    /**
+     * The plan the delete modal is asking about, with how many attended —
+     * the modal refuses up front rather than offering a Delete that only
+     * says no once pressed.
+     */
+    #[Computed]
+    public function deleting(): ?LdiTraining
+    {
+        return $this->deletingId === null
+            ? null
+            : LdiTraining::query()->withCount('trainingRecords')->find($this->deletingId);
+    }
+
+    public function deletePlan(DeleteLdiTraining $delete): void
+    {
+        $plan = LdiTraining::findOrFail($this->deletingId);
+
+        $this->authorize('delete', $plan);
+
+        $deleted = $delete->handle($plan);
+
+        $this->deletingId = null;
+
+        unset($this->plans, $this->years, $this->deleting);
+
+        Flux::modal('delete-plan')->close();
+
+        Flux::toast(
+            variant: $deleted ? 'success' : 'warning',
+            text: $deleted ? __('LDI training deleted.') : __('Remove the attendees first.'),
+        );
     }
 
     /**
@@ -404,9 +453,14 @@ new #[Title('LDI trainings')] class extends Component {
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <flux:button size="sm" variant="ghost" wire:click="edit({{ $plan->id }})">
-                            {{ __('Edit') }}
-                        </flux:button>
+                        <div class="flex gap-1">
+                            <flux:button size="sm" variant="ghost" wire:click="edit({{ $plan->id }})">
+                                {{ __('Edit') }}
+                            </flux:button>
+                            <flux:button size="sm" variant="danger" wire:click="confirmDelete({{ $plan->id }})">
+                                {{ __('Delete') }}
+                            </flux:button>
+                        </div>
                     </flux:table.cell>
                 </flux:table.row>
             @empty
@@ -533,5 +587,52 @@ new #[Title('LDI trainings')] class extends Component {
                 </flux:button>
             </div>
         </form>
+    </flux:modal>
+
+    <flux:modal name="delete-plan" class="md:w-2xl md:max-w-[calc(100vw-4rem)]">
+        <div class="space-y-6">
+            <flux:heading size="lg">{{ __('Delete this LDI training?') }}</flux:heading>
+
+            @if ($this->deleting)
+                <div class="space-y-1">
+                    <flux:heading>{{ $this->deleting->title }}</flux:heading>
+                    <flux:text>{{ $this->deleting->inclusive_dates }}</flux:text>
+                </div>
+
+                @if ($this->deleting->training_records_count > 0)
+                    <flux:callout variant="warning" icon="exclamation-triangle">
+                        {{ trans_choice(
+                            ':count person is recorded as attending. Remove them from the plan first, so no training history is cut loose from it.|:count people are recorded as attending. Remove them from the plan first, so no training history is cut loose from it.',
+                            $this->deleting->training_records_count,
+                            ['count' => $this->deleting->training_records_count],
+                        ) }}
+                    </flux:callout>
+                @else
+                    <flux:callout variant="danger" icon="exclamation-triangle">
+                        {{ __('The plan, its budget and its competencies are deleted for good. This cannot be undone.') }}
+                    </flux:callout>
+                @endif
+            @endif
+
+            <div class="flex gap-2">
+                <flux:spacer />
+
+                @if ($this->deleting?->training_records_count > 0)
+                    <flux:modal.close>
+                        <flux:button variant="ghost">{{ __('Close') }}</flux:button>
+                    </flux:modal.close>
+
+                    <flux:button variant="primary" :href="route('ldi.show', $this->deleting)" wire:navigate>
+                        {{ __('Open attendees') }}
+                    </flux:button>
+                @else
+                    <flux:modal.close>
+                        <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+
+                    <flux:button wire:click="deletePlan" variant="danger">{{ __('Delete') }}</flux:button>
+                @endif
+            </div>
+        </div>
     </flux:modal>
 </div>

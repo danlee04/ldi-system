@@ -240,3 +240,43 @@ test('naming another fund without its budget is refused', function () {
         ->call('save')
         ->assertHasErrors('other_budget_amount');
 });
+
+test('hr can delete a plan nobody attended', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $plan = LdiTraining::factory()->create();
+
+    Livewire::test('pages::ldi.index')
+        ->call('confirmDelete', $plan->id)
+        ->assertSet('deletingId', $plan->id)
+        ->call('deletePlan');
+
+    expect(LdiTraining::find($plan->id))->toBeNull();
+});
+
+test('a plan with attendees is kept, and so is their training', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $plan = LdiTraining::factory()->create();
+    $record = TrainingRecord::factory()->approved()->create(['ldi_training_id' => $plan->id]);
+
+    Livewire::test('pages::ldi.index')
+        ->call('confirmDelete', $plan->id)
+        ->assertSee('Remove them from the plan first')
+        ->call('deletePlan');
+
+    // Still there, and still tied to the plan the DOH report counts it under.
+    expect(LdiTraining::find($plan->id))->not->toBeNull()
+        ->and($record->fresh()->ldi_training_id)->toBe($plan->id);
+});
+
+test('a division head cannot delete a plan', function () {
+    $this->actingAs(User::factory()->divisionHead()->create());
+
+    $plan = LdiTraining::factory()->create();
+
+    // Kept out of the page itself, before any delete is reached.
+    $this->get(route('ldi.index'))->assertForbidden();
+
+    expect(LdiTraining::find($plan->id))->not->toBeNull();
+});
