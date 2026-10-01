@@ -39,8 +39,7 @@ new #[Title('Employee')] class extends Component {
 
 <div class="space-y-6">
     <div class="space-y-3">
-        <flux:button size="sm" variant="ghost" icon="chevron-left"
-            :href="route('employees.index')" wire:navigate>
+        <flux:button size="sm" variant="ghost" icon="chevron-left" :href="route('employees.index')" wire:navigate>
             {{ __('Employees') }}
         </flux:button>
 
@@ -106,7 +105,9 @@ new #[Title('Employee')] class extends Component {
                 <flux:table.row :key="$record->id" class="transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
                     <flux:table.cell>
                         <div class="w-72 truncate" title="{{ $record->title }}">
-                            <button type="button" class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70" wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
+                            <button type="button"
+                                class="block w-full cursor-pointer truncate text-left text-[var(--color-accent-content)] hover:opacity-70"
+                                wire:click="$dispatch('show-training', { recordId: {{ $record->id }} })">
                                 {{ $record->title }}
                             </button>
                         </div>

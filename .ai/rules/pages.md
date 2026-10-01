@@ -39,3 +39,5 @@ Anything narrower than 4xl squeezes the two-column grid back into one column on 
 
 ## A page that 500s with "unexpected identifier" may be NBSP or markdown escaping
 On 2026-10-01 ⚡dashboard.blade.php would not compile: its PHP block had non-breaking spaces (U+00A0) for indentation, a blank line after every line, and markdown-escaped \* \< \_ inside docblocks and __() calls. PHP reports `syntax error, unexpected identifier " "` or `unexpected token "/"`. Check with grep for $'\xc2\xa0' and for backslashes before * < _ (namespace backslashes before capitals are legitimate). The repair is mechanical: NBSP to space, collapse the doubled newlines in the PHP block only, drop those three escapes. Such a file is text that passed through a markdown renderer — do not hand-edit around it, repair it wholesale.
+
+The quieter form of the same damage is a ```blade fence wrapping the whole file, which compiles fine and prints three backticks onto the page instead — ⚡detail-modal.blade.php shipped that way. When touching a view that was written this way, first sweep every Blade file for all three: a leading fence, U+00A0, and \* \< \_.
