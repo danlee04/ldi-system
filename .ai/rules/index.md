@@ -12,7 +12,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/components/dashboard/** | .ai/rules/dashboard.md |
 | app/Actions/Employees/**, app/Models/Employee.php, resources/views/pages/employees/** | .ai/rules/employees.md |
 | app/Enums/** | .ai/rules/enums.md |
-| ** | .ai/rules/general.md |
+| **, vite.config.js | .ai/rules/general.md |
 | app/Actions/Ldna/**, app/Actions/Reports/LdnaGapReport.php, app/Models/Ldna*.php, app/Workflow/LdnaConfirmer.php, resources/views/pages/ldna/** | .ai/rules/ldna.md |
 | resources/views/pages/** | .ai/rules/pages.md |
 | app/Actions/Pds/** | .ai/rules/pds.md |

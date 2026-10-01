@@ -1,6 +1,7 @@
 ---
 paths:
   - '**'
+  - vite.config.js
 ---
 
 # General
@@ -30,3 +31,6 @@ The user's rule: on the office server, `git pull` must be the whole deploy. Do n
 - On the server, .git/hooks/post-merge runs deploy.bat after every pull that changes something: composer install --no-dev, migrate --force, config/view/event cache, route:clear. A pull without it leaves the old cached config against new code — that is how "Rate limiter [login] is not defined" took the site down.
 - Neither hook is versioned. Recreate both after a fresh clone. The post-merge hook must call deploy.bat by full Windows path: `exec cmd.exe //c "$(cygpath -w "$PWD")\deploy.bat"` — a bare `deploy.bat` is not found from Git Bash.
 - .gitattributes keeps *.bat CRLF, which cmd.exe needs for goto.
+
+## Vite base must stay './' — the app is served from a subfolder
+base: './' makes url() inside built CSS relative to the stylesheet. The default (/build/) is root-absolute and only resolves when the app sits at the root of its domain. The office server mounts it at 192.168.10.38/ldi-system, so with the default every font 404s and the whole interface silently falls back to system sans — it did for months before 2026-10-01, unnoticed because local testing used the root-level .test vhost. Check a change by loading the app through a subfolder (localhost/hr-training-laravel/public) and confirming the woff2 returns 200, not just the CSS.

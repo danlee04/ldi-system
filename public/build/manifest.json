@@ -1,7 +1,7 @@
 {
-  "_fonts-CzxfVx6R.css": {
-    "file": "assets/fonts-CzxfVx6R.css",
-    "src": "_fonts-CzxfVx6R.css"
+  "_fonts-Bdvvtai9.css": {
+    "file": "assets/fonts-Bdvvtai9.css",
+    "src": "_fonts-Bdvvtai9.css"
   },
   "_inter-400-normal-C38fXH4l.woff2": {
     "file": "assets/inter-400-normal-C38fXH4l.woff2",
@@ -68,7 +68,7 @@
     "src": "node_modules/@fontsource/google-sans/files/google-sans-latin-700-normal.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BXgqM0SE.css",
+    "file": "assets/app-CHFWJZPf.css",
     "name": "app",
     "names": [
       "app.css"
