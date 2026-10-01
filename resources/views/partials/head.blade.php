@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="{{ asset('images/logo.png') }}">
 
 {{-- Flux's @fonts directive is gone from here on purpose: it preloads the
-     Inter it ships with, and this app sets Poppins in app.css. Leaving it
+     Inter it ships with, and this app sets Google Sans in app.css. Leaving it
      in would fetch a typeface nothing renders. --}}
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
