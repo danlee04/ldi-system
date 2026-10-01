@@ -359,9 +359,11 @@ test('each kind of entry wears its own colour', function () {
         ->and($classes[3])->toContain('bg-zinc-200')
         // A training wears the Center's own blue.
         ->and($classes[4])->toContain('bg-brand-primary')
-        // And keeps a dashed edge, so blue and violet are told apart by
-        // more than hue.
-        ->and($classes[4])->toContain('border-dashed');
+        // And is the only kind with an outline, so blue and violet are told
+        // apart by more than hue. It was a dashed outline until the line
+        // read as broken at this size; solid now, and still the only one.
+        ->and($classes[4])->toContain('border-brand-primary')
+        ->and($classes->take(4)->filter(fn (string $chip): bool => str_contains($chip, 'border')))->toBeEmpty();
 });
 
 test('the calendar says what its colours mean', function () {
@@ -381,8 +383,8 @@ test('the calendar reddens the weekend and fills today', function () {
 
     expect($html)
         // Saturday and Sunday, the way an office calendar marks them.
-        ->toContain('text-red-600')
-        // Today is the whole box, tinted rather than filled so a bar
+        ->toContain('text-red-500')
+        // Today is the whole box, washed rather than filled so a bar
         // sitting in it is still readable.
-        ->toContain('bg-brand-primary/12');
+        ->toContain('color-mix(in_srgb,var(--color-accent)_4%,transparent)');
 });

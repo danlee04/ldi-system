@@ -22,11 +22,15 @@ enum ActivityType: string
      *
      * It wears the Center's own blue, because a training is the commonest
      * thing on this calendar and the thing the whole system is about. That
-     * pushes a meeting to violet: the two are the pair a colourblind reader
-     * is likeliest to confuse, so the training keeps a dashed edge as well.
-     * The dash also says the bar is not the calendar page's to edit.
+     * pushes a meeting to violet.
+     *
+     * The edge was dashed until 2026-10-01, as a second cue for the reader
+     * who cannot tell blue from violet, and as a sign that the bar belongs
+     * to a plan rather than to this page. It reads as a broken line at the
+     * small size the month uses, so it is solid now; what separates the two
+     * is the hue, the legend and the title each bar carries.
      */
-    public const PLAN_CHIP = 'border border-dashed border-brand-primary bg-brand-primary/10 text-blue-900 dark:bg-brand-primary/30 dark:text-blue-100';
+    public const PLAN_CHIP = 'border border-brand-primary bg-brand-primary/10 text-blue-900 dark:bg-brand-primary/30 dark:text-blue-100';
 
     public const PLAN_DOT = 'bg-brand-primary';
 
