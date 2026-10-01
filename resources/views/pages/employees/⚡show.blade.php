@@ -94,7 +94,7 @@ new #[Title('Employee')] class extends Component {
         <flux:table.columns>
             <flux:table.column>{{ __('Title') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Hours') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Hours') }}</flux:table.column>
             <flux:table.column>{{ __('Type of LD') }}</flux:table.column>
             <flux:table.column>{{ __('Conducted by') }}</flux:table.column>
             <flux:table.column>{{ __('Status') }}</flux:table.column>
@@ -115,7 +115,7 @@ new #[Title('Employee')] class extends Component {
                     <flux:table.cell class="whitespace-nowrap">
                         {{ $record->inclusive_dates }}
                     </flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $record->hours }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ $record->hours }}</flux:table.cell>
                     <flux:table.cell>
                         <div class="w-28 truncate" title="{{ $record->ld_type_label }}">
                             {{ $record->ld_type_label }}

@@ -20,8 +20,8 @@
         <flux:table.columns>
             <flux:table.column>{{ __('Division') }}</flux:table.column>
             <flux:table.column>{{ __('Employee') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('This year') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Earlier') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('This year') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Earlier') }}</flux:table.column>
             <flux:table.column>{{ __('Standing') }}</flux:table.column>
         </flux:table.columns>
 
@@ -34,8 +34,8 @@
                             {{ $row['employee']->listing_name }}
                         </div>
                     </flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $row['attendances'] }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $row['earlier'] }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ $row['attendances'] }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ $row['earlier'] }}</flux:table.cell>
                     <flux:table.cell>
                         @if ($row['first_timer'])
                             <flux:badge color="green">{{ __('First-timer') }}</flux:badge>

@@ -19,9 +19,9 @@
     <flux:table :paginate="$rows" pagination:class="print:hidden">
         <flux:table.columns>
             <flux:table.column>{{ __('Division') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Employees') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('With training') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Without') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Employees') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('With training') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Without') }}</flux:table.column>
             <flux:table.column>{{ __('Coverage') }}</flux:table.column>
         </flux:table.columns>
 
@@ -29,9 +29,9 @@
             @forelse ($rows as $row)
                 <flux:table.row :key="$row['division']">
                     <flux:table.cell>{{ $row['division'] }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $row['employees'] }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $row['covered'] }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">
+                    <flux:table.cell align="end" class="tabular-nums">{{ $row['employees'] }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ $row['covered'] }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">
                         {{ $row['employees'] - $row['covered'] }}
                     </flux:table.cell>
                     <flux:table.cell>

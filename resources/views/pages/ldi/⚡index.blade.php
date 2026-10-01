@@ -416,7 +416,7 @@ new #[Title('LDI trainings')] class extends Component {
             <flux:table.column>{{ __('Development partner') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
             <flux:table.column>{{ __('Attendees') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Budget') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Budget') }}</flux:table.column>
             <flux:table.column>{{ __('Source') }}</flux:table.column>
             <flux:table.column />
         </flux:table.columns>
@@ -427,14 +427,14 @@ new #[Title('LDI trainings')] class extends Component {
                     <flux:table.cell>
                         {{-- The width and truncation must live on a wrapper: flux:link is
                              always `inline`, and an inline element ignores both. --}}
-                        <div class="w-72 truncate" title="{{ $plan->title }}">
+                        <div class="w-56 truncate 2xl:w-72" title="{{ $plan->title }}">
                             <flux:link :href="route('ldi.show', $plan)" wire:navigate>
                                 {{ $plan->title }}
                             </flux:link>
                         </div>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-48 truncate" title="{{ $plan->development_partner }}">
+                        <div class="w-40 truncate" title="{{ $plan->development_partner }}">
                             {{ $plan->development_partner }}
                         </div>
                     </flux:table.cell>
@@ -444,11 +444,11 @@ new #[Title('LDI trainings')] class extends Component {
                     <flux:table.cell>
                         <x-attendee-count :actual="$plan->training_records_count" :target="$plan->target_attendees" />
                     </flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">
+                    <flux:table.cell align="end" class="tabular-nums">
                         {{ $plan->budget === null ? '—' : number_format((float) $plan->budget, 2) }}
                     </flux:table.cell>
                     <flux:table.cell>
-                        <div class="w-36 truncate" title="{{ $plan->budget_source }}">
+                        <div class="w-28 truncate 2xl:w-36" title="{{ $plan->budget_source }}">
                             {{ $plan->budget_source ?? '—' }}
                         </div>
                     </flux:table.cell>

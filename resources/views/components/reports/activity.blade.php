@@ -26,8 +26,8 @@
             <flux:table.column>{{ __('Employee') }}</flux:table.column>
             <flux:table.column>{{ __('Training') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Hours') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Cost') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Hours') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Cost') }}</flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
@@ -43,8 +43,8 @@
                         <div class="w-64 truncate" title="{{ $record->title }}">{{ $record->title }}</div>
                     </flux:table.cell>
                     <flux:table.cell class="whitespace-nowrap">{{ $record->inclusive_dates }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $record->hours }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">
+                    <flux:table.cell align="end" class="tabular-nums">{{ $record->hours }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">
                         {{ number_format((float) $record->registration_fee + (float) $record->tev + (float) $record->expenses, 2) }}
                     </flux:table.cell>
                 </flux:table.row>

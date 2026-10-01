@@ -180,7 +180,7 @@ new #[Title('LDNA')] class extends Component {
                     <flux:table.cell class="tabular-nums">
                         {{ __(':confirmed of :people', ['confirmed' => $cycle->confirmed_count, 'people' => $cycle->assessments_count]) }}
                     </flux:table.cell>
-                    <flux:table.cell class="text-right">
+                    <flux:table.cell align="end">
                         <flux:button size="sm" variant="danger" wire:click="confirmDelete({{ $cycle->id }})">
                             {{ __('Delete') }}
                         </flux:button>

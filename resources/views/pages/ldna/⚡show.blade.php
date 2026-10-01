@@ -510,10 +510,10 @@ new #[Title('LDNA')] class extends Component {
                     <flux:table.columns>
                         <flux:table.column>{{ __('Competency') }}</flux:table.column>
                         <flux:table.column>{{ __('Type') }}</flux:table.column>
-                        <flux:table.column class="text-right">{{ __('Assessed') }}</flux:table.column>
-                        <flux:table.column class="text-right">{{ __('Short') }}</flux:table.column>
-                        <flux:table.column class="text-right">%</flux:table.column>
-                        <flux:table.column class="text-right">{{ __('Avg. levels short') }}</flux:table.column>
+                        <flux:table.column align="end">{{ __('Assessed') }}</flux:table.column>
+                        <flux:table.column align="end">{{ __('Short') }}</flux:table.column>
+                        <flux:table.column align="end">%</flux:table.column>
+                        <flux:table.column align="end">{{ __('Avg. levels short') }}</flux:table.column>
                         <flux:table.column>{{ __('LDI plans in :year', ['year' => $cycle->year]) }}</flux:table.column>
                     </flux:table.columns>
 
@@ -532,10 +532,10 @@ new #[Title('LDNA')] class extends Component {
                                     </button>
                                 </flux:table.cell>
                                 <flux:table.cell>{{ $row['type']->label() }}</flux:table.cell>
-                                <flux:table.cell class="text-right tabular-nums">{{ $row['rated'] }}</flux:table.cell>
-                                <flux:table.cell class="text-right tabular-nums">{{ $row['with_gap'] }}</flux:table.cell>
-                                <flux:table.cell class="text-right tabular-nums">{{ number_format($row['percentage'], 1) }}</flux:table.cell>
-                                <flux:table.cell class="text-right tabular-nums">{{ number_format($row['average_gap'], 1) }}</flux:table.cell>
+                                <flux:table.cell align="end" class="tabular-nums">{{ $row['rated'] }}</flux:table.cell>
+                                <flux:table.cell align="end" class="tabular-nums">{{ $row['with_gap'] }}</flux:table.cell>
+                                <flux:table.cell align="end" class="tabular-nums">{{ number_format($row['percentage'], 1) }}</flux:table.cell>
+                                <flux:table.cell align="end" class="tabular-nums">{{ number_format($row['average_gap'], 1) }}</flux:table.cell>
                                 <flux:table.cell>
                                     @if ($unanswered)
                                         {{-- Said in words as well as colour. --}}

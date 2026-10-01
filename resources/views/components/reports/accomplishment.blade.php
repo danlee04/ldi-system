@@ -24,11 +24,11 @@
         <flux:table.columns>
             <flux:table.column>{{ __('Title') }}</flux:table.column>
             <flux:table.column>{{ __('Inclusive dates') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Hours') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Hours') }}</flux:table.column>
             <flux:table.column>{{ __('Facilitator') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Target') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Attended') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Spent') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Target') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Attended') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Spent') }}</flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
@@ -38,17 +38,17 @@
                         <div class="w-64 truncate" title="{{ $row['plan']->title }}">{{ $row['plan']->title }}</div>
                     </flux:table.cell>
                     <flux:table.cell class="whitespace-nowrap">{{ $row['plan']->inclusive_dates }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $row['plan']->hours }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ $row['plan']->hours }}</flux:table.cell>
                     <flux:table.cell>
                         <div class="w-48 truncate" title="{{ $row['plan']->facilitator }}">
                             {{ $row['plan']->facilitator }}
                         </div>
                     </flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">
+                    <flux:table.cell align="end" class="tabular-nums">
                         {{ $row['plan']->target_attendees ?? '—' }}
                     </flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ $row['attendees'] }}</flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">{{ number_format($row['spent'], 2) }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ $row['attendees'] }}</flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums">{{ number_format($row['spent'], 2) }}</flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>

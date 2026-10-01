@@ -32,7 +32,7 @@
             <flux:table.column>{{ __('Employee') }}</flux:table.column>
             <flux:table.column>{{ __('Training') }}</flux:table.column>
             <flux:table.column>{{ __('Submitted') }}</flux:table.column>
-            <flux:table.column class="text-right">{{ __('Days waiting') }}</flux:table.column>
+            <flux:table.column align="end">{{ __('Days waiting') }}</flux:table.column>
             <flux:table.column>{{ __('Waiting on') }}</flux:table.column>
         </flux:table.columns>
 
@@ -51,7 +51,7 @@
                     <flux:table.cell class="whitespace-nowrap">
                         {{ $record->created_at?->format('d M Y') ?? '—' }}
                     </flux:table.cell>
-                    <flux:table.cell class="text-right tabular-nums">
+                    <flux:table.cell align="end" class="tabular-nums">
                         {{ $report->daysWaiting($record) }}
                     </flux:table.cell>
                     <flux:table.cell>

@@ -49,3 +49,6 @@ Public page:
 `"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu --hide-scrollbars --window-size=1440,900 --virtual-time-budget=4000 --screenshot=out.png "http://hr-training-laravel.test/login"`
 
 A page behind auth needs a session, which headless has none of. Render it instead: a throwaway Pest test with `actingAs()` that writes `$this->get(route('dashboard'))->getContent()` to a file, then shoot `file:///that.html`. Vite emits absolute asset URLs, so the CSS still loads.
+
+## Right-align a table column with align="end", never class="text-right"
+flux:table.column renders `<th class="text-start"><div class="flex …">{{ $slot }}</div></th>`. A text-right passed to it cannot move a flex item, so the header stays left while the cells move right — every numeric column in the app was mismatched this way until 2026-10-01 (66 places). Pass align="end" on both the column and the cell: it adds the group/end-align class the inner div watches, and text-end [&>*]:ms-auto on the cell. Keep tabular-nums in class.

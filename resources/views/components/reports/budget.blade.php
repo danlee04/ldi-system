@@ -3,24 +3,24 @@
 <flux:table :paginate="$rows" pagination:class="print:hidden">
     <flux:table.columns>
         <flux:table.column>{{ __('Budget source') }}</flux:table.column>
-        <flux:table.column class="text-right">{{ __('Plans') }}</flux:table.column>
-        <flux:table.column class="text-right">{{ __('Cap') }}</flux:table.column>
-        <flux:table.column class="text-right">{{ __('Committed') }}</flux:table.column>
-        <flux:table.column class="text-right">{{ __('Spent') }}</flux:table.column>
-        <flux:table.column class="text-right">{{ __('Unspent') }}</flux:table.column>
+        <flux:table.column align="end">{{ __('Plans') }}</flux:table.column>
+        <flux:table.column align="end">{{ __('Cap') }}</flux:table.column>
+        <flux:table.column align="end">{{ __('Committed') }}</flux:table.column>
+        <flux:table.column align="end">{{ __('Spent') }}</flux:table.column>
+        <flux:table.column align="end">{{ __('Unspent') }}</flux:table.column>
     </flux:table.columns>
 
     <flux:table.rows>
         @forelse ($rows as $row)
             <flux:table.row :key="$row['source']">
                 <flux:table.cell>{{ $row['source'] }}</flux:table.cell>
-                <flux:table.cell class="text-right tabular-nums">{{ $row['plans'] }}</flux:table.cell>
-                <flux:table.cell class="text-right tabular-nums">
+                <flux:table.cell align="end" class="tabular-nums">{{ $row['plans'] }}</flux:table.cell>
+                <flux:table.cell align="end" class="tabular-nums">
                     {{ $row['cap'] === null ? '—' : number_format($row['cap'], 2) }}
                 </flux:table.cell>
-                <flux:table.cell class="text-right tabular-nums">{{ number_format($row['committed'], 2) }}</flux:table.cell>
-                <flux:table.cell class="text-right tabular-nums">{{ number_format($row['spent'], 2) }}</flux:table.cell>
-                <flux:table.cell class="text-right tabular-nums">
+                <flux:table.cell align="end" class="tabular-nums">{{ number_format($row['committed'], 2) }}</flux:table.cell>
+                <flux:table.cell align="end" class="tabular-nums">{{ number_format($row['spent'], 2) }}</flux:table.cell>
+                <flux:table.cell align="end" class="tabular-nums">
                     {{ number_format($row['committed'] - $row['spent'], 2) }}
                 </flux:table.cell>
             </flux:table.row>
