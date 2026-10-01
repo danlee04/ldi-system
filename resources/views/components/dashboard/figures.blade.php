@@ -1,72 +1,82 @@
-@props(['cards'])
+@props(['cards', 'columns' => 4])
 
 @php
-    /**
-     * The surfaces a figure card can wear, and the ink that reads on each.
-     *
-     * Measured against white, or against zinc-950 for amber, and every one
-     * clears 4.5:1 in both themes — the surfaces do not change under dark,
-     * so a single measurement holds:
-     *
-     *   blue   #2563eb   5.17:1     teal   #0f766e   5.47:1
-     *   violet #7c3aed   5.70:1     pink   #db2777   4.60:1
-     *   amber  #fbbf24  11.70:1 on zinc-950
-     *
-     * Deliberately no green and no red: this app spends those on approved
-     * and rejected, and a green card holding a headcount would be claiming
-     * something it does not mean. Amber keeps its meaning too — it is what
-     * the nav badge uses for "waiting on you", so a card only turns amber
-     * when something really is.
-     *
-     * Blue and violet are the weakest pair for a colourblind reader. That
-     * is liveable here and only here: every card carries its own icon and
-     * its own label, so the colour is never what tells them apart. Do not
-     * carry this set into a chart, where the colour would be the only cue.
-     */
+    // The team and agency rows carry four; the personal one carries three,
+    // and a three-wide grid keeps them the same size as everywhere else
+    // rather than leaving a hole where a fourth would sit.
+    $grid = $columns === 3
+        ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3'
+        : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-4';
+
     $tones = [
-        'blue' => ['bg-brand-primary text-white', 'bg-white/20'],
-        'teal' => ['bg-teal-700 text-white', 'bg-white/20'],
-        'violet' => ['bg-violet-600 text-white', 'bg-white/20'],
-        'pink' => ['bg-pink-600 text-white', 'bg-white/20'],
-        'amber' => ['bg-amber-400 text-zinc-950', 'bg-zinc-950/10'],
+        'blue' => [
+            'icon' => 'bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400',
+            'value' => 'text-zinc-950 dark:text-white',
+        ],
+        'teal' => [
+            'icon' => 'bg-teal-50 text-teal-700 dark:bg-teal-400/10 dark:text-teal-400',
+            'value' => 'text-zinc-950 dark:text-white',
+        ],
+        'violet' => [
+            'icon' => 'bg-violet-50 text-violet-600 dark:bg-violet-400/10 dark:text-violet-400',
+            'value' => 'text-zinc-950 dark:text-white',
+        ],
+        'pink' => [
+            'icon' => 'bg-pink-50 text-pink-600 dark:bg-pink-400/10 dark:text-pink-400',
+            'value' => 'text-zinc-950 dark:text-white',
+        ],
+        'amber' => [
+            'icon' => 'bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-400',
+            'value' => 'text-zinc-950 dark:text-white',
+        ],
+        'emerald' => [
+            'icon' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400',
+            'value' => 'text-zinc-950 dark:text-white',
+        ],
     ];
 @endphp
 
-{{-- A row of figures, one line of support each. Each card is
-     ['icon', 'label', 'value', 'support'] and may carry an 'href', which
-     turns the support line into the way to act on the figure, and a
-     'tone' naming one of the surfaces above.
-
-     Plain divs, not flux:card: the card sets its own light surface with
-     zero-specificity classes, and a background passed against it loses
-     silently. Same reason the link is a plain anchor rather than
-     flux:link, whose accent blue would vanish into these surfaces.
-
-     Size and weight carry the hierarchy, never a faded white: white at
-     90% on the brand blue measures 4.49:1, a hair under the floor. --}}
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+<div class="{{ $grid }}">
     @foreach ($cards as $card)
-        @php([$surface, $plate] = $tones[$card['tone'] ?? 'blue'] ?? $tones['blue'])
+        @php
+            $tone = $tones[$card['tone'] ?? 'blue'] ?? $tones['blue'];
+        @endphp
 
-        <div class="space-y-3 rounded-xl p-5 {{ $surface }}">
-            <div class="flex min-h-9 items-center gap-3">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg {{ $plate }}">
-                    <flux:icon :icon="$card['icon']" variant="mini" />
+        <div
+            class="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-zinc-900">
+            <div class="flex items-start justify-between gap-4">
+                {{-- Icon --}}
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl {{ $tone['icon'] }}">
+                    <flux:icon :icon="$card['icon']" variant="mini" class="size-5" />
                 </span>
-
-                <span class="min-w-0 text-sm leading-tight">{{ $card['label'] }}</span>
-            </div>
-
-            <div>
-                <div class="text-2xl font-semibold tabular-nums">{{ $card['value'] }}</div>
 
                 @if (isset($card['href']))
                     <a href="{{ $card['href'] }}" wire:navigate
-                        class="text-sm underline underline-offset-4 hover:no-underline">
+                        class="flex size-8 items-center justify-center rounded-lg text-zinc-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                        aria-label="{{ $card['label'] }}">
+                        <flux:icon name="arrow-up-right" variant="micro" />
+                    </a>
+                @endif
+            </div>
+
+            <div class="mt-5">
+                <div class="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    {{ $card['label'] }}
+                </div>
+
+                <div class="mt-1 text-3xl font-bold tracking-tight tabular-nums {{ $tone['value'] }}">
+                    {{ $card['value'] }}
+                </div>
+
+                @if (isset($card['href']))
+                    <a href="{{ $card['href'] }}" wire:navigate
+                        class="mt-2 block text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:decoration-zinc-600 dark:hover:text-white">
                         {{ $card['support'] }}
                     </a>
                 @else
-                    <div class="text-sm">{{ $card['support'] }}</div>
+                    <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ $card['support'] }}
+                    </div>
                 @endif
             </div>
         </div>

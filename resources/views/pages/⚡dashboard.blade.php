@@ -1,5 +1,4 @@
 <?php
-
 use App\Actions\Pds\PersonalDataSheetProgress;
 use Carbon\CarbonImmutable;
 use App\Models\LdiTraining;
@@ -68,6 +67,46 @@ new #[Title('Dashboard')] class extends Component {
     public function approvedThisYear(): int
     {
         return (int) $this->employee?->trainingRecords()->where('status', TrainingStatus::Approved)->whereYear('date_end', now()->year)->count();
+    }
+
+    /**
+     * The three figures an ordinary employee opens on.
+     *
+     * In PHP, not in the Blade attribute, for the same reason teamFigures
+     * is: Livewire's morph-aware compiler builds a regex around the
+     * compiled file, and a long array inside an attribute has pushed that
+     * regex past what PCRE will take, 500ing the whole page.
+     *
+     * @return list<array<string, mixed>>
+     */
+    #[Computed]
+    public function myFigures(): array
+    {
+        return [
+            [
+                'icon' => 'clock',
+                'tone' => 'amber',
+                'label' => __('My pending trainings'),
+                'value' => number_format($this->myPending),
+                'support' => __('View mine'),
+                'href' => route('trainings.mine'),
+            ],
+            [
+                'icon' => 'check-badge',
+                'tone' => 'emerald',
+                'label' => __('My approved trainings'),
+                'value' => number_format($this->myApproved),
+                'support' => __(':count this year', ['count' => $this->approvedThisYear]),
+            ],
+            [
+                'icon' => 'academic-cap',
+                'tone' => 'violet',
+                'label' => __('CPD units this year'),
+                // Trailing zeros dropped: 4.0 units reads as 4.
+                'value' => rtrim(rtrim(number_format($this->cpdUnits, 1), '0'), '.'),
+                'support' => __('Approved training credits'),
+            ],
+        ];
     }
 
     /**
@@ -758,131 +797,144 @@ new #[Title('Dashboard')] class extends Component {
     {
         return array_values(array_filter($this->pdsSections, fn(array $section): bool => !$section['filled']));
     }
+
 }; ?>
 
-<div class="space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <x-page-heading icon="squares-2x2">{{ __('Dashboard') }}</x-page-heading>
+<div class="space-y-8">
+    {{-- Page header --}}
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+            <x-page-heading icon="squares-2x2">
+                {{ __('Dashboard') }}
+            </x-page-heading>
 
-        <div class="flex items-center gap-3">
-            <flux:text size="sm">{{ today()->format('l, j F Y') }}</flux:text>
+            @if ($this->seesTeam)
+                <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <flux:text size="sm" class="font-medium">
+                        {{ $this->team->name }}
+                    </flux:text>
 
-            <livewire:notifications />
-        </div>
-    </div>
-
-    @if ($this->seesTeam)
-        {{-- A head's own people, first: the page is where they come to see
-             how the team is doing. Their own record follows underneath,
-             because a head is an employee too. --}}
-        {{-- The team's own name is the heading. "My team" said nothing a
-             head did not already know, and left the one fact that
-             identifies it adrift on the far right of the page. --}}
-        <div>
-            <flux:heading>{{ $this->team->name }}</flux:heading>
-
-            @if ($this->team->divisionName)
-                <flux:text size="sm">{{ $this->team->divisionName }}</flux:text>
+                    @if ($this->team->divisionName)
+                        <span class="text-zinc-300 dark:text-zinc-600">•</span>
+                        <flux:text size="sm">
+                            {{ $this->team->divisionName }}
+                        </flux:text>
+                    @endif
+                </div>
+            @elseif ($this->seesAgency)
+                <flux:text size="sm" class="mt-1">
+                    {{ __('Agency-wide learning and development overview') }}
+                </flux:text>
+            @else
+                <flux:text size="sm" class="mt-1">
+                    {{ __('Your training, profile, and approval activity') }}
+                </flux:text>
             @endif
         </div>
 
-        <x-dashboard.figures :cards="$this->teamFigures" />
+        <div class="flex items-center gap-3 self-start sm:self-auto">
+            <div class="hidden text-right sm:block">
+                <div class="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                    {{ __('Today') }}
+                </div>
+                <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                    {{ today()->format('l, j F Y') }}
+                </div>
+            </div>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
-            <div class="space-y-6">
-                <x-dashboard.monthly-training :months="$this->teamMonths" :peak="$this->teamMonthPeak"
-                    :divisions="$this->teamSections" filter-model="teamSection" :filter-all="__('All sections')"
-                    :years="$this->chartYears" :month="null" :year="$this->chartYear" :drillable="false" />
+            <livewire:notifications />
+        </div>
+    </header>
 
-                <div @class(['grid gap-6', 'xl:grid-cols-2' => $this->teamCoverage !== []])>
-                    @if ($this->teamCoverage !== [])
-                        <x-dashboard.coverage :rows="$this->teamCoverage" :year="$this->year()" :heading="__('Training coverage by section')" />
-                    @endif
+    {{-- TEAM / SECTION HEAD DASHBOARD --}}
+    @if ($this->seesTeam)
+        <section class="space-y-6" aria-labelledby="team-overview-heading">
+            <div class="flex items-end justify-between gap-3">
+                <div>
+                    <flux:heading id="team-overview-heading" size="lg">
+                        {{ __('Team overview') }}
+                    </flux:heading>
+                    <flux:text size="sm" class="mt-1">
+                        {{ __('Training progress and approvals for your people') }}
+                    </flux:text>
+                </div>
+            </div>
 
-                    <flux:card class="space-y-3">
-                        <div class="flex flex-wrap items-baseline justify-between gap-2">
-                            <flux:heading size="lg">{{ __('Not trained yet this year') }}</flux:heading>
-                            <flux:text size="sm">
-                                {{ __(':count of :people', [
-                                    'count' => $this->teamUntrained->count(),
-                                    'people' => $this->teamTotals['people'],
-                                ]) }}
-                            </flux:text>
-                        </div>
+            <x-dashboard.figures :cards="$this->teamFigures" />
 
-                        @if ($this->teamUntrained->isEmpty())
-                            <flux:text size="sm">{{ __('Everybody on the team has finished something this year.') }}</flux:text>
+            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
+                <div class="min-w-0 space-y-6">
+                    <x-dashboard.monthly-training :months="$this->teamMonths" :peak="$this->teamMonthPeak" :divisions="$this->teamSections"
+                        filter-model="teamSection" :filter-all="__('All sections')" :years="$this->chartYears" :month="null"
+                        :year="$this->chartYear" :drillable="false" />
+
+                    <div class="grid gap-6 2xl:grid-cols-2">
+                        @if ($this->teamCoverage !== [])
+                            <x-dashboard.coverage :rows="$this->teamCoverage" :year="$this->year()" :heading="__('Training coverage by section')" />
+                        @endif
+
+                        <x-dashboard.panel :heading="__('Not trained yet this year')"
+                            :subtitle="__('People who have not completed training')" :count="$this->teamUntrained->count()">
+                            @if ($this->teamUntrained->isEmpty())
+                                <x-dashboard.empty-state icon="check" tone="emerald">
+                                    {{ __('Everybody on the team has finished something this year.') }}
+                                </x-dashboard.empty-state>
+                            @else
+                                {{-- Scrolls rather than stretching: a section of
+                                     forty would otherwise push the panel beside
+                                     it off the screen. --}}
+                                <div class="max-h-80 space-y-2 overflow-y-auto pr-1">
+                                    @foreach ($this->teamUntrained as $person)
+                                        <x-dashboard.list-row icon="user" :title="$person->listing_name"
+                                            :title-tooltip="$person->full_name"
+                                            :href="auth()->user()->can('view', $person) ? route('employees.show', $person) : null"
+                                            :subtitle="$person->section?->name ?? '—'" />
+                                    @endforeach
+                                </div>
+                            @endif
+                        </x-dashboard.panel>
+                    </div>
+
+                    <x-dashboard.panel :heading="__('Waiting for my decision')"
+                        :subtitle="__('Training records currently assigned to you')" :action-label="__('Open approvals')"
+                        :action-href="route('approvals')">
+                        @if ($this->teamDecisions->isEmpty())
+                            <x-dashboard.empty-state icon="inbox">
+                                {{ __('Nothing is waiting on you.') }}
+                            </x-dashboard.empty-state>
                         @else
-                            <div class="max-h-80 divide-y divide-zinc-200 overflow-y-auto dark:divide-white/10">
-                                @foreach ($this->teamUntrained as $person)
-                                    <div class="flex items-baseline justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                                        <div class="w-56 truncate text-sm" title="{{ $person->full_name }}">
-                                            @can('view', $person)
-                                                <flux:link :href="route('employees.show', $person)" wire:navigate>
-                                                    {{ $person->listing_name }}
-                                                </flux:link>
-                                            @else
-                                                {{ $person->listing_name }}
-                                            @endcan
-                                        </div>
-
-                                        <div class="min-w-0 truncate text-xs text-zinc-600 dark:text-zinc-300"
-                                            title="{{ $person->section?->name }}">
-                                            {{ $person->section?->name ?? '—' }}
-                                        </div>
-                                    </div>
+                            <div class="space-y-2">
+                                @foreach ($this->teamDecisions->take(8) as $record)
+                                    <x-dashboard.list-row icon="clock" tone="amber" :title="$record->title"
+                                        :subtitle="$record->employee->listing_name">
+                                        <flux:text size="sm" class="tabular-nums">
+                                            {{ $record->created_at->diffForHumans() }}
+                                        </flux:text>
+                                    </x-dashboard.list-row>
                                 @endforeach
                             </div>
                         @endif
-                    </flux:card>
+                    </x-dashboard.panel>
                 </div>
 
-                <flux:card class="space-y-3">
-                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <flux:heading size="lg">{{ __('Waiting for my decision') }}</flux:heading>
-                        <flux:link :href="route('approvals')" wire:navigate>{{ __('Open approvals') }}</flux:link>
-                    </div>
-
-                    @if ($this->teamDecisions->isEmpty())
-                        <flux:text size="sm">{{ __('Nothing is waiting on you.') }}</flux:text>
-                    @else
-                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
-                            @foreach ($this->teamDecisions->take(8) as $record)
-                                <div class="flex flex-wrap items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                                    <div class="min-w-0">
-                                        <div class="truncate text-sm" title="{{ $record->title }}">{{ $record->title }}</div>
-                                        <div class="text-xs text-zinc-600 dark:text-zinc-300">
-                                            {{ $record->employee->listing_name }}
-                                        </div>
-                                    </div>
-
-                                    <flux:text size="sm" class="shrink-0">{{ $record->created_at->diffForHumans() }}</flux:text>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </flux:card>
+                <aside class="space-y-6">
+                    <x-dashboard.calendar :calendar="$this->calendar" />
+                    <x-dashboard.quick-stats :stats="$this->teamQuickStats" :year="$this->year()" :plans-label="__('LDI trainings attended in :year', ['year' => $this->year()])" />
+                    <x-dashboard.eligibility-alerts :lines="$this->teamEligibilityAlerts" />
+                </aside>
             </div>
-
-            <div class="space-y-6">
-                <x-dashboard.calendar :calendar="$this->calendar" />
-                <x-dashboard.quick-stats :stats="$this->teamQuickStats" :year="$this->year()"
-                    :plans-label="__('LDI trainings attended in :year', ['year' => $this->year()])" />
-                <x-dashboard.eligibility-alerts :lines="$this->teamEligibilityAlerts" />
-            </div>
-        </div>
+        </section>
     @endif
 
-    {{-- A head's own record is not repeated here: the page is theirs for
-         the team. Their PDS, eligibility and CPD are on My profile, and
-         their submissions and where they stand are on My trainings. --}}
+    {{-- PERSONAL DASHBOARD --}}
     @unless ($this->seesTeam)
         @if ($this->eligibilityAlerts->isNotEmpty())
             <flux:callout variant="warning" icon="exclamation-triangle" :heading="__('Check your eligibility')">
-                <div class="space-y-1">
+                <div class="space-y-2">
                     @foreach ($this->eligibilityAlerts as $line)
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span>{{ $line->name() }}</span>
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200/70 bg-amber-50/50 px-3 py-2 dark:border-amber-400/20 dark:bg-amber-400/5">
+                            <span class="text-sm">{{ $line->name() }}</span>
                             <x-eligibility-expiry :date="$line->date_of_validity" />
                         </div>
                     @endforeach
@@ -890,37 +942,28 @@ new #[Title('Dashboard')] class extends Component {
             </flux:callout>
         @endif
 
-        <div class="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(13rem,100%),1fr))]">
-            @if ($this->employee)
-                <flux:card class="space-y-1">
-                    <flux:text size="sm">{{ __('My pending trainings') }}</flux:text>
-                    <flux:heading size="xl" class="tabular-nums">{{ $myPending }}</flux:heading>
-                    <flux:link :href="route('trainings.mine')" wire:navigate>{{ __('View mine') }}</flux:link>
-                </flux:card>
-
-                <flux:card class="space-y-1">
-                    <flux:text size="sm">{{ __('My approved trainings') }}</flux:text>
-                    <flux:heading size="xl" class="tabular-nums">{{ $myApproved }}</flux:heading>
-                    <flux:text size="sm">
-                        {{ __(':count this year', ['count' => $this->approvedThisYear]) }}
-                    </flux:text>
-                </flux:card>
-
-                <flux:card class="space-y-1">
-                    <flux:text size="sm">{{ __('CPD units this year') }}</flux:text>
-                    <flux:heading size="xl" class="tabular-nums">
-                        {{ rtrim(rtrim(number_format($this->cpdUnits, 1), '0'), '.') }}
-                    </flux:heading>
-                </flux:card>
-            @endif
-
-        </div>
-
         @if ($this->employee)
-            <div class="grid gap-4 lg:grid-cols-2">
-                <flux:card class="space-y-4">
-                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <flux:heading size="lg">{{ __('My PDS') }}</flux:heading>
+            <section class="space-y-6" aria-labelledby="personal-overview-heading">
+                <div>
+                    <flux:heading id="personal-overview-heading" size="lg">
+                        {{ __('My overview') }}
+                    </flux:heading>
+                    <flux:text size="sm" class="mt-1">
+                        {{ __('Your current training activity and progress') }}
+                    </flux:text>
+                </div>
+
+                <x-dashboard.figures :cards="$this->myFigures" :columns="3" />
+
+                <div class="grid gap-6 xl:grid-cols-2">
+                    <x-dashboard.panel :heading="__('My PDS')" :subtitle="__('Personal Data Sheet completion')"
+                        :count="$this->pdsPercentage . '%'" count-tone="zinc">
+                        <div class="flex items-center gap-3">
+                            <div class="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
+                                <div class="h-full rounded-full bg-brand-primary transition-all duration-500"
+                                    style="width: {{ $this->pdsPercentage }}%"></div>
+                            </div>
+                        </div>
 
                         <flux:text size="sm">
                             {{ __(':filled of :total sections started', [
@@ -928,168 +971,152 @@ new #[Title('Dashboard')] class extends Component {
                                 'total' => count($this->pdsSections),
                             ]) }}
                         </flux:text>
-                    </div>
 
-                    <div class="flex items-center gap-3">
-                        <flux:progress :value="$this->pdsPercentage" class="flex-1" />
-                        <span class="text-sm tabular-nums">{{ $this->pdsPercentage }}%</span>
-                    </div>
+                        @if ($this->pdsMissing === [])
+                            <x-dashboard.empty-state icon="check-circle" tone="emerald">
+                                {{ __('Every section has something in it.') }}
+                            </x-dashboard.empty-state>
+                        @else
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($this->pdsMissing as $section)
+                                    <flux:badge color="zinc">
+                                        {{ $section['number'] }}. {{ $section['label'] }}
+                                    </flux:badge>
+                                @endforeach
+                            </div>
+                        @endif
 
-                    @if ($this->pdsMissing === [])
-                        <flux:text size="sm">{{ __('Every section has something in it.') }}</flux:text>
-                    @else
-                        <div class="flex flex-wrap gap-2">
-                            @foreach ($this->pdsMissing as $section)
-                                <flux:badge color="zinc">{{ $section['number'] }}. {{ $section['label'] }}</flux:badge>
-                            @endforeach
+                        <div class="pt-1">
+                            <flux:button size="sm" variant="primary" :href="route('my-pds')" wire:navigate>
+                                {{ __('Fill it in') }}
+                            </flux:button>
                         </div>
-                    @endif
+                    </x-dashboard.panel>
 
-                    <div>
-                        <flux:button size="sm" variant="primary" :href="route('my-pds')" wire:navigate>
-                            {{ __('Fill it in') }}
-                        </flux:button>
-                    </div>
-                </flux:card>
-
-                <flux:card class="space-y-4">
-                    <flux:heading size="lg">{{ __('Where my submissions stand') }}</flux:heading>
-
-                    @if ($this->mySubmissions->isEmpty())
-                        <flux:text size="sm">
-                            {{ __('Nothing is waiting on anybody. Record a training under My trainings.') }}
-                        </flux:text>
-                    @else
-                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
-                            @foreach ($this->mySubmissions as $record)
-                                <div class="space-y-1 py-3 first:pt-0 last:pb-0">
-                                    <flux:heading class="break-words">{{ $record->title }}</flux:heading>
-
-                                    <flux:text size="sm">
-                                        {{ __('With :approver', ['approver' => $this->waitingOn($record)]) }}
-                                    </flux:text>
-
-                                    <flux:text size="sm">
-                                        {{ trans_choice('Waiting :count day|Waiting :count days', $this->daysWaiting($record), [
-                                            'count' => $this->daysWaiting($record),
-                                        ]) }}
-                                    </flux:text>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </flux:card>
-            </div>
+                    <x-dashboard.panel :heading="__('Where my submissions stand')"
+                        :subtitle="__('Your training records that are still being processed')">
+                        @if ($this->mySubmissions->isEmpty())
+                            <x-dashboard.empty-state icon="inbox">
+                                {{ __('Nothing is waiting on anybody. Record a training under My trainings.') }}
+                            </x-dashboard.empty-state>
+                        @else
+                            <div class="space-y-2">
+                                @foreach ($this->mySubmissions as $record)
+                                    {{-- Wrapped, not truncated: this is the
+                                         person's own submission, and the title
+                                         is how they tell two of them apart. --}}
+                                    <x-dashboard.list-row icon="document-text" wrap :title="$record->title"
+                                        :subtitle="__('With :approver', ['approver' => $this->waitingOn($record)])"
+                                        :note="trans_choice('Waiting :count day|Waiting :count days', $this->daysWaiting($record), ['count' => $this->daysWaiting($record)])" />
+                                @endforeach
+                            </div>
+                        @endif
+                    </x-dashboard.panel>
+                </div>
+            </section>
         @endif
     @endunless
 
+    {{-- AGENCY DASHBOARD --}}
     @if ($this->seesAgency)
-        <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals" :coverage="$this->coverageTotal" :funding="$this->fundingTotals" :spend="$this->spend"
-            :year="$this->year()" />
+        <section class="space-y-6" aria-labelledby="agency-overview-heading">
+            <div>
+                <flux:heading id="agency-overview-heading" size="lg">
+                    {{ __('Agency overview') }}
+                </flux:heading>
+                <flux:text size="sm" class="mt-1">
+                    {{ __('Learning and development activity across the agency') }}
+                </flux:text>
+            </div>
 
-        {{-- A rail of a fixed width rather than a third of the screen: it
-             holds a month and two short lists, and everything it does not
-             need belongs to the panels beside it. --}}
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
-            <div class="space-y-6">
-                <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak"
-                    :divisions="$this->chartDivisions" :years="$this->chartYears"
-                    :month="$this->chartMonth" :year="$this->chartYear" />
+            <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals" :coverage="$this->coverageTotal" :funding="$this->fundingTotals"
+                :spend="$this->spend" :year="$this->year()" />
 
-                {{-- Two small panels of the same kind of question: what the
-                     year was made of, and who it reached. --}}
-                <div class="grid gap-6 xl:grid-cols-2">
-                    <x-dashboard.ld-mix :rows="$this->ldMix" :year="$this->year()" />
-                    <x-dashboard.coverage :rows="$this->coverage" :year="$this->year()" />
+            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
+                <div class="min-w-0 space-y-6">
+                    <x-dashboard.monthly-training :months="$this->months" :peak="$this->monthPeak" :divisions="$this->chartDivisions"
+                        :years="$this->chartYears" :month="$this->chartMonth" :year="$this->chartYear" />
+
+                    <div class="grid gap-6 2xl:grid-cols-2">
+                        <x-dashboard.ld-mix :rows="$this->ldMix" :year="$this->year()" />
+                        <x-dashboard.coverage :rows="$this->coverage" :year="$this->year()" />
+                    </div>
+
+                    <x-dashboard.panel :heading="__('Waiting longest')"
+                        :subtitle="__('Training records with the oldest pending approvals')"
+                        :action-label="__('Open approvals')" :action-href="route('approvals')">
+                        @if ($this->aging->isEmpty())
+                            <x-dashboard.empty-state icon="check" tone="emerald">
+                                {{ __('Nothing is waiting for a decision.') }}
+                            </x-dashboard.empty-state>
+                        @else
+                            <div class="space-y-2">
+                                @foreach ($this->aging as $record)
+                                    <x-dashboard.list-row icon="clock" :title="$record->title"
+                                        :subtitle="$record->employee?->listing_name ?? '—'">
+                                        {{-- A record with no level has nobody to wait
+                                             for, which is worse than waiting long. --}}
+                                        @if ($record->current_level === null)
+                                            <flux:badge color="red">{{ __('No approver') }}</flux:badge>
+                                        @else
+                                            <flux:badge color="amber">
+                                                {{ trans_choice(':count day|:count days', $this->daysWaiting($record), ['count' => $this->daysWaiting($record)]) }}
+                                            </flux:badge>
+                                        @endif
+                                    </x-dashboard.list-row>
+                                @endforeach
+                            </div>
+                        @endif
+                    </x-dashboard.panel>
+
+                    <x-dashboard.panel :heading="__('Upcoming LDI training')"
+                        :subtitle="__('Next scheduled learning and development activities')"
+                        :action-label="__('All plans')" :action-href="route('ldi.index')">
+                        @if ($this->upcomingPlans->isEmpty())
+                            <x-dashboard.empty-state icon="calendar-days">
+                                {{ __('Nothing is planned from today onward. Add a plan under LDI trainings so it reaches the calendar and the attendees.') }}
+                            </x-dashboard.empty-state>
+                        @else
+                            <div class="space-y-2">
+                                @foreach ($this->upcomingPlans as $plan)
+                                    <x-dashboard.list-row icon="calendar-days" tone="blue" :title="$plan->title"
+                                        :subtitle="$plan->inclusive_dates">
+                                        <flux:badge color="zinc">
+                                            {{ trans_choice(':count seat|:count seats', $plan->target_attendees ?? 0, ['count' => $plan->target_attendees ?? 0]) }}
+                                        </flux:badge>
+                                    </x-dashboard.list-row>
+                                @endforeach
+                            </div>
+                        @endif
+                    </x-dashboard.panel>
                 </div>
 
-                <flux:card class="space-y-3">
-                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <flux:heading size="lg">{{ __('Waiting longest') }}</flux:heading>
-                        <flux:link :href="route('approvals')" wire:navigate>{{ __('Open approvals') }}</flux:link>
-                    </div>
-
-                    @if ($this->aging->isEmpty())
-                        <flux:text size="sm">{{ __('Nothing is waiting for a decision.') }}</flux:text>
-                    @else
-                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
-                            @foreach ($this->aging as $record)
-                                <div class="flex flex-wrap items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                                    <div class="min-w-0">
-                                        <div class="truncate text-sm" title="{{ $record->title }}">
-                                            {{ $record->title }}
-                                        </div>
-                                        <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                            {{ $record->employee?->listing_name ?? '—' }}
-                                        </div>
-                                    </div>
-
-                                    @if ($record->current_level === null)
-                                        <flux:badge color="red">{{ __('No approver') }}</flux:badge>
-                                    @else
-                                        <flux:badge color="amber">
-                                            {{ trans_choice(':count day|:count days', $this->daysWaiting($record), [
-                                                'count' => $this->daysWaiting($record),
-                                            ]) }}
-                                        </flux:badge>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </flux:card>
-
-                <flux:card class="space-y-3">
-                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <flux:heading size="lg">{{ __('Upcoming LDI training') }}</flux:heading>
-                        <flux:link :href="route('ldi.index')" wire:navigate>{{ __('All plans') }}</flux:link>
-                    </div>
-
-                    @if ($this->upcomingPlans->isEmpty())
-                        <flux:text size="sm">
-                            {{ __('Nothing is planned from today onward. Add a plan under LDI trainings so it reaches the calendar and the attendees.') }}
-                        </flux:text>
-                    @else
-                        <div class="divide-y divide-zinc-200 dark:divide-white/10">
-                            @foreach ($this->upcomingPlans as $plan)
-                                <div class="flex flex-wrap items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                                    <div class="min-w-0">
-                                        <div class="truncate text-sm" title="{{ $plan->title }}">{{ $plan->title }}
-                                        </div>
-                                        <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                            {{ $plan->inclusive_dates }}
-                                        </div>
-                                    </div>
-
-                                    <flux:badge color="zinc">
-                                        {{ trans_choice(':count seat|:count seats', $plan->target_attendees ?? 0, [
-                                            'count' => $plan->target_attendees ?? 0,
-                                        ]) }}
-                                    </flux:badge>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </flux:card>
+                <aside class="space-y-6">
+                    <x-dashboard.calendar :calendar="$this->calendar" />
+                    <x-dashboard.quick-stats :stats="$this->quickStats" :year="$this->year()" />
+                    <x-dashboard.eligibility-alerts :lines="$this->agencyEligibilityAlerts" />
+                </aside>
             </div>
-
-            <div class="space-y-6">
-                <x-dashboard.calendar :calendar="$this->calendar" />
-                <x-dashboard.quick-stats :stats="$this->quickStats" :year="$this->year()" />
-                <x-dashboard.eligibility-alerts :lines="$this->agencyEligibilityAlerts" />
-            </div>
-        </div>
+        </section>
     @endif
 
+    {{-- Routing warning --}}
     @if ($unroutable > 0)
         <flux:callout variant="warning" icon="exclamation-triangle">
-            {{ trans_choice(
-                ':count training record cannot move because no head is designated.|:count training records cannot move because no head is designated.',
-                $unroutable,
-                ['count' => $unroutable],
-            ) }}
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                    {{ trans_choice(
+                        ':count training record cannot move because no head is designated.|:count training records cannot move because no head is designated.',
+                        $unroutable,
+                        ['count' => $unroutable],
+                    ) }}
+                </span>
 
-            <flux:link :href="route('approvals')" wire:navigate>{{ __('Go to approvals') }}</flux:link>
+                <flux:link :href="route('approvals')" wire:navigate class="shrink-0">
+                    {{ __('Go to approvals') }}
+                    <flux:icon name="arrow-up-right" variant="micro" />
+                </flux:link>
+            </div>
         </flux:callout>
     @endif
 </div>

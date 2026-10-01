@@ -36,3 +36,6 @@ So a wide modal takes two classes, not one:
 `md:w-5xl` (64rem) suits a full record form and `md:w-6xl`/`w-7xl` a longer one, but the `md:max-w-[calc(100vw-4rem)]` is not optional — `md:` starts at 768px, and 64rem of width there overflows the viewport without it.
 
 Anything narrower than 4xl squeezes the two-column grid back into one column on a laptop, which is the layout these modals exist to avoid.
+
+## A page that 500s with "unexpected identifier" may be NBSP or markdown escaping
+On 2026-10-01 ⚡dashboard.blade.php would not compile: its PHP block had non-breaking spaces (U+00A0) for indentation, a blank line after every line, and markdown-escaped \* \< \_ inside docblocks and __() calls. PHP reports `syntax error, unexpected identifier " "` or `unexpected token "/"`. Check with grep for $'\xc2\xa0' and for backslashes before * < _ (namespace backslashes before capitals are legitimate). The repair is mechanical: NBSP to space, collapse the doubled newlines in the PHP block only, drop those three escapes. Such a file is text that passed through a markdown renderer — do not hand-edit around it, repair it wholesale.
