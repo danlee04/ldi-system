@@ -34,6 +34,24 @@ enum ActivityType: string
 
     public const PLAN_DOT = 'bg-brand-primary';
 
+    /**
+     * What each colour on a calendar means, the LDI training first. Every
+     * kind is listed whether or not a month uses it, so the two calendars
+     * explain their colours the same way.
+     *
+     * @return list<array{label: string, classes: string}>
+     */
+    public static function legend(): array
+    {
+        $rows = [['label' => __('LDI training'), 'classes' => self::PLAN_CHIP]];
+
+        foreach (self::cases() as $case) {
+            $rows[] = ['label' => $case->label(), 'classes' => $case->chipClasses()];
+        }
+
+        return $rows;
+    }
+
     public function label(): string
     {
         return $this->name;

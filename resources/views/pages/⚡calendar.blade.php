@@ -178,13 +178,7 @@ new #[Title('Calendar')] class extends Component {
     #[Computed]
     public function legend(): array
     {
-        $rows = [['label' => __('LDI training'), 'classes' => ActivityType::PLAN_CHIP]];
-
-        foreach (ActivityType::cases() as $case) {
-            $rows[] = ['label' => $case->label(), 'classes' => $case->chipClasses()];
-        }
-
-        return $rows;
+        return ActivityType::legend();
     }
 
     public string $viewingKind = '';

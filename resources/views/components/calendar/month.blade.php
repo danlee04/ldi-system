@@ -1,7 +1,12 @@
 @props([
     'weeks',
     /** Sized for the dashboard rail rather than the page: tighter gaps,
-        smaller boxes and type, so seven days fit a third of a screen. */
+        smaller boxes and type, so seven days fit a third of a screen.
+        Its height is fixed, so stepping between months never moves what
+        sits under it: six weeks of room, shared out among however many
+        weeks the month has. Each week of a six-week month has room for two
+        bars, which is why the dashboard asks BuildCalendarMonth for no
+        more than two. */
     'compact' => false,
     /** Livewire method names, passed as strings, so the same month serves
         a page that can open an activity and one that can only show it. */
@@ -16,7 +21,7 @@
      included — instead of sitting as a strip underneath them. --}}
 <div @class([
     'select-none',
-    'space-y-2' => $compact,
+    'flex h-124 flex-col gap-2' => $compact,
     'space-y-3' => !$compact,
 ])>
     <div @class([
@@ -40,11 +45,14 @@
     </div>
 
     @foreach ($weeks as $week)
+        {{-- In the compact month every week takes an equal share of the
+             fixed height, and the last row soaks up what the bars leave, so
+             they stay tucked under the day numbers instead of spreading. --}}
         <div @class([
             'grid grid-cols-7 overflow-hidden rounded-lg',
-            'gap-px bg-zinc-200/70 dark:bg-white/10' => $compact,
+            'min-h-0 flex-1 gap-px bg-zinc-200/70 dark:bg-white/10' => $compact,
             'gap-px bg-zinc-200 dark:bg-white/10' => !$compact,
-        ]) style="grid-template-rows: auto repeat({{ max($week['lanes'], 1) }}, auto);">
+        ]) style="grid-template-rows: auto repeat({{ max($week['lanes'], 1) }}, auto){{ $compact ? ' 1fr' : '' }};">
 
             {{-- The boxes are laid first and span the whole height of the
                  week, so everything after them draws on top. What shows
@@ -137,6 +145,17 @@
                                     +
                                 </span>
                             </button>
+                        @endif
+
+                        @if ($week['more'][$index] !== [])
+                            {{-- What a full week had no room for: a count by
+                                 the day, with the titles on hover. --}}
+                            <span
+                                class="my-0.5 shrink-0 rounded-full bg-zinc-100 px-0.5 text-[10px] leading-4 font-medium tabular-nums text-zinc-600 sm:px-1 dark:bg-white/10 dark:text-zinc-300"
+                                title="{{ implode("\n", $week['more'][$index]) }}">
+                                <span aria-hidden="true">+{{ count($week['more'][$index]) }}</span>
+                                <span class="sr-only">{{ __(':count more', ['count' => count($week['more'][$index])]) }}</span>
+                            </span>
                         @endif
                     </div>
                 @endif

@@ -281,9 +281,7 @@ test('the calendar draws an activity in the colour of its kind', function () {
     $bars = collect($calendar['weeks'])->pluck('bars')->flatten(1);
 
     expect($bars)->toHaveCount(1)
-        ->and($bars->first()['classes'])->toBe(ActivityType::Meeting->chipClasses())
-        // The legend names only what the month actually holds.
-        ->and(collect($calendar['legend'])->pluck('label')->all())->toBe(['Meeting']);
+        ->and($bars->first()['classes'])->toBe(ActivityType::Meeting->chipClasses());
 });
 
 test('two things on the same day are stacked, not hidden', function () {
@@ -297,8 +295,46 @@ test('two things on the same day are stacked, not hidden', function () {
     $calendar = Livewire::test('pages::dashboard')->instance()->calendar;
     $bars = collect($calendar['weeks'])->pluck('bars')->flatten(1);
 
-    expect($bars->pluck('lane')->all())->toBe([0, 1])
-        ->and($calendar['legend'])->toHaveCount(2);
+    expect($bars->pluck('lane')->all())->toBe([0, 1]);
+});
+
+test('a third thing in one week is counted on its days instead of stacked', function () {
+    $this->travelTo('2026-08-15');
+    $this->actingAs(User::factory()->hr()->create());
+
+    // All three start on Monday the 10th; the shortest is the one left over.
+    LdiTraining::factory()->create(['title' => 'Records Management Seminar', 'date_start' => '2026-08-10', 'date_end' => '2026-08-14']);
+    LdiTraining::factory()->create(['title' => 'Leadership Training', 'date_start' => '2026-08-10', 'date_end' => '2026-08-12']);
+    LdiTraining::factory()->create(['title' => 'Data Privacy Orientation', 'date_start' => '2026-08-10', 'date_end' => '2026-08-11']);
+
+    $component = Livewire::test('pages::dashboard');
+
+    // August 2026 starts on a Saturday, so the third week runs 9 to 15.
+    $week = $component->instance()->calendar['weeks'][2];
+
+    expect(collect($week['bars'])->pluck('title')->all())->toBe(['Records Management Seminar', 'Leadership Training'])
+        ->and($week['lanes'])->toBe(2)
+        ->and($week['more'])->toBe([[], ['Data Privacy Orientation'], ['Data Privacy Orientation'], [], [], [], []]);
+
+    $component->assertSee('1 more');
+});
+
+test('the calendar legend names every kind, even in a month with nothing on it', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    $calendar = Livewire::test('pages::dashboard')->instance()->calendar;
+
+    expect(collect($calendar['legend'])->pluck('label')->all())
+        ->toBe(['LDI training', 'Meeting', 'Holiday', 'Deadline', 'Other']);
+});
+
+test('the calendar link opens the month the dashboard is showing', function () {
+    $this->travelTo('2026-08-15');
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::dashboard')
+        ->call('previousMonth')
+        ->assertSeeHtml(route('calendar', ['month' => '2026-07']));
 });
 
 test('the month list under the dashboard calendar is gone', function () {

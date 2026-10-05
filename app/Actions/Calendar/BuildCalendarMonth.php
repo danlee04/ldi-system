@@ -14,7 +14,7 @@ use Carbon\CarbonImmutable;
  *
  * @phpstan-type Entry array{key: string, kind: string, id: int, title: string, classes: string, start: CarbonImmutable, end: CarbonImmutable}
  * @phpstan-type Bar array{key: string, kind: string, id: int, title: string, classes: string, column: int, span: int, lane: int, opensBefore: bool, runsOn: bool}
- * @phpstan-type Week array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<Bar>, lanes: int}
+ * @phpstan-type Week array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<Bar>, lanes: int, more: list<list<string>>}
  */
 class BuildCalendarMonth
 {
@@ -22,9 +22,12 @@ class BuildCalendarMonth
 
     /**
      * @param  list<Entry>  $entries
+     * @param  int|null  $maxLanes  The most bars a week may stack. What does not fit is left
+     *                              off and named under each day it crosses, so a busy week
+     *                              is no taller than a quiet one. Null stacks all of them.
      * @return list<Week>
      */
-    public function handle(CarbonImmutable $month, array $entries): array
+    public function handle(CarbonImmutable $month, array $entries, ?int $maxLanes = null): array
     {
         $weeks = [];
 
@@ -35,17 +38,45 @@ class BuildCalendarMonth
                 ? []
                 : $this->barsAcross($entries, $dates[0], $dates[count($dates) - 1]);
 
+            $shown = array_values(array_filter($bars, fn (array $bar): bool => $maxLanes === null || $bar['lane'] < $maxLanes));
+
             $weeks[] = [
                 'days' => array_map(fn (?CarbonImmutable $date): array => [
                     'day' => $date?->day,
                     'date' => $date,
                 ], $week),
-                'bars' => $bars,
-                'lanes' => $bars === [] ? 0 : max(array_column($bars, 'lane')) + 1,
+                'bars' => $shown,
+                'lanes' => $shown === [] ? 0 : max(array_column($shown, 'lane')) + 1,
+                'more' => $this->leftOff($bars, $maxLanes),
             ];
         }
 
         return $weeks;
+    }
+
+    /**
+     * The titles of the bars that found no room, under each of the seven
+     * days they cross.
+     *
+     * @param  list<Bar>  $bars
+     * @return list<list<string>>
+     */
+    private function leftOff(array $bars, ?int $maxLanes): array
+    {
+        $more = array_fill(0, 7, []);
+
+        foreach ($bars as $bar) {
+            if ($maxLanes === null || $bar['lane'] < $maxLanes) {
+                continue;
+            }
+
+            // Columns count from one; the days of a week from nought.
+            foreach (range($bar['column'], $bar['column'] + $bar['span'] - 1) as $column) {
+                $more[$column - 1][] = $bar['title'];
+            }
+        }
+
+        return $more;
     }
 
     /**

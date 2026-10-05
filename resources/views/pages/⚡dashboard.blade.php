@@ -732,9 +732,13 @@ new #[Title('Dashboard')] class extends Component {
      * The visible month, drawn the same way the calendar page draws it:
      * bars across the days a thing runs, in the same colours. The rail is
      * too narrow for titles, so the bars carry theirs on hover and the
-     * legend under them says what the colours mean.
+     * legend above them says what the colours mean.
      *
-     * @return array{month: CarbonImmutable, weeks: list<array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<array<string, mixed>>, lanes: int}>, legend: list<array{label: string, classes: string}>}
+     * The card is the same height whichever month it shows, so a week
+     * stacks two bars at most and counts the rest on the days they cross,
+     * and the legend lists every kind rather than only the ones on show.
+     *
+     * @return array{month: CarbonImmutable, weeks: list<array{days: list<array{day: int|null, date: CarbonImmutable|null}>, bars: list<array<string, mixed>>, lanes: int, more: list<list<string>>}>, legend: list<array{label: string, classes: string}>}
      */
     #[Computed]
     public function calendar(): array
@@ -743,7 +747,6 @@ new #[Title('Dashboard')] class extends Component {
         $until = $month->endOfMonth();
 
         $entries = [];
-        $legend = [];
 
         foreach (Activity::query()->overlapping($month, $until)->orderBy('date_start')->get() as $activity) {
             $entries[] = [
@@ -754,11 +757,6 @@ new #[Title('Dashboard')] class extends Component {
                 'classes' => $activity->type->chipClasses(),
                 'start' => $activity->date_start,
                 'end' => $activity->date_end,
-            ];
-
-            $legend[$activity->type->value] = [
-                'label' => $activity->type->label(),
-                'classes' => $activity->type->chipClasses(),
             ];
         }
 
@@ -776,16 +774,11 @@ new #[Title('Dashboard')] class extends Component {
             ];
         }
 
-        if ($plans->isNotEmpty()) {
-            $legend['plan'] = ['label' => __('LDI training'), 'classes' => ActivityType::PLAN_CHIP];
-        }
-
         return [
             'month' => $month,
-            'weeks' => app(BuildCalendarMonth::class)->handle($month, $entries),
-            // Only the kinds actually on show, so the rail is not explaining
-            // a colour the month does not use.
-            'legend' => array_values($legend),
+            // Two, because two bars are what a week of the rail has room for.
+            'weeks' => app(BuildCalendarMonth::class)->handle($month, $entries, maxLanes: 2),
+            'legend' => ActivityType::legend(),
         ];
     }
 

@@ -52,3 +52,6 @@ A page behind auth needs a session, which headless has none of. Render it instea
 
 ## Right-align a table column with align="end", never class="text-right"
 flux:table.column renders `<th class="text-start"><div class="flex …">{{ $slot }}</div></th>`. A text-right passed to it cannot move a flex item, so the header stays left while the cells move right — every numeric column in the app was mismatched this way until 2026-10-01 (66 places). Pass align="end" on both the column and the cell: it adds the group/end-align class the inner div watches, and text-end [&>*]:ms-auto on the cell. Keep tabular-nums in class.
+
+## Headless Chrome will not go narrower than 500px
+--window-size=390,… silently renders at 500px wide, so a phone screenshot taken that way checks nothing below 500. For a real phone width, shoot a wrapper page holding `<iframe src="page.html" style="width:390px;height:4600px;border:0">` — the iframe has its own 390px viewport, so the breakpoints fire. To read a measurement back, have the inner page postMessage it and the wrapper set document.title, then use --dump-dom.
