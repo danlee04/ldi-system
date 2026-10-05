@@ -8,8 +8,7 @@
 <link rel="icon" href="{{ asset('images/logo.png') }}" type="image/png">
 <link rel="apple-touch-icon" href="{{ asset('images/logo.png') }}">
 
-{{-- Flux's @fonts directive is gone from here on purpose: it preloads the
-     Inter it ships with, and this app sets Google Sans in app.css. Leaving it
-     in would fetch a typeface nothing renders. --}}
+{{-- No @fonts here: Google Sans comes in through app.css from @fontsource,
+     and vite.config.js asks the Laravel plugin for no fonts of its own. --}}
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance

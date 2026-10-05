@@ -1,6 +1,5 @@
 import tailwindcss from '@tailwindcss/vite';
 import laravel from 'laravel-vite-plugin';
-import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
 export default defineConfig({
@@ -20,13 +19,6 @@ export default defineConfig({
                 'resources/js/passkeys.js',
             ],
             refresh: true,
-            fonts: [
-                // One family throughout. Fetched at build time and served
-                // from this app, so no request leaves for a font CDN.
-                bunny('Inter', {
-                    weights: [400, 500, 600, 700],
-                }),
-            ],
         }),
         tailwindcss(),
     ]),
