@@ -10,11 +10,6 @@
         $background = file_exists(public_path('images/background.jpg'))
             ? asset('images/background.jpg')
             : null;
-
-        // Whichever seals the office has put in, in the order they are worn.
-        $seals = collect(['bagong-pilipinas.png', 'doh.png', 'logo.png'])
-            ->filter(fn (string $file): bool => file_exists(public_path('images/'.$file)))
-            ->map(fn (string $file): string => asset('images/'.$file));
     @endphp
 
     <body class="min-h-screen bg-gate-paper antialiased dark:bg-gate-desk">
@@ -58,13 +53,7 @@
                     </div>
 
                     <div class="flex flex-col justify-center gap-6 p-8 sm:p-10">
-                        @if ($seals->isNotEmpty())
-                            <div class="flex items-center justify-center gap-4">
-                                @foreach ($seals as $seal)
-                                    <img src="{{ $seal }}" alt="" class="h-12 w-auto object-contain" />
-                                @endforeach
-                            </div>
-                        @endif
+                        <x-seals class="justify-center" />
 
                         {{ $slot }}
 
