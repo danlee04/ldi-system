@@ -1010,18 +1010,11 @@ new #[Title('Dashboard')] class extends Component {
         @endif
     @endunless
 
-    {{-- AGENCY DASHBOARD --}}
+    {{-- AGENCY DASHBOARD. No heading of its own: the page title above
+         already says this is the agency-wide overview. The label keeps the
+         section named for a screen reader. --}}
     @if ($this->seesAgency)
-        <section class="space-y-6" aria-labelledby="agency-overview-heading">
-            <div>
-                <flux:heading id="agency-overview-heading" size="lg">
-                    {{ __('Agency overview') }}
-                </flux:heading>
-                <flux:text size="sm" class="mt-1">
-                    {{ __('Learning and development activity across the agency') }}
-                </flux:text>
-            </div>
-
+        <section class="space-y-6" aria-label="{{ __('Agency overview') }}">
             <x-dashboard.totals :employees="$this->employeeTotals" :plans="$this->planTotals" :coverage="$this->coverageTotal" :funding="$this->fundingTotals"
                 :spend="$this->spend" :year="$this->year()" />
 

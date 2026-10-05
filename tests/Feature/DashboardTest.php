@@ -353,6 +353,14 @@ test('the month list under the dashboard calendar is gone', function () {
         ->assertSee('Open the calendar');
 });
 
+test('the agency dashboard does not repeat its overview under the page title', function () {
+    $this->actingAs(User::factory()->hr()->create());
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Agency-wide learning and development overview')
+        ->assertDontSee('Learning and development activity across the agency');
+});
+
 test('the calendar can be stepped back and forward', function () {
     $this->actingAs(User::factory()->hr()->create());
 
