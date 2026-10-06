@@ -38,10 +38,13 @@
         </div>
 
         @if ($actionHref)
-            <flux:link :href="$actionHref" wire:navigate class="shrink-0">
+            {{-- A plain anchor, not flux:link, so it carries no underline and
+                 no arrow: every variant of flux:link underlines at rest or on
+                 hover, and a class passed to undo that loses silently. --}}
+            <a href="{{ $actionHref }}" wire:navigate
+                class="shrink-0 text-sm font-medium text-[var(--color-accent-content)] hover:opacity-70">
                 {{ $actionLabel }}
-                <flux:icon name="arrow-up-right" variant="micro" />
-            </flux:link>
+            </a>
         @elseif ($count !== null)
             <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold {{ $countClasses }}">
                 {{ $count }}

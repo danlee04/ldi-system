@@ -18,12 +18,11 @@
         </div>
 
         <div class="flex shrink-0 items-center gap-3">
-            <flux:link :href="route('calendar', ['month' => $calendar['month']->format('Y-m')])" wire:navigate
-                class="inline-flex items-center gap-1 text-sm font-medium">
+            {{-- The same plain link x-dashboard.panel uses: no underline, no arrow. --}}
+            <a href="{{ route('calendar', ['month' => $calendar['month']->format('Y-m')]) }}" wire:navigate
+                class="text-sm font-medium text-[var(--color-accent-content)] hover:opacity-70">
                 {{ __('Open the calendar') }}
-
-                <flux:icon name="arrow-up-right" variant="micro" />
-            </flux:link>
+            </a>
 
             <div class="flex items-center gap-1">
                 <flux:button size="sm" variant="ghost" icon="chevron-left" square wire:click="previousMonth"
