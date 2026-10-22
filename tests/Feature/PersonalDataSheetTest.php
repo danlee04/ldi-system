@@ -1105,8 +1105,12 @@ test('unsaved changes stay with the employee they were typed for', function () {
     Livewire::test('pages::my-pds')->assertSet('form.place_of_birth', '');
 });
 
-test('no box on the page waits for a save to send what was typed', function () {
+test('no box on the page waits for a save or a blur to send what was typed', function () {
     pdsEmployee();
 
-    Livewire::test('pages::my-pds')->assertDontSeeHtml('wire:model="');
+    // A wire:navigate menu link never blurs the box, so a box that sends
+    // on blur loses its typing on a menu click just as a bare one does.
+    Livewire::test('pages::my-pds')
+        ->assertDontSeeHtml('wire:model="')
+        ->assertDontSeeHtml('.blur="');
 });

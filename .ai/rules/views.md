@@ -58,3 +58,5 @@ flux:table.column renders `<th class="text-start"><div class="flex …">{{ $slot
 
 ## Since Livewire 4.1, wire:model.blur sends nothing to the server
 `.blur` and `.change` now only delay the browser-side value. To send a request when a box is left, write `wire:model.live.blur`; add `.renderless` when nothing on screen depends on the value. Checked in vendor/livewire/livewire/dist/livewire.esm.js on 4.4.3: ephemeral modifiers are the ones before `.live`, network ones after it.
+
+Even `.live.blur` does not fire when the user leaves by a wire:navigate link: the link calls preventDefault() on mousedown (livewire.esm.js, whenThisLinkIsPressed), so focus never moves and the page is swapped without a blur. Anything that must reach the server before the user navigates away has to go with `.live` as it is typed.
