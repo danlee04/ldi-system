@@ -1047,3 +1047,66 @@ test('the government ID lands under the declaration', function () {
         ->and($sheet->getCell('D62')->getValue())->toEqual('0123456')
         ->and($sheet->getCell('D64')->getValue())->toBe('20/01/2024, Butuan City');
 });
+
+test('changes that were not saved are still there after leaving the page', function () {
+    $employee = pdsEmployee();
+    EmployeeWorkExperience::factory()->for($employee)->create(['position_title' => 'Nurse I']);
+    Livewire::test('pages::my-pds')
+        ->set('form.place_of_birth', 'Butuan City')
+        ->set('form.residential_city', 'Cabadbaran City')
+        ->call('copyResidentialToPermanent')
+        ->call('removeRow', 'work', 0);
+
+    Livewire::test('pages::my-pds')
+        ->assertSet('form.place_of_birth', 'Butuan City')
+        ->assertSet('form.permanent_city', 'Cabadbaran City')
+        ->assertSet('work.0.position_title', '');
+
+    $employee->refresh();
+    expect($employee->personalDataSheet)->toBeNull()
+        ->and($employee->workExperiences)->toHaveCount(1);
+});
+
+test('saving one section clears only the changes it saved', function () {
+    $employee = pdsEmployee();
+    Livewire::test('pages::my-pds')
+        ->set('form.mobile_no', '09171234567')
+        ->set('form.spouse_first_name', 'Juan')
+        ->call('save');
+    $employee->personalDataSheet->update(['mobile_no' => '09181112222']);
+
+    $this->actingAs($employee->user->fresh());
+    Livewire::test('pages::my-pds')
+        ->assertSet('form.mobile_no', '09181112222')
+        ->assertSet('form.spouse_first_name', 'Juan');
+});
+
+test('signing out throws away changes that were not saved', function () {
+    $employee = pdsEmployee();
+    Livewire::test('pages::my-pds')->set('form.place_of_birth', 'Butuan City');
+
+    // The session cookie keeps the id the draft was stored under; without it
+    // the test client starts a new session and this would pass regardless.
+    $this->withCookie(config('session.cookie'), session()->getId())->post(route('logout'));
+
+    $this->actingAs($employee->user);
+    Livewire::test('pages::my-pds')->assertSet('form.place_of_birth', '');
+});
+
+test('unsaved changes stay with the employee they were typed for', function () {
+    $employee = pdsEmployee();
+    $user = $employee->user;
+    Livewire::test('pages::my-pds')->set('form.place_of_birth', 'Butuan City');
+
+    $employee->update(['user_id' => null]);
+    Employee::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user->fresh());
+    Livewire::test('pages::my-pds')->assertSet('form.place_of_birth', '');
+});
+
+test('no box on the page waits for a save to send what was typed', function () {
+    pdsEmployee();
+
+    Livewire::test('pages::my-pds')->assertDontSeeHtml('wire:model="');
+});

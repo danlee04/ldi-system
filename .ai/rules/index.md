@@ -15,7 +15,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/errors/** | .ai/rules/errors.md |
 | **, vite.config.js | .ai/rules/general.md |
 | app/Actions/Ldna/**, app/Actions/Reports/LdnaGapReport.php, app/Models/Ldna*.php, app/Workflow/LdnaConfirmer.php, resources/views/pages/ldna/** | .ai/rules/ldna.md |
-| resources/views/pages/** | .ai/rules/pages.md |
+| resources/views/pages/**, resources/views/pages/⚡my-pds.blade.php | .ai/rules/pages.md |
 | app/Actions/Pds/** | .ai/rules/pds.md |
 | app/Providers/FortifyServiceProvider.php | .ai/rules/providers.md |
 | routes/** | .ai/rules/routes.md |

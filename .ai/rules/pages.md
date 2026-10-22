@@ -1,6 +1,7 @@
 ---
 paths:
   - 'resources/views/pages/**'
+  - resources/views/pages/⚡my-pds.blade.php
 ---
 
 # Pages
@@ -41,3 +42,10 @@ Anything narrower than 4xl squeezes the two-column grid back into one column on 
 On 2026-10-01 ⚡dashboard.blade.php would not compile: its PHP block had non-breaking spaces (U+00A0) for indentation, a blank line after every line, and markdown-escaped \* \< \_ inside docblocks and __() calls. PHP reports `syntax error, unexpected identifier " "` or `unexpected token "/"`. Check with grep for $'\xc2\xa0' and for backslashes before * < _ (namespace backslashes before capitals are legitimate). The repair is mechanical: NBSP to space, collapse the doubled newlines in the PHP block only, drop those three escapes. Such a file is text that passed through a markdown renderer — do not hand-edit around it, repair it wholesale.
 
 The quieter form of the same damage is a ```blade fence wrapping the whole file, which compiles fine and prints three backticks onto the page instead — ⚡detail-modal.blade.php shipped that way. When touching a view that was written this way, first sweep every Blade file for all three: a leading fence, U+00A0, and \* \< \_.
+
+## My PDS keeps unsaved typing as a draft in the cache
+Every box sends its value when it is left (`wire:model.renderless.live.blur`; the flux:switch uses `.renderless.live`, since a custom element never blurs). updated() stores it in the cache, mount() lays it back over the database, and each save calls forgetDraft($validated), which clears only the fields that save wrote — $form is shared by three save buttons. A new box with a bare wire:model, or a new save without forgetDraft, breaks this; a test asserts no bare wire:model is left.
+
+The cache, not the session: a menu click fires the blur sync and the next page's request together, and the second writes the whole session back without the draft. Keys carry the session id (logout makes drafts unreachable) and the employee id.
+
+In tests, an HTTP request without the session cookie gets a new session id, so a logout test must send it: `withCookie(config('session.cookie'), session()->getId())`, or it passes regardless.

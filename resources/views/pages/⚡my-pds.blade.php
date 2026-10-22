@@ -18,6 +18,8 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\PersonalDataSheet;
 use Flux\Flux;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -242,6 +244,70 @@ new #[Title('My PDS')] class extends Component {
             // Always the seven printed lines, so the page looks like the form.
             $this->other[$type->value] = array_pad($filled, self::OTHER_LINES, '');
         }
+
+        foreach (['form', 'education', 'other', ...array_keys(self::REPEATERS)] as $section) {
+            $draft = Cache::get($this->draftKey($section));
+
+            if ($draft !== null) {
+                $this->{$section} = $section === 'form' ? [...$this->form, ...$draft] : $draft;
+            }
+        }
+    }
+
+    /**
+     * Keeps whatever they change before they save it, so leaving the page
+     * does not throw it away. Only the save buttons write the database;
+     * mount() lays this back over it when they return.
+     */
+    public function updated(string $property): void
+    {
+        $this->keepDraft($property);
+    }
+
+    /**
+     * The cache rather than the session: a menu click sends the blur that
+     * stores the draft and the request for the next page together, and the
+     * second writes the whole session back without it. The session id ties
+     * the draft to this sign-in, so signing out, by hand or idle, leaves it
+     * unreachable until it expires.
+     */
+    private function draftKey(string $section): string
+    {
+        return 'pds-draft:'.session()->getId().':'.$this->employee->getKey().':'.$section;
+    }
+
+    /**
+     * $form is kept field by field, because three save buttons share it;
+     * every other section is kept whole, the way it is saved.
+     */
+    private function keepDraft(string $path): void
+    {
+        $section = Str::before($path, '.');
+
+        $draft = $section === 'form'
+            ? [...Cache::get($this->draftKey('form'), []), Str::after($path, '.') => data_get($this, $path)]
+            : $this->{$section};
+
+        Cache::put($this->draftKey($section), $draft, now()->addMinutes(config('session.lifetime')));
+    }
+
+    /**
+     * Drops what a save has just written, and only that: saving the
+     * personal details must not throw away a half-typed family section.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function forgetDraft(array $validated): void
+    {
+        foreach (array_keys($validated) as $section) {
+            $left = $section === 'form' ? array_diff_key(Cache::get($this->draftKey('form'), []), $validated['form']) : [];
+
+            if ($left === []) {
+                Cache::forget($this->draftKey($section));
+            } else {
+                Cache::put($this->draftKey($section), $left, now()->addMinutes(config('session.lifetime')));
+            }
+        }
     }
 
     /**
@@ -264,7 +330,8 @@ new #[Title('My PDS')] class extends Component {
 
     /**
      * Takes a line off the form. Nothing leaves the database until they
-     * save, so a mis-click costs them a reload and no more.
+     * save, but the removal is kept with the rest of the unsaved draft, so
+     * leaving the page does not bring the line back.
      */
     public function removeRow(string $list, int $index): void
     {
@@ -277,6 +344,8 @@ new #[Title('My PDS')] class extends Component {
         if ($this->{$list} === []) {
             $this->addRow($list);
         }
+
+        $this->keepDraft($list);
     }
 
     /**
@@ -339,6 +408,8 @@ new #[Title('My PDS')] class extends Component {
         $this->syncRows($sync, 'eligibilities', collect($validated['eligibilities'])
             ->filter(fn (array $row): bool => filled($row['eligibility_id']) || filled($row['detail'])));
 
+        $this->forgetDraft($validated);
+
         Flux::toast(variant: 'success', text: __('Eligibility saved.'));
     }
 
@@ -377,6 +448,8 @@ new #[Title('My PDS')] class extends Component {
         $this->syncRows($sync, 'work', collect($validated['work'])
             ->filter(fn (array $row): bool => filled($row['from_date'])));
 
+        $this->forgetDraft($validated);
+
         Flux::toast(variant: 'success', text: __('Work experience saved.'));
     }
 
@@ -411,6 +484,8 @@ new #[Title('My PDS')] class extends Component {
         $this->syncRows($sync, 'children', collect($validated['children'])
             ->filter(fn (array $row): bool => filled($row['full_name'])));
 
+        $this->forgetDraft($validated);
+
         Flux::toast(variant: 'success', text: __('Family background saved.'));
     }
 
@@ -432,6 +507,8 @@ new #[Title('My PDS')] class extends Component {
         $this->syncRows($sync, 'voluntary', collect($validated['voluntary'])
             ->filter(fn (array $row): bool => filled($row['organization'])));
 
+        $this->forgetDraft($validated);
+
         Flux::toast(variant: 'success', text: __('Voluntary work saved.'));
     }
 
@@ -444,6 +521,8 @@ new #[Title('My PDS')] class extends Component {
         ]);
 
         $write->handle($this->employee, $validated['other']);
+
+        $this->forgetDraft($validated);
 
         Flux::toast(variant: 'success', text: __('Other information saved.'));
     }
@@ -500,6 +579,8 @@ new #[Title('My PDS')] class extends Component {
         $this->syncRows($sync, 'references', collect($validated['references'])
             ->filter(fn (array $row): bool => filled($row['full_name'])));
 
+        $this->forgetDraft($validated);
+
         Flux::toast(variant: 'success', text: __('Page 4 saved.'));
     }
 
@@ -516,6 +597,8 @@ new #[Title('My PDS')] class extends Component {
         ]);
 
         $write->handle($this->employee, $validated['education']);
+
+        $this->forgetDraft($validated);
 
         Flux::toast(variant: 'success', text: __('Education saved.'));
     }
@@ -579,6 +662,8 @@ new #[Title('My PDS')] class extends Component {
 
         $write->handle($this->employee, $validated['form']);
 
+        $this->forgetDraft($validated);
+
         unset($this->completeness);
 
         Flux::toast(variant: 'success', text: __('Saved. Nobody else can edit this but you.'));
@@ -592,10 +677,15 @@ new #[Title('My PDS')] class extends Component {
     {
         foreach (['house_block_lot', 'street', 'subdivision', 'barangay', 'city', 'province', 'zip'] as $part) {
             $this->form['permanent_'.$part] = $this->form['residential_'.$part];
+
+            $this->keepDraft('form.permanent_'.$part);
         }
     }
 }; ?>
 
+{{-- Every box sends its value as soon as it is left or changed, so what was typed
+     survives leaving the page. A bare wire:model would hold it in the browser until
+     a save and lose it on the way out. --}}
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
@@ -624,8 +714,8 @@ new #[Title('My PDS')] class extends Component {
         <flux:separator :text="__('I. Personal information')" />
 
         <div class="grid gap-4 md:grid-cols-3">
-            <flux:input wire:model="form.date_of_birth" :label="__('Date of birth')" type="date" />
-            <flux:input class="md:col-span-2" wire:model="form.place_of_birth" :label="__('Place of birth')" />
+            <flux:input wire:model.renderless.live.blur="form.date_of_birth" :label="__('Date of birth')" type="date" />
+            <flux:input class="md:col-span-2" wire:model.renderless.live.blur="form.place_of_birth" :label="__('Place of birth')" />
 
             <flux:select wire:model.live="form.civil_status" :label="__('Civil status')">
                 <flux:select.option value="">{{ __('Select') }}</flux:select.option>
@@ -635,38 +725,38 @@ new #[Title('My PDS')] class extends Component {
             </flux:select>
 
             @if (($form['civil_status'] ?? '') === 'Others')
-                <flux:input wire:model="form.civil_status_other" :label="__('Specify')" required />
+                <flux:input wire:model.renderless.live.blur="form.civil_status_other" :label="__('Specify')" required />
             @endif
 
-            <flux:input wire:model="form.citizenship" :label="__('Citizenship')" placeholder="Filipino" />
-            <flux:input wire:model="form.dual_citizenship_country" :label="__('If dual, which country')" />
+            <flux:input wire:model.renderless.live.blur="form.citizenship" :label="__('Citizenship')" placeholder="Filipino" />
+            <flux:input wire:model.renderless.live.blur="form.dual_citizenship_country" :label="__('If dual, which country')" />
 
-            <flux:input wire:model="form.height_m" :label="__('Height (m)')" type="number" step="0.01" />
-            <flux:input wire:model="form.weight_kg" :label="__('Weight (kg)')" type="number" step="0.01" />
-            <flux:input wire:model="form.blood_type" :label="__('Blood type')" placeholder="O+" />
+            <flux:input wire:model.renderless.live.blur="form.height_m" :label="__('Height (m)')" type="number" step="0.01" />
+            <flux:input wire:model.renderless.live.blur="form.weight_kg" :label="__('Weight (kg)')" type="number" step="0.01" />
+            <flux:input wire:model.renderless.live.blur="form.blood_type" :label="__('Blood type')" placeholder="O+" />
         </div>
 
         <flux:separator :text="__('Government numbers')" />
 
         <div class="grid gap-4 md:grid-cols-3">
-            <flux:input wire:model="form.umid_id_no" :label="__('UMID ID no.')" />
-            <flux:input wire:model="form.pagibig_id_no" :label="__('Pag-IBIG ID no.')" />
-            <flux:input wire:model="form.philhealth_no" :label="__('PhilHealth no.')" />
-            <flux:input wire:model="form.philsys_card_number" :label="__('PhilSys card number')" />
-            <flux:input wire:model="form.tin_no" :label="__('TIN no.')" />
-            <flux:input wire:model="form.agency_employee_no" :label="__('Agency employee no.')" />
+            <flux:input wire:model.renderless.live.blur="form.umid_id_no" :label="__('UMID ID no.')" />
+            <flux:input wire:model.renderless.live.blur="form.pagibig_id_no" :label="__('Pag-IBIG ID no.')" />
+            <flux:input wire:model.renderless.live.blur="form.philhealth_no" :label="__('PhilHealth no.')" />
+            <flux:input wire:model.renderless.live.blur="form.philsys_card_number" :label="__('PhilSys card number')" />
+            <flux:input wire:model.renderless.live.blur="form.tin_no" :label="__('TIN no.')" />
+            <flux:input wire:model.renderless.live.blur="form.agency_employee_no" :label="__('Agency employee no.')" />
         </div>
 
         <flux:separator :text="__('Residential address')" />
 
         <div class="grid gap-4 md:grid-cols-4">
-            <flux:input wire:model="form.residential_house_block_lot" :label="__('House/Block/Lot no.')" />
-            <flux:input wire:model="form.residential_street" :label="__('Street')" />
-            <flux:input wire:model="form.residential_subdivision" :label="__('Subdivision/Village')" />
-            <flux:input wire:model="form.residential_barangay" :label="__('Barangay')" />
-            <flux:input wire:model="form.residential_city" :label="__('City/Municipality')" />
-            <flux:input wire:model="form.residential_province" :label="__('Province')" />
-            <flux:input wire:model="form.residential_zip" :label="__('ZIP code')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_house_block_lot" :label="__('House/Block/Lot no.')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_street" :label="__('Street')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_subdivision" :label="__('Subdivision/Village')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_barangay" :label="__('Barangay')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_city" :label="__('City/Municipality')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_province" :label="__('Province')" />
+            <flux:input wire:model.renderless.live.blur="form.residential_zip" :label="__('ZIP code')" />
         </div>
 
         <div class="flex items-center gap-3">
@@ -679,21 +769,21 @@ new #[Title('My PDS')] class extends Component {
         <flux:separator :text="__('Permanent address')" />
 
         <div class="grid gap-4 md:grid-cols-4">
-            <flux:input wire:model="form.permanent_house_block_lot" :label="__('House/Block/Lot no.')" />
-            <flux:input wire:model="form.permanent_street" :label="__('Street')" />
-            <flux:input wire:model="form.permanent_subdivision" :label="__('Subdivision/Village')" />
-            <flux:input wire:model="form.permanent_barangay" :label="__('Barangay')" />
-            <flux:input wire:model="form.permanent_city" :label="__('City/Municipality')" />
-            <flux:input wire:model="form.permanent_province" :label="__('Province')" />
-            <flux:input wire:model="form.permanent_zip" :label="__('ZIP code')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_house_block_lot" :label="__('House/Block/Lot no.')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_street" :label="__('Street')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_subdivision" :label="__('Subdivision/Village')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_barangay" :label="__('Barangay')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_city" :label="__('City/Municipality')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_province" :label="__('Province')" />
+            <flux:input wire:model.renderless.live.blur="form.permanent_zip" :label="__('ZIP code')" />
         </div>
 
         <flux:separator :text="__('Contact')" />
 
         <div class="grid gap-4 md:grid-cols-3">
-            <flux:input wire:model="form.telephone_no" :label="__('Telephone no.')" />
-            <flux:input wire:model="form.mobile_no" :label="__('Mobile no.')" />
-            <flux:input wire:model="form.email_address" :label="__('E-mail address')" type="email" />
+            <flux:input wire:model.renderless.live.blur="form.telephone_no" :label="__('Telephone no.')" />
+            <flux:input wire:model.renderless.live.blur="form.mobile_no" :label="__('Mobile no.')" />
+            <flux:input wire:model.renderless.live.blur="form.email_address" :label="__('E-mail address')" type="email" />
         </div>
 
         <div class="flex">
@@ -708,32 +798,32 @@ new #[Title('My PDS')] class extends Component {
         <flux:text size="sm">{{ __('Spouse') }}</flux:text>
 
         <div class="grid gap-4 md:grid-cols-4">
-            <flux:input wire:model="form.spouse_last_name" :label="__('Surname')" />
-            <flux:input wire:model="form.spouse_first_name" :label="__('First name')" />
-            <flux:input wire:model="form.spouse_middle_name" :label="__('Middle name')" />
-            <flux:input wire:model="form.spouse_suffix" :label="__('Name extension')" :placeholder="__('Jr., Sr.')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_last_name" :label="__('Surname')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_first_name" :label="__('First name')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_middle_name" :label="__('Middle name')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_suffix" :label="__('Name extension')" :placeholder="__('Jr., Sr.')" />
 
-            <flux:input wire:model="form.spouse_occupation" :label="__('Occupation')" />
-            <flux:input wire:model="form.spouse_employer" :label="__('Employer or business name')" />
-            <flux:input wire:model="form.spouse_business_address" :label="__('Business address')" />
-            <flux:input wire:model="form.spouse_telephone_no" :label="__('Telephone no.')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_occupation" :label="__('Occupation')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_employer" :label="__('Employer or business name')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_business_address" :label="__('Business address')" />
+            <flux:input wire:model.renderless.live.blur="form.spouse_telephone_no" :label="__('Telephone no.')" />
         </div>
 
         <flux:text size="sm">{{ __('Father') }}</flux:text>
 
         <div class="grid gap-4 md:grid-cols-4">
-            <flux:input wire:model="form.father_last_name" :label="__('Surname')" />
-            <flux:input wire:model="form.father_first_name" :label="__('First name')" />
-            <flux:input wire:model="form.father_middle_name" :label="__('Middle name')" />
-            <flux:input wire:model="form.father_suffix" :label="__('Name extension')" :placeholder="__('Jr., Sr.')" />
+            <flux:input wire:model.renderless.live.blur="form.father_last_name" :label="__('Surname')" />
+            <flux:input wire:model.renderless.live.blur="form.father_first_name" :label="__('First name')" />
+            <flux:input wire:model.renderless.live.blur="form.father_middle_name" :label="__('Middle name')" />
+            <flux:input wire:model.renderless.live.blur="form.father_suffix" :label="__('Name extension')" :placeholder="__('Jr., Sr.')" />
         </div>
 
         <flux:text size="sm">{{ __("Mother's maiden name") }}</flux:text>
 
         <div class="grid gap-4 md:grid-cols-4">
-            <flux:input wire:model="form.mother_last_name" :label="__('Surname')" />
-            <flux:input wire:model="form.mother_first_name" :label="__('First name')" />
-            <flux:input wire:model="form.mother_middle_name" :label="__('Middle name')" />
+            <flux:input wire:model.renderless.live.blur="form.mother_last_name" :label="__('Surname')" />
+            <flux:input wire:model.renderless.live.blur="form.mother_first_name" :label="__('First name')" />
+            <flux:input wire:model.renderless.live.blur="form.mother_middle_name" :label="__('Middle name')" />
         </div>
 
         <flux:text size="sm">{{ __('Children — list all of them, oldest first.') }}</flux:text>
@@ -741,10 +831,10 @@ new #[Title('My PDS')] class extends Component {
         <div class="space-y-3">
             @foreach ($children as $index => $row)
                 <div wire:key="child-{{ $index }}" class="grid items-end gap-4 md:grid-cols-4">
-                    <flux:input class="md:col-span-2" wire:model="children.{{ $index }}.full_name"
+                    <flux:input class="md:col-span-2" wire:model.renderless.live.blur="children.{{ $index }}.full_name"
                         :label="$index === 0 ? __('Full name') : null" />
 
-                    <flux:input wire:model="children.{{ $index }}.date_of_birth" type="date"
+                    <flux:input wire:model.renderless.live.blur="children.{{ $index }}.date_of_birth" type="date"
                         :label="$index === 0 ? __('Date of birth') : null" />
 
                     <div class="flex justify-start">
@@ -806,25 +896,25 @@ new #[Title('My PDS')] class extends Component {
                         <tr wire:key="education-{{ $level->value }}">
                             <td class="pe-3 align-middle text-sm">{{ $level->label() }}</td>
                             <td class="pe-3">
-                                <flux:input size="sm" wire:model="education.{{ $level->value }}.school_name" />
+                                <flux:input size="sm" wire:model.renderless.live.blur="education.{{ $level->value }}.school_name" />
                             </td>
                             <td class="pe-3">
-                                <flux:input size="sm" wire:model="education.{{ $level->value }}.degree_course" />
+                                <flux:input size="sm" wire:model.renderless.live.blur="education.{{ $level->value }}.degree_course" />
                             </td>
                             <td class="pe-3">
-                                <flux:input size="sm" type="number" wire:model="education.{{ $level->value }}.period_from" />
+                                <flux:input size="sm" type="number" wire:model.renderless.live.blur="education.{{ $level->value }}.period_from" />
                             </td>
                             <td class="pe-3">
-                                <flux:input size="sm" type="number" wire:model="education.{{ $level->value }}.period_to" />
+                                <flux:input size="sm" type="number" wire:model.renderless.live.blur="education.{{ $level->value }}.period_to" />
                             </td>
                             <td class="pe-3">
-                                <flux:input size="sm" wire:model="education.{{ $level->value }}.highest_level_units" />
+                                <flux:input size="sm" wire:model.renderless.live.blur="education.{{ $level->value }}.highest_level_units" />
                             </td>
                             <td class="pe-3">
-                                <flux:input size="sm" type="number" wire:model="education.{{ $level->value }}.year_graduated" />
+                                <flux:input size="sm" type="number" wire:model.renderless.live.blur="education.{{ $level->value }}.year_graduated" />
                             </td>
                             <td>
-                                <flux:input size="sm" wire:model="education.{{ $level->value }}.honors" />
+                                <flux:input size="sm" wire:model.renderless.live.blur="education.{{ $level->value }}.honors" />
                             </td>
                         </tr>
                     @endforeach
@@ -850,7 +940,7 @@ new #[Title('My PDS')] class extends Component {
                 <div wire:key="eligibility-{{ $index }}"
                     class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
                     <div class="grid gap-4 md:grid-cols-4">
-                        <flux:select class="md:col-span-2" wire:model="eligibilities.{{ $index }}.eligibility_id"
+                        <flux:select class="md:col-span-2" wire:model.renderless.live.blur="eligibilities.{{ $index }}.eligibility_id"
                             :label="__('Eligibility')">
                             <flux:select.option value="">{{ __('Select or type below') }}</flux:select.option>
                             @foreach ($this->eligibilityList as $eligibility)
@@ -858,19 +948,19 @@ new #[Title('My PDS')] class extends Component {
                             @endforeach
                         </flux:select>
 
-                        <flux:input class="md:col-span-2" wire:model="eligibilities.{{ $index }}.detail"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="eligibilities.{{ $index }}.detail"
                             :label="__('Or write it in full')"
                             :placeholder="__('Registered Nurse, PRC')" />
 
-                        <flux:input wire:model="eligibilities.{{ $index }}.rating" :label="__('Rating')" />
-                        <flux:input wire:model="eligibilities.{{ $index }}.date_of_examination"
+                        <flux:input wire:model.renderless.live.blur="eligibilities.{{ $index }}.rating" :label="__('Rating')" />
+                        <flux:input wire:model.renderless.live.blur="eligibilities.{{ $index }}.date_of_examination"
                             :label="__('Date of examination')" type="date" />
-                        <flux:input class="md:col-span-2" wire:model="eligibilities.{{ $index }}.place_of_examination"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="eligibilities.{{ $index }}.place_of_examination"
                             :label="__('Place of examination')" />
 
-                        <flux:input class="md:col-span-2" wire:model="eligibilities.{{ $index }}.license_number"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="eligibilities.{{ $index }}.license_number"
                             :label="__('Licence number')" />
-                        <flux:input wire:model="eligibilities.{{ $index }}.date_of_validity"
+                        <flux:input wire:model.renderless.live.blur="eligibilities.{{ $index }}.date_of_validity"
                             :label="__('Date of validity')" type="date" />
 
                         <div class="flex items-end justify-end">
@@ -911,24 +1001,24 @@ new #[Title('My PDS')] class extends Component {
                 <div wire:key="work-{{ $index }}"
                     class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
                     <div class="grid gap-4 md:grid-cols-4">
-                        <flux:input class="md:col-span-2" wire:model="work.{{ $index }}.position_title"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="work.{{ $index }}.position_title"
                             :label="__('Position title')"
                             :placeholder="__('Write it in full, do not abbreviate')" />
 
-                        <flux:input class="md:col-span-2" wire:model="work.{{ $index }}.agency_name"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="work.{{ $index }}.agency_name"
                             :label="__('Department, agency or company')" />
 
-                        <flux:input wire:model="work.{{ $index }}.from_date" :label="__('From')" type="date" />
-                        <flux:input wire:model="work.{{ $index }}.to_date" :label="__('To')" type="date"
+                        <flux:input wire:model.renderless.live.blur="work.{{ $index }}.from_date" :label="__('From')" type="date" />
+                        <flux:input wire:model.renderless.live.blur="work.{{ $index }}.to_date" :label="__('To')" type="date"
                             :description="__('Blank if present')" />
 
-                        <flux:input wire:model="work.{{ $index }}.monthly_salary" :label="__('Monthly salary')"
+                        <flux:input wire:model.renderless.live.blur="work.{{ $index }}.monthly_salary" :label="__('Monthly salary')"
                             type="number" step="0.01" />
 
-                        <flux:input wire:model="work.{{ $index }}.salary_grade" :label="__('Salary grade and step')"
+                        <flux:input wire:model.renderless.live.blur="work.{{ $index }}.salary_grade" :label="__('Salary grade and step')"
                             placeholder="11-1" />
 
-                        <flux:select class="md:col-span-2" wire:model="work.{{ $index }}.appointment_status"
+                        <flux:select class="md:col-span-2" wire:model.renderless.live.blur="work.{{ $index }}.appointment_status"
                             :label="__('Status of appointment')">
                             <flux:select.option value="">{{ __('Select') }}</flux:select.option>
                             @foreach (App\Models\EmployeeWorkExperience::appointmentStatuses() as $status)
@@ -937,7 +1027,7 @@ new #[Title('My PDS')] class extends Component {
                         </flux:select>
 
                         <flux:field variant="inline" class="self-end">
-                            <flux:switch wire:model="work.{{ $index }}.is_government" />
+                            <flux:switch wire:model.renderless.live="work.{{ $index }}.is_government" />
                             <flux:label>{{ __('Government service') }}</flux:label>
                         </flux:field>
 
@@ -979,17 +1069,17 @@ new #[Title('My PDS')] class extends Component {
                 <div wire:key="voluntary-{{ $index }}"
                     class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
                     <div class="grid gap-4 md:grid-cols-4">
-                        <flux:input class="md:col-span-2" wire:model="voluntary.{{ $index }}.organization"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="voluntary.{{ $index }}.organization"
                             :label="__('Name and address of organisation')" />
 
-                        <flux:input class="md:col-span-2" wire:model="voluntary.{{ $index }}.position"
+                        <flux:input class="md:col-span-2" wire:model.renderless.live.blur="voluntary.{{ $index }}.position"
                             :label="__('Position or nature of work')" />
 
-                        <flux:input wire:model="voluntary.{{ $index }}.from_date" :label="__('From')" type="date" />
-                        <flux:input wire:model="voluntary.{{ $index }}.to_date" :label="__('To')" type="date"
+                        <flux:input wire:model.renderless.live.blur="voluntary.{{ $index }}.from_date" :label="__('From')" type="date" />
+                        <flux:input wire:model.renderless.live.blur="voluntary.{{ $index }}.to_date" :label="__('To')" type="date"
                             :description="__('Blank if ongoing')" />
 
-                        <flux:input wire:model="voluntary.{{ $index }}.hours" :label="__('Number of hours')"
+                        <flux:input wire:model.renderless.live.blur="voluntary.{{ $index }}.hours" :label="__('Number of hours')"
                             type="number" />
 
                         <div class="flex items-end justify-end">
@@ -1030,7 +1120,7 @@ new #[Title('My PDS')] class extends Component {
 
                     @foreach ($other[$type->value] as $line => $description)
                         <flux:input size="sm" wire:key="other-{{ $type->value }}-{{ $line }}"
-                            wire:model="other.{{ $type->value }}.{{ $line }}" />
+                            wire:model.renderless.live.blur="other.{{ $type->value }}.{{ $line }}" />
                     @endforeach
                 </div>
             @endforeach
@@ -1115,16 +1205,16 @@ new #[Title('My PDS')] class extends Component {
 
                         @if (($form[$question] ?? '') === '1')
                             <flux:input class="md:col-span-3"
-                                wire:model="form.{{ $this::DISCLOSURES[$question] }}"
+                                wire:model.renderless.live.blur="form.{{ $this::DISCLOSURES[$question] }}"
                                 :label="$detailLabel" />
                         @endif
                     </div>
 
                     @if ($question === 'criminally_charged' && ($form['criminally_charged'] ?? '') === '1')
                         <div class="mt-4 grid gap-4 md:grid-cols-2">
-                            <flux:input wire:model="form.criminally_charged_date_filed"
+                            <flux:input wire:model.renderless.live.blur="form.criminally_charged_date_filed"
                                 :label="__('Date filed')" type="date" />
-                            <flux:input wire:model="form.criminally_charged_status"
+                            <flux:input wire:model.renderless.live.blur="form.criminally_charged_status"
                                 :label="__('Status of the case')" />
                         </div>
                     @endif
@@ -1139,13 +1229,13 @@ new #[Title('My PDS')] class extends Component {
         <div class="space-y-3">
             @foreach ($references as $index => $row)
                 <div wire:key="reference-{{ $index }}" class="grid items-end gap-4 md:grid-cols-4">
-                    <flux:input wire:model="references.{{ $index }}.full_name"
+                    <flux:input wire:model.renderless.live.blur="references.{{ $index }}.full_name"
                         :label="$index === 0 ? __('Name') : null" />
 
-                    <flux:input wire:model="references.{{ $index }}.address"
+                    <flux:input wire:model.renderless.live.blur="references.{{ $index }}.address"
                         :label="$index === 0 ? __('Office or residential address') : null" />
 
-                    <flux:input wire:model="references.{{ $index }}.contact"
+                    <flux:input wire:model.renderless.live.blur="references.{{ $index }}.contact"
                         :label="$index === 0 ? __('Contact no. or e-mail') : null" />
 
                     <div class="flex justify-start">
@@ -1167,10 +1257,10 @@ new #[Title('My PDS')] class extends Component {
         <flux:separator :text="__('42. Government issued ID')" />
 
         <div class="grid gap-4 md:grid-cols-3">
-            <flux:input wire:model="form.government_id_type" :label="__('Government issued ID')"
+            <flux:input wire:model.renderless.live.blur="form.government_id_type" :label="__('Government issued ID')"
                 :placeholder="__('Passport, GSIS, SSS, PRC, Driver&rsquo;s licence')" />
-            <flux:input wire:model="form.government_id_number" :label="__('ID, licence or passport no.')" />
-            <flux:input wire:model="form.government_id_issued" :label="__('Date and place of issuance')" />
+            <flux:input wire:model.renderless.live.blur="form.government_id_number" :label="__('ID, licence or passport no.')" />
+            <flux:input wire:model.renderless.live.blur="form.government_id_issued" :label="__('Date and place of issuance')" />
         </div>
 
         <div class="flex">

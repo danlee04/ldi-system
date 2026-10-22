@@ -55,3 +55,6 @@ flux:table.column renders `<th class="text-start"><div class="flex …">{{ $slot
 
 ## Headless Chrome will not go narrower than 500px
 --window-size=390,… silently renders at 500px wide, so a phone screenshot taken that way checks nothing below 500. For a real phone width, shoot a wrapper page holding `<iframe src="page.html" style="width:390px;height:4600px;border:0">` — the iframe has its own 390px viewport, so the breakpoints fire. To read a measurement back, have the inner page postMessage it and the wrapper set document.title, then use --dump-dom.
+
+## Since Livewire 4.1, wire:model.blur sends nothing to the server
+`.blur` and `.change` now only delay the browser-side value. To send a request when a box is left, write `wire:model.live.blur`; add `.renderless` when nothing on screen depends on the value. Checked in vendor/livewire/livewire/dist/livewire.esm.js on 4.4.3: ephemeral modifiers are the ones before `.live`, network ones after it.
