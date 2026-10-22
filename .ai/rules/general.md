@@ -34,3 +34,8 @@ The user's rule: on the office server, `git pull` must be the whole deploy. Do n
 
 ## Vite base must stay './' — the app is served from a subfolder
 base: './' makes url() inside built CSS relative to the stylesheet. The default (/build/) is root-absolute and only resolves when the app sits at the root of its domain. The office server mounts it at 192.168.10.38/ldi-system, so with the default every font 404s and the whole interface silently falls back to system sans — it did for months before 2026-10-01, unnoticed because local testing used the root-level .test vhost. Check a change by loading the app through a subfolder (localhost/hr-training-laravel/public) and confirming the woff2 returns 200, not just the CSS.
+
+## The office server needs OPcache on, with timestamp checks left on
+The office server's php.ini had OPcache off (`;zend_extension=opcache`, the same as the dev PC's Laragon). Without it every request recompiles the framework: /up took ~400 ms and every page and Livewire click felt slow. Enabled 2026-10-19: /up now ~40 ms. If the system is slow again, check this first.
+
+Leave opcache.validate_timestamps at its default (on). Deploy is `git pull`; with it off, pulled code would not run until Apache restarts.

@@ -776,7 +776,7 @@ new #[Title('My PDS')] class extends Component {
         <flux:separator :text="__('III. Educational background')" />
 
         <flux:text size="sm">
-            {{ __('Leave a level blank if you did not attend it — it will print as an empty line.') }}
+            {{ __('Put "N/A" if not applicable.') }}
         </flux:text>
 
         {{--
