@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Route;
 // work if they are signed in, and to the door if they are not.
 Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'))->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+// The one page open before the Statement of Confidentiality is agreed to.
+Route::livewire('confidentiality', 'pages::confidentiality')->middleware(['auth', 'verified'])->name('confidentiality');
+
+Route::middleware(['auth', 'verified', 'confidential'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
     Route::livewire('calendar', 'pages::calendar')->name('calendar');

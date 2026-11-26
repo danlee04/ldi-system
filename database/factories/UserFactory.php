@@ -30,6 +30,7 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'role' => UserRole::Employee,
             'email_verified_at' => now(),
+            'confidentiality_accepted_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
             'two_factor_secret' => null,
@@ -79,6 +80,16 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * A person who has not yet agreed to the Statement of Confidentiality.
+     */
+    public function withoutConfidentialityAgreement(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'confidentiality_accepted_at' => null,
         ]);
     }
 

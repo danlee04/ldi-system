@@ -57,13 +57,42 @@
 
                         {{ $slot }}
 
+                        {{-- Every account passes this door before it sees anyone's
+                             personal data, so the duty of confidentiality is read here.
+                             The agreement page already shows it in full. --}}
+                        @unless (request()->routeIs('confidentiality'))
                         <p class="text-center text-xs text-zinc-500 dark:text-zinc-400">
                             {{ __('Authorized users only.') }}
+                            {{ __('By using this system, you agree to its') }}
+                            {{-- flux:modal.trigger wraps in a div, which a <p> cannot hold. --}}
+                            <button type="button" x-data x-on:click="$dispatch('modal-show', { name: 'confidentiality' })"
+                                class="cursor-pointer font-medium text-[var(--color-accent-content)] hover:underline">{{ __('Statement of Confidentiality') }}</button>.
                         </p>
+
+                        <flux:modal name="confidentiality" class="max-w-lg">
+                            <div class="space-y-4">
+                                <flux:heading size="lg">{{ __('Statement of Confidentiality') }}</flux:heading>
+
+                                <x-confidentiality-statement />
+
+                                <div class="flex justify-end">
+                                    <flux:modal.close>
+                                        <flux:button variant="primary">{{ __('I understand') }}</flux:button>
+                                    </flux:modal.close>
+                                </div>
+                            </div>
+                        </flux:modal>
+                        @endunless
                     </div>
                 </div>
             </div>
         </div>
+
+        {{-- A signed-in page on this layout (the confidentiality agreement,
+             confirm password) times out like any other. --}}
+        @auth
+            <x-idle-logout />
+        @endauth
 
         @persist('toast')
             <flux:toast.group>

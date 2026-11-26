@@ -20,6 +20,8 @@ test('the log in page says what the system is and where an account comes from', 
         // Nobody registers here; HR makes the accounts.
         ->assertSee('Use the account HR set up for you.')
         ->assertSee('Authorized users only.')
+        ->assertSee('Statement of Confidentiality')
+        ->assertSee('Republic Act No. 10173')
         ->assertSee('Email address')
         ->assertSee('Password');
 });
